@@ -105,3 +105,33 @@ For windows clients, the Windows VirtIO Drivers need to be installed, which can 
 - Windows guests rendering is janky and prone to crashing
 - Inaccurate FPS in overlay (to-do: move timings from server to client)
 - GLX implementation relies on an existing GLX installation (not all GLX functions have been implemented, this means contexts above the reported version may be created)
+
+# Showcase
+
+<details>
+<summary>Click to reveal: Running glxgears in a linux virtual machine</summary>
+
+https://github.com/dmaivel/sharedgl/assets/38770072/0d46bf46-5693-4842-a81f-2f186c396e26
+
+</details>
+
+<details>
+<summary>Click to reveal: Running a compute shader in a linux virtual machine</summary>
+    
+https://github.com/dmaivel/sharedgl/assets/38770072/ded179b8-23dc-491d-ba34-4108e014f296
+
+</details>
+
+<details>
+<summary>Click to reveal: Running glxgears in a windows virtual machine</summary>
+    
+https://github.com/dmaivel/sharedgl/assets/38770072/a774db97-807e-46b9-a453-fa2ee3f4ea84
+
+</details>
+
+<details>
+<summary>Click to reveal: Running minetest in a windows virtual machine</summary>
+
+https://github.com/dmaivel/sharedgl/assets/38770072/f9baf738-9c41-4c8d-9090-23a1ff682a71
+
+</details>
