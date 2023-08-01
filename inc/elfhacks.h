@@ -68,50 +68,50 @@ extern "C" {
  * \brief elfhacks program object
  */
 typedef struct {
-	/** file name */
-	const char *name;
-	/** base address in memory */
-	ElfW(Addr) addr;
-	/** program headers */
-	const ElfW(Phdr) *phdr;
-	/** number of program headers */
-	ElfW(Half) phnum;
-	/** .dynamic */
-	ElfW(Dyn) *dynamic;
-	/** .symtab */
-	ElfW(Sym) *symtab;
-	/** .strtab */
-	const char *strtab;
-	/** symbol hash table (DT_HASH) */
-	ElfW(Word) *hash;
-	/** symbol hash table (DT_GNU_HASH) */
-	Elf32_Word *gnu_hash;
+    /** file name */
+    const char *name;
+    /** base address in memory */
+    ElfW(Addr) addr;
+    /** program headers */
+    const ElfW(Phdr) *phdr;
+    /** number of program headers */
+    ElfW(Half) phnum;
+    /** .dynamic */
+    ElfW(Dyn) *dynamic;
+    /** .symtab */
+    ElfW(Sym) *symtab;
+    /** .strtab */
+    const char *strtab;
+    /** symbol hash table (DT_HASH) */
+    ElfW(Word) *hash;
+    /** symbol hash table (DT_GNU_HASH) */
+    Elf32_Word *gnu_hash;
 } eh_obj_t;
 
 /**
  * \brief elfhacks symbol
  */
 typedef struct {
-	/** symbol name */
-	const char *name;
-	/** corresponding ElfW(Sym) */
-	ElfW(Sym) *sym;
-	/** elfhacks object this symbol is associated to */
-	eh_obj_t *obj;
+    /** symbol name */
+    const char *name;
+    /** corresponding ElfW(Sym) */
+    ElfW(Sym) *sym;
+    /** elfhacks object this symbol is associated to */
+    eh_obj_t *obj;
 } eh_sym_t;
 
 /**
  * \brief elfhacks relocation
  */
 typedef struct {
-	/** symbol this relocation is associated to */
-	eh_sym_t *sym;
-	/** corresponding ElfW(Rel) (NULL if this is Rela) */
-	ElfW(Rel) *rel;
-	/** corresponding ElfW(Rela) (NULL if this is Rel) */
-	ElfW(Rela) *rela;
-	/** elfhacks program object */
-	eh_obj_t *obj;
+    /** symbol this relocation is associated to */
+    eh_sym_t *sym;
+    /** corresponding ElfW(Rel) (NULL if this is Rela) */
+    ElfW(Rel) *rel;
+    /** corresponding ElfW(Rela) (NULL if this is Rel) */
+    ElfW(Rela) *rela;
+    /** elfhacks program object */
+    eh_obj_t *obj;
 } eh_rel_t;
 
 /**

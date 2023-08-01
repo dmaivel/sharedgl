@@ -43,8 +43,8 @@ struct glx_swap_data {
 Window XCreateWindow(
     Display* display,
     Window parent,
-    int	 x,
-    int	 y,
+    int     x,
+    int     y,
     unsigned int width,
     unsigned int height,
     unsigned int border_width,
@@ -60,8 +60,8 @@ Window XCreateWindow(
     Window (*XCreateWindow)(
         Display* display,
         Window parent,
-        int	 x,
-        int	 y,
+        int     x,
+        int     y,
         unsigned int width,
         unsigned int height,
         unsigned int border_width,

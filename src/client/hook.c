@@ -30,10 +30,10 @@ void hook_install(const char *name, void *fn)
 
 void __dlinit()
 {
-	eh_obj_t libdl;
+    eh_obj_t libdl;
     int ret;
 
-	const char* libs[] = {
+    const char* libs[] = {
 #if defined(__GLIBC__)
         "*libdl.so*",
 #endif
@@ -77,18 +77,18 @@ static void addlib(const char *lib)
 
 void *dlopen(const char *name, int flags)
 {
-	if (!__dlopen)
-		__dlinit();
-	// printf("dlopen: %s (%d)\n", name, flags);
+    if (!__dlopen)
+        __dlinit();
+    // printf("dlopen: %s (%d)\n", name, flags);
     addlib(name);
-	return __dlopen(name, flags);
+    return __dlopen(name, flags);
 }
 
 void *dlsym(void *h, const char* name)
 {
-	if (!__dlsym)
-		__dlinit();
-	// printf("dlsym: %s\n", name);
+    if (!__dlsym)
+        __dlinit();
+    // printf("dlsym: %s\n", name);
     for (int i = 0; i < hookc; i++)
         if (strcmp(name, hooks[i].name) == 0)
             return hooks[i].fn;
@@ -103,7 +103,7 @@ void *dlsym(void *h, const char* name)
         if (internal_gl_function)
             return internal_gl_function;
     }
-	return __dlsym(h, name);
+    return __dlsym(h, name);
 }
 
 void *real_dlopen(const char *name, int flags)
