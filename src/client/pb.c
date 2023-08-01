@@ -86,7 +86,7 @@ void pb_set(void)
     InfData->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
     if (!SetupDiGetDeviceInterfaceDetail(DeviceInfoSet, &DeviceInterfaceData, InfData, RequestSize, NULL, NULL))
         return;
-	
+    
     Handle = CreateFile(InfData->DevicePath, 0, 0, NULL, OPEN_EXISTING, 0, 0);
     if (Handle == INVALID_HANDLE_VALUE)
         return;

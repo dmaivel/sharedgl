@@ -12,10 +12,10 @@ VOID Main()
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) 
 {
-	if (reason == DLL_PROCESS_ATTACH)
-		Main();
-	if (reason == DLL_PROCESS_DETACH)
-		glimpl_goodbye();
+    if (reason == DLL_PROCESS_ATTACH)
+        Main();
+    if (reason == DLL_PROCESS_DETACH)
+        glimpl_goodbye();
 
     return TRUE;
 }
