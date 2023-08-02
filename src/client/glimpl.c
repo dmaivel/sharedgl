@@ -4747,3 +4747,815 @@ void glPolygonOffsetClamp(GLfloat factor, GLfloat units, GLfloat clamp)
     pb_pushf(units);
     pb_pushf(clamp);
 }
+
+void glColor3bv(const GLbyte* v)
+{
+    glColor3b(v[0], v[1], v[2]);
+}
+
+void glColor3dv(const GLdouble* v)
+{
+    glColor3d(v[0], v[1], v[2]);
+}
+
+void glColor3fv(const GLfloat* v)
+{
+    glColor3f(v[0], v[1], v[2]);
+}
+
+void glColor3iv(const GLint* v)
+{
+    glColor3i(v[0], v[1], v[2]);
+}
+
+void glColor3sv(const GLshort* v)
+{
+    glColor3s(v[0], v[1], v[2]);
+}
+
+void glColor3ubv(const GLubyte* v)
+{
+    glColor3ub(v[0], v[1], v[2]);
+}
+
+void glColor3uiv(const GLuint* v)
+{
+    glColor3ui(v[0], v[1], v[2]);
+}
+
+void glColor3usv(const GLushort* v)
+{
+    glColor3us(v[0], v[1], v[2]);
+}
+
+void glColor4bv(const GLbyte* v)
+{
+    glColor4b(v[0], v[1], v[2], v[3]);
+}
+
+void glColor4dv(const GLdouble* v)
+{
+    glColor4d(v[0], v[1], v[2], v[3]);
+}
+
+void glColor4iv(const GLint* v)
+{
+    glColor4i(v[0], v[1], v[2], v[3]);
+}
+
+void glColor4sv(const GLshort* v)
+{
+    glColor4s(v[0], v[1], v[2], v[3]);
+}
+
+void glColor4ubv(const GLubyte* v)
+{
+    glColor4ub(v[0], v[1], v[2], v[3]);
+}
+
+void glColor4uiv(const GLuint* v)
+{
+    glColor4ui(v[0], v[1], v[2], v[3]);
+}
+
+void glColor4usv(const GLushort* v)
+{
+    glColor4us(v[0], v[1], v[2], v[3]);
+}
+
+void glNormal3bv(const GLbyte* v)
+{
+    glNormal3b(v[0], v[1], v[2]);
+}
+
+void glNormal3dv(const GLdouble* v)
+{
+    glNormal3d(v[0], v[1], v[2]);
+}
+
+void glNormal3fv(const GLfloat* v)
+{
+    glNormal3f(v[0], v[1], v[2]);
+}
+
+void glNormal3iv(const GLint* v)
+{
+    glNormal3i(v[0], v[1], v[2]);
+}
+
+void glNormal3sv(const GLshort* v)
+{
+    glNormal3s(v[0], v[1], v[2]);
+}
+
+void glRasterPos2dv(const GLdouble* v)
+{
+    glRasterPos2d(v[0], v[1]);
+}
+
+void glRasterPos2fv(const GLfloat* v)
+{
+    glRasterPos2f(v[0], v[1]);
+}
+
+void glRasterPos2iv(const GLint* v)
+{
+    glRasterPos2i(v[0], v[1]);
+}
+
+void glRasterPos2sv(const GLshort* v)
+{
+    glRasterPos2s(v[0], v[1]);
+}
+
+void glRasterPos3dv(const GLdouble* v)
+{
+    glRasterPos3d(v[0], v[1], v[2]);
+}
+
+void glRasterPos3fv(const GLfloat* v)
+{
+    glRasterPos3f(v[0], v[1], v[2]);
+}
+
+void glRasterPos3iv(const GLint* v)
+{
+    glRasterPos3i(v[0], v[1], v[2]);
+}
+
+void glRasterPos3sv(const GLshort* v)
+{
+    glRasterPos3s(v[0], v[1], v[2]);
+}
+
+void glRasterPos4dv(const GLdouble* v)
+{
+    glRasterPos4d(v[0], v[1], v[2], v[3]);
+}
+
+void glRasterPos4fv(const GLfloat* v)
+{
+    glRasterPos4f(v[0], v[1], v[2], v[3]);
+}
+
+void glRasterPos4iv(const GLint* v)
+{
+    glRasterPos4i(v[0], v[1], v[2], v[3]);
+}
+
+void glRasterPos4sv(const GLshort* v)
+{
+    glRasterPos4s(v[0], v[1], v[2], v[3]);
+}
+
+void glTexCoord1dv(const GLdouble* v)
+{
+    glTexCoord1d(v[0]);
+}
+
+void glTexCoord1fv(const GLfloat* v)
+{
+    glTexCoord1f(v[0]);
+}
+
+void glTexCoord1iv(const GLint* v)
+{
+    glTexCoord1i(v[0]);
+}
+
+void glTexCoord1sv(const GLshort* v)
+{
+    glTexCoord1s(v[0]);
+}
+
+void glTexCoord2dv(const GLdouble* v)
+{
+    glTexCoord2d(v[0], v[1]);
+}
+
+void glTexCoord2fv(const GLfloat* v)
+{
+    glTexCoord2f(v[0], v[1]);
+}
+
+void glTexCoord2iv(const GLint* v)
+{
+    glTexCoord2i(v[0], v[1]);
+}
+
+void glTexCoord2sv(const GLshort* v)
+{
+    glTexCoord2s(v[0], v[1]);
+}
+
+void glTexCoord3dv(const GLdouble* v)
+{
+    glTexCoord3d(v[0], v[1], v[2]);
+}
+
+void glTexCoord3fv(const GLfloat* v)
+{
+    glTexCoord3f(v[0], v[1], v[2]);
+}
+
+void glTexCoord3iv(const GLint* v)
+{
+    glTexCoord3i(v[0], v[1], v[2]);
+}
+
+void glTexCoord3sv(const GLshort* v)
+{
+    glTexCoord3s(v[0], v[1], v[2]);
+}
+
+void glTexCoord4dv(const GLdouble* v)
+{
+    glTexCoord4d(v[0], v[1], v[2], v[3]);
+}
+
+void glTexCoord4fv(const GLfloat* v)
+{
+    glTexCoord4f(v[0], v[1], v[2], v[3]);
+}
+
+void glTexCoord4iv(const GLint* v)
+{
+    glTexCoord4i(v[0], v[1], v[2], v[3]);
+}
+
+void glTexCoord4sv(const GLshort* v)
+{
+    glTexCoord4s(v[0], v[1], v[2], v[3]);
+}
+
+void glVertex2dv(const GLdouble* v)
+{
+    glVertex2d(v[0], v[1]);
+}
+
+void glVertex2fv(const GLfloat* v)
+{
+    glVertex2f(v[0], v[1]);
+}
+
+void glVertex2iv(const GLint* v)
+{
+    glVertex2i(v[0], v[1]);
+}
+
+void glVertex2sv(const GLshort* v)
+{
+    glVertex2s(v[0], v[1]);
+}
+
+void glVertex3dv(const GLdouble* v)
+{
+    glVertex3d(v[0], v[1], v[2]);
+}
+
+void glVertex3fv(const GLfloat* v)
+{
+    glVertex3f(v[0], v[1], v[2]);
+}
+
+void glVertex3iv(const GLint* v)
+{
+    glVertex3i(v[0], v[1], v[2]);
+}
+
+void glVertex3sv(const GLshort* v)
+{
+    glVertex3s(v[0], v[1], v[2]);
+}
+
+void glVertex4dv(const GLdouble* v)
+{
+    glVertex4d(v[0], v[1], v[2], v[3]);
+}
+
+void glVertex4fv(const GLfloat* v)
+{
+    glVertex4f(v[0], v[1], v[2], v[3]);
+}
+
+void glVertex4iv(const GLint* v)
+{
+    glVertex4i(v[0], v[1], v[2], v[3]);
+}
+
+void glVertex4sv(const GLshort* v)
+{
+    glVertex4s(v[0], v[1], v[2], v[3]);
+}
+
+void glEvalCoord1dv(const GLdouble* u)
+{
+    glEvalCoord1d(u[0]);
+}
+
+void glEvalCoord1fv(const GLfloat* u)
+{
+    glEvalCoord1f(u[0]);
+}
+
+void glEvalCoord2dv(const GLdouble* u)
+{
+    glEvalCoord2d(u[0], u[1]);
+}
+
+void glEvalCoord2fv(const GLfloat* u)
+{
+    glEvalCoord2f(u[0], u[1]);
+}
+
+void glMultiTexCoord1dv(GLenum target, const GLdouble* v)
+{
+    glMultiTexCoord1d(target, v[0]);
+}
+
+void glMultiTexCoord1fv(GLenum target, const GLfloat* v)
+{
+    glMultiTexCoord1f(target, v[0]);
+}
+
+void glMultiTexCoord1iv(GLenum target, const GLint* v)
+{
+    glMultiTexCoord1i(target, v[0]);
+}
+
+void glMultiTexCoord1sv(GLenum target, const GLshort* v)
+{
+    glMultiTexCoord1s(target, v[0]);
+}
+
+void glMultiTexCoord2dv(GLenum target, const GLdouble* v)
+{
+    glMultiTexCoord2d(target, v[0], v[1]);
+}
+
+void glMultiTexCoord2fv(GLenum target, const GLfloat* v)
+{
+    glMultiTexCoord2f(target, v[0], v[1]);
+}
+
+void glMultiTexCoord2iv(GLenum target, const GLint* v)
+{
+    glMultiTexCoord2i(target, v[0], v[1]);
+}
+
+void glMultiTexCoord2sv(GLenum target, const GLshort* v)
+{
+    glMultiTexCoord2s(target, v[0], v[1]);
+}
+
+void glMultiTexCoord3dv(GLenum target, const GLdouble* v)
+{
+    glMultiTexCoord3d(target, v[0], v[1], v[2]);
+}
+
+void glMultiTexCoord3fv(GLenum target, const GLfloat* v)
+{
+    glMultiTexCoord3f(target, v[0], v[1], v[2]);
+}
+
+void glMultiTexCoord3iv(GLenum target, const GLint* v)
+{
+    glMultiTexCoord3i(target, v[0], v[1], v[2]);
+}
+
+void glMultiTexCoord3sv(GLenum target, const GLshort* v)
+{
+    glMultiTexCoord3s(target, v[0], v[1], v[2]);
+}
+
+void glMultiTexCoord4dv(GLenum target, const GLdouble* v)
+{
+    glMultiTexCoord4d(target, v[0], v[1], v[2], v[3]);
+}
+
+void glMultiTexCoord4fv(GLenum target, const GLfloat* v)
+{
+    glMultiTexCoord4f(target, v[0], v[1], v[2], v[3]);
+}
+
+void glMultiTexCoord4iv(GLenum target, const GLint* v)
+{
+    glMultiTexCoord4i(target, v[0], v[1], v[2], v[3]);
+}
+
+void glMultiTexCoord4sv(GLenum target, const GLshort* v)
+{
+    glMultiTexCoord4s(target, v[0], v[1], v[2], v[3]);
+}
+
+void glSecondaryColor3bv(const GLbyte* v)
+{
+    glSecondaryColor3b(v[0], v[1], v[2]);
+}
+
+void glSecondaryColor3dv(const GLdouble* v)
+{
+    glSecondaryColor3d(v[0], v[1], v[2]);
+}
+
+void glSecondaryColor3fv(const GLfloat* v)
+{
+    glSecondaryColor3f(v[0], v[1], v[2]);
+}
+
+void glSecondaryColor3iv(const GLint* v)
+{
+    glSecondaryColor3i(v[0], v[1], v[2]);
+}
+
+void glSecondaryColor3sv(const GLshort* v)
+{
+    glSecondaryColor3s(v[0], v[1], v[2]);
+}
+
+void glSecondaryColor3ubv(const GLubyte* v)
+{
+    glSecondaryColor3ub(v[0], v[1], v[2]);
+}
+
+void glSecondaryColor3uiv(const GLuint* v)
+{
+    glSecondaryColor3ui(v[0], v[1], v[2]);
+}
+
+void glSecondaryColor3usv(const GLushort* v)
+{
+    glSecondaryColor3us(v[0], v[1], v[2]);
+}
+
+void glWindowPos2dv(const GLdouble* v)
+{
+    glWindowPos2d(v[0], v[1]);
+}
+
+void glWindowPos2fv(const GLfloat* v)
+{
+    glWindowPos2f(v[0], v[1]);
+}
+
+void glWindowPos2iv(const GLint* v)
+{
+    glWindowPos2i(v[0], v[1]);
+}
+
+void glWindowPos2sv(const GLshort* v)
+{
+    glWindowPos2s(v[0], v[1]);
+}
+
+void glWindowPos3dv(const GLdouble* v)
+{
+    glWindowPos3d(v[0], v[1], v[2]);
+}
+
+void glWindowPos3fv(const GLfloat* v)
+{
+    glWindowPos3f(v[0], v[1], v[2]);
+}
+
+void glWindowPos3iv(const GLint* v)
+{
+    glWindowPos3i(v[0], v[1], v[2]);
+}
+
+void glWindowPos3sv(const GLshort* v)
+{
+    glWindowPos3s(v[0], v[1], v[2]);
+}
+
+void glUniform1fv(GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform1f(location, value[i * 1 + 0]);
+}
+
+void glUniform2fv(GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform2f(location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glUniform3fv(GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform3f(location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glUniform4fv(GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform4f(location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glUniform1iv(GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform1i(location, value[i * 1 + 0]);
+}
+
+void glUniform2iv(GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform2i(location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glUniform3iv(GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform3i(location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glUniform4iv(GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform4i(location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glVertexAttrib1dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttrib1d(index, v[0]);
+}
+
+void glVertexAttrib1fv(GLuint index, const GLfloat* v)
+{
+    glVertexAttrib1f(index, v[0]);
+}
+
+void glVertexAttrib1sv(GLuint index, const GLshort* v)
+{
+    glVertexAttrib1s(index, v[0]);
+}
+
+void glVertexAttrib2dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttrib2d(index, v[0], v[1]);
+}
+
+void glVertexAttrib2fv(GLuint index, const GLfloat* v)
+{
+    glVertexAttrib2f(index, v[0], v[1]);
+}
+
+void glVertexAttrib2sv(GLuint index, const GLshort* v)
+{
+    glVertexAttrib2s(index, v[0], v[1]);
+}
+
+void glVertexAttrib3dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttrib3d(index, v[0], v[1], v[2]);
+}
+
+void glVertexAttrib3fv(GLuint index, const GLfloat* v)
+{
+    glVertexAttrib3f(index, v[0], v[1], v[2]);
+}
+
+void glVertexAttrib3sv(GLuint index, const GLshort* v)
+{
+    glVertexAttrib3s(index, v[0], v[1], v[2]);
+}
+
+void glVertexAttrib4Nubv(GLuint index, const GLubyte* v)
+{
+    glVertexAttrib4Nub(index, v[0], v[1], v[2], v[3]);
+}
+
+void glVertexAttrib4dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttrib4d(index, v[0], v[1], v[2], v[3]);
+}
+
+void glVertexAttrib4fv(GLuint index, const GLfloat* v)
+{
+    glVertexAttrib4f(index, v[0], v[1], v[2], v[3]);
+}
+
+void glVertexAttrib4sv(GLuint index, const GLshort* v)
+{
+    glVertexAttrib4s(index, v[0], v[1], v[2], v[3]);
+}
+
+void glVertexAttribI1iv(GLuint index, const GLint* v)
+{
+    glVertexAttribI1i(index, v[0]);
+}
+
+void glVertexAttribI2iv(GLuint index, const GLint* v)
+{
+    glVertexAttribI2i(index, v[0], v[1]);
+}
+
+void glVertexAttribI3iv(GLuint index, const GLint* v)
+{
+    glVertexAttribI3i(index, v[0], v[1], v[2]);
+}
+
+void glVertexAttribI4iv(GLuint index, const GLint* v)
+{
+    glVertexAttribI4i(index, v[0], v[1], v[2], v[3]);
+}
+
+void glVertexAttribI1uiv(GLuint index, const GLuint* v)
+{
+    glVertexAttribI1ui(index, v[0]);
+}
+
+void glVertexAttribI2uiv(GLuint index, const GLuint* v)
+{
+    glVertexAttribI2ui(index, v[0], v[1]);
+}
+
+void glVertexAttribI3uiv(GLuint index, const GLuint* v)
+{
+    glVertexAttribI3ui(index, v[0], v[1], v[2]);
+}
+
+void glVertexAttribI4uiv(GLuint index, const GLuint* v)
+{
+    glVertexAttribI4ui(index, v[0], v[1], v[2], v[3]);
+}
+
+void glUniform1uiv(GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform1ui(location, value[i * 1 + 0]);
+}
+
+void glUniform2uiv(GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform2ui(location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glUniform3uiv(GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform3ui(location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glUniform4uiv(GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform4ui(location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glVertexAttribP1uiv(GLuint index, GLenum type, GLboolean normalized, const GLuint* value)
+{
+    glVertexAttribP1ui(index, type, normalized, value[0]);
+}
+
+void glTexCoordP1uiv(GLenum type, const GLuint* coords)
+{
+    glTexCoordP1ui(type, coords[0]);
+}
+
+void glMultiTexCoordP1uiv(GLenum texture, GLenum type, const GLuint* coords)
+{
+    glMultiTexCoordP1ui(texture, type, coords[0]);
+}
+
+void glUniform1dv(GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform1d(location, value[i * 1 + 0]);
+}
+
+void glUniform2dv(GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform2d(location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glUniform3dv(GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform3d(location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glUniform4dv(GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glUniform4d(location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glProgramUniform1iv(GLuint program, GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform1i(program, location, value[i * 1 + 0]);
+}
+
+void glProgramUniform1fv(GLuint program, GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform1f(program, location, value[i * 1 + 0]);
+}
+
+void glProgramUniform1dv(GLuint program, GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform1d(program, location, value[i * 1 + 0]);
+}
+
+void glProgramUniform1uiv(GLuint program, GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform1ui(program, location, value[i * 1 + 0]);
+}
+
+void glProgramUniform2iv(GLuint program, GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform2i(program, location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glProgramUniform2fv(GLuint program, GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform2f(program, location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glProgramUniform2dv(GLuint program, GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform2d(program, location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glProgramUniform2uiv(GLuint program, GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform2ui(program, location, value[i * 2 + 0], value[i * 2 + 1]);
+}
+
+void glProgramUniform3iv(GLuint program, GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform3i(program, location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glProgramUniform3fv(GLuint program, GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform3f(program, location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glProgramUniform3dv(GLuint program, GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform3d(program, location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glProgramUniform3uiv(GLuint program, GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform3ui(program, location, value[i * 3 + 0], value[i * 3 + 1], value[i * 3 + 2]);
+}
+
+void glProgramUniform4iv(GLuint program, GLint location, GLsizei count, const GLint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform4i(program, location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glProgramUniform4fv(GLuint program, GLint location, GLsizei count, const GLfloat* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform4f(program, location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glProgramUniform4dv(GLuint program, GLint location, GLsizei count, const GLdouble* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform4d(program, location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glProgramUniform4uiv(GLuint program, GLint location, GLsizei count, const GLuint* value)
+{
+    for (int i = 0; i < count; i++)
+        glProgramUniform4ui(program, location, value[i * 4 + 0], value[i * 4 + 1], value[i * 4 + 2], value[i * 4 + 3]);
+}
+
+void glVertexAttribL1dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttribL1d(index, v[0]);
+}
+
+void glVertexAttribL2dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttribL2d(index, v[0], v[1]);
+}
+
+void glVertexAttribL3dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttribL3d(index, v[0], v[1], v[2]);
+}
+
+void glVertexAttribL4dv(GLuint index, const GLdouble* v)
+{
+    glVertexAttribL4d(index, v[0], v[1], v[2], v[3]);
+}
