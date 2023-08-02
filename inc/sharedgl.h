@@ -1083,17 +1083,6 @@ enum {
     SGL_CMD_MAX
 };
 
-struct sgl_vertex_attrib_pointer {
-    int index;
-    int size;
-    int type;
-    int normalized;
-    int stride;
-    int *ptr;
-
-    int enabled;
-};
-
 #define SGL_OFFSET_REGISTER_COMMIT (sizeof(int) * 0)
 #define SGL_OFFSET_REGISTER_RETVAL (sizeof(int) * 1)
 #define SGL_OFFSET_REGISTER_BUSY (sizeof(int) * 3)
