@@ -11,6 +11,8 @@
 #include <linux/slab.h>
 #include <linux/mm.h>
 
+#include <linux/version.h>
+
 struct bar_t {
     resource_size_t len;
     void __iomem *addr;
@@ -232,7 +234,12 @@ static int __init pci_init(void)
 {
     int err;
 
-    pchar_class = class_create(THIS_MODULE, "sharedgl"); // IF THIS LINE GIVES YOU AN ERROR, REMOVE 'THIS_MODULE'
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+    pchar_class = class_create("sharedgl");
+#else
+    pchar_class = class_create(THIS_MODULE, "sharedgl");
+#endif
+
     if (IS_ERR(pchar_class)) {
         err = PTR_ERR(pchar_class);
         return err;
