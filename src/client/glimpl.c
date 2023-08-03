@@ -31,7 +31,7 @@ struct gl_color_tex_vertex_pointer {
     GLint size; 
     GLenum type;
     GLsizei stride;
-    const void* pointer;
+    const void *pointer;
 
     bool in_use;
 };
@@ -39,7 +39,7 @@ struct gl_color_tex_vertex_pointer {
 struct gl_normal_pointer {
     GLenum type;
     GLsizei stride;
-    const void* pointer;
+    const void *pointer;
 
     bool in_use;
 };
@@ -49,7 +49,7 @@ struct gl_vertex_attrib_pointer glimpl_vaps[GLIMPL_MAX_OBJECTS];
 struct gl_color_tex_vertex_pointer glimpl_color_ptr,
                                    glimpl_tex_coord_ptr,
                                    glimpl_vertex_ptr;
-struct gl_normal_pointer            glimpl_normal_ptr;
+struct gl_normal_pointer           glimpl_normal_ptr;
 
 void glimpl_commit()
 {
