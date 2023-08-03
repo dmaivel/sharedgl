@@ -107,6 +107,8 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         swap_data.gcv.graphics_exposures = 0;
         swap_data.NormalGC = XCreateGC(dpy, swap_data.parent, swap_data.gcm, &swap_data.gcv);
 
+        glimpl_report(swap_data.width, swap_data.height);
+
         swap_data.initialized = true;
     }
 

@@ -73,6 +73,8 @@ GLAPI BOOL SwapBuffersHook(HDC unnamedParam1)
         bmi.bmiHeader.biWidth = Width;
         bmi.bmiHeader.biHeight = -Height;
 
+        glimpl_report(Width, Height);
+
         Frame = glimpl_fb_address();
         Init = 1;
     }
