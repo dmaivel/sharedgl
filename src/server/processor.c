@@ -79,7 +79,6 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
             case SGL_CMD_REPORT_DIMS: {
                 int w = *pb++,
                     h = *pb++;
-                SDL_SetWindowSize(ctx->window, w, h);
                 glViewport(0, 0, w, h);
                 glScissor(0, 0, w, h);
                 break;
