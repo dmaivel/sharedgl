@@ -72,7 +72,8 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 printf("[+] created context: %p\n", ctx);
                 break;
             case SGL_CMD_GOODBYE_WORLD:
-                sgl_context_destroy(ctx);
+                if (ctx)
+                    sgl_context_destroy(ctx);
                 printf("[-] destroyed context: %p\n", ctx);
                 // exit(1);
                 break;
