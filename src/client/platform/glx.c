@@ -115,7 +115,7 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
     static struct glx_swap_data swap_data = { 0 };
 
     if (drawable != win)
-        printf("glXSwapBuffers: Drawable is not logged window, expect undefiend behavior\n");
+        printf("glXSwapBuffers: drawable is not logged window, expect undefiend behavior\n");
 
     if (swap_data.initialized == false) {
         XWindowAttributes attr;
