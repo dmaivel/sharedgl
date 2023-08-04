@@ -5,8 +5,8 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 
-#define GLX_VENDOR		1
-#define GLX_VERSION		2
+#define GLX_VENDOR      1
+#define GLX_VERSION     2
 #define GLX_EXTENSIONS  3
 
 typedef struct __GLXcontextRec *GLXContext;
