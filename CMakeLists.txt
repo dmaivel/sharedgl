@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(sharedgl VERSION 0.1.0 LANGUAGES C)
+project(sharedgl VERSION 0.2.0 LANGUAGES C)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -rdynamic")
