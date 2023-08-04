@@ -5,6 +5,10 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 
+#define GLX_VENDOR		1
+#define GLX_VERSION		2
+#define GLX_EXTENSIONS  3
+
 typedef struct __GLXcontextRec *GLXContext;
 typedef XID GLXPixmap;
 typedef XID GLXDrawable;
@@ -14,9 +18,5 @@ typedef XID GLXFBConfigID;
 typedef XID GLXContextID;
 typedef XID GLXWindow;
 typedef XID GLXPbuffer;
-
-void glXSwapBuffers(Display* dpy, GLXDrawable drawable);
-void *glXGetProcAddress(char *s);
-void* glXGetProcAddressARB(char* s);
 
 #endif

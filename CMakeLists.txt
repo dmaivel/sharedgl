@@ -27,6 +27,7 @@ target_link_libraries(sharedgl SDL2 epoxy)
 # client
 IF(UNIX)
     add_library(sharedgl-core SHARED ${GLOBBED_CLIENT_SOURCES} ${GLOBBED_CLIENT_P_SOURCES})
+    target_link_libraries(sharedgl-core X11)
     set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "GL")
     set_target_properties(sharedgl-core PROPERTIES VERSION 1)
 ELSEIF(WIN32)

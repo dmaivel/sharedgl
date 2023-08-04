@@ -10,9 +10,6 @@
 #include <string.h>
 #include <stdio.h>
 
-/*
- *to-do: multiple windows
- */
 Window win = -1;
 
 struct glx_swap_data {
@@ -85,6 +82,16 @@ Bool glXQueryVersion(Display *dpy, int *maj, int *min)
     *maj = 1;
     *min = 4;
     return true;
+}
+
+const char *glXGetClientString(Display *dpy, int name)
+{
+    switch (name) {
+    case GLX_VENDOR: return "SharedGL";
+    case GLX_VERSION: return "1.4";
+    case GLX_EXTENSIONS: return "";
+    }
+    return "";
 }
 
 GLXWindow glXCreateWindow(Display *dpy, GLXFBConfig config, Window win, const int *attrib_list)
