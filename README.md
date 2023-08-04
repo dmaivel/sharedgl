@@ -7,9 +7,10 @@ SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing fo
 
 # Getting started
 
-The following libraries are required:
+The following libraries are required for building the server and client on linux:
 - libepoxy
 - SDL2
+- libx11
 
 ## Build
 The following script builds the host and client for linux.
