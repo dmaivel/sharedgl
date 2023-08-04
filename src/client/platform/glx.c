@@ -1,3 +1,4 @@
+#include <X11/Xutil.h>
 #include <sharedgl.h>
 
 #include <client/platform/glx.h>
@@ -9,18 +10,10 @@
 #include <string.h>
 #include <stdio.h>
 
-void *x11 = NULL;
-
 /*
- * to-do: multiple windows
+ *to-do: multiple windows
  */
 Window win = -1;
-
-static void check_x()
-{
-    if (!x11)
-        x11 = real_dlopen("libX11.so.6", 1);
-}
 
 struct glx_swap_data {
     XVisualInfo vinfo;
@@ -40,56 +33,86 @@ struct glx_swap_data {
     bool initialized;
 };
 
-Window XCreateWindow(
-    Display* display,
-    Window parent,
-    int     x,
-    int     y,
-    unsigned int width,
-    unsigned int height,
-    unsigned int border_width,
-    int depth,
-    unsigned int class,
-    Visual* visual,
-    unsigned long valuemask,
-    XSetWindowAttributes* attributes
-)
+GLXContext glXCreateContext(Display *dpy, XVisualInfo *vis, GLXContext share_list, Bool direct)
 {
-    check_x();
+    return (GLXContext)1;
+}
 
-    Window (*XCreateWindow)(
-        Display* display,
-        Window parent,
-        int     x,
-        int     y,
-        unsigned int width,
-        unsigned int height,
-        unsigned int border_width,
-        int depth,
-        unsigned int class,
-        Visual* visual,
-        unsigned long valuemask,
-        XSetWindowAttributes* attributes
-    ) = real_dlsym(x11, "XCreateWindow");
+void glXDestroyContext(Display *dpy, GLXContext ctx)
+{
 
-    Window w = XCreateWindow(display, parent, x, y, width, height, border_width, depth, class, visual, valuemask, attributes);
-    if (width > 1 || class == InputOutput)
-        win = w;
-    return w;
+}
+
+Bool glXMakeContextCurrent(Display *dpy, GLXDrawable draw, GLXDrawable read, GLXContext ctx)
+{
+    return true;
+}
+
+Bool glXQueryExtension(Display *dpy, int *errorb, int *event)
+{
+    return true;
+}
+
+void glXQueryDrawable(Display *dpy, GLXDrawable draw, int attribute, unsigned int *value)
+{
+
+}
+
+const char *glXQueryExtensionsString(Display *dpy, int screen)
+{
+    return "";
+}
+
+XVisualInfo *glXChooseVisual(Display *dpy, int screen, int *attrib_list)
+{
+    XVisualInfo *vinfo = malloc(sizeof(XVisualInfo));
+    XMatchVisualInfo(dpy, XDefaultScreen(dpy), 24, TrueColor, vinfo);
+    return vinfo;
+}
+
+GLXContext glXCreateNewContext(Display *dpy, GLXFBConfig config, int render_type, GLXContext share_list, Bool direct)
+{
+    return (GLXContext)1;
+}
+
+Display *glXGetCurrentDisplay(void)
+{
+    return XOpenDisplay(NULL);
+}
+
+Bool glXQueryVersion(Display *dpy, int *maj, int *min)
+{
+    *maj = 1;
+    *min = 4;
+    return true;
+}
+
+GLXWindow glXCreateWindow(Display *dpy, GLXFBConfig config, Window win, const int *attrib_list)
+{
+    return 1;
+}
+
+void glXDestroyWindow(Display *dpy, GLXWindow win)
+{
+
+}
+
+Bool glXMakeCurrent(Display *dpy, GLXDrawable drawable, GLXContext ctx)
+{
+    win = drawable;
+    return true;
 }
 
 void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 {
     static struct glx_swap_data swap_data = { 0 };
-    check_x();
 
-    if (win == -1) {
-        return;
-    }
+    if (drawable != win)
+        printf("glXSwapBuffers: Drawable is not logged window, expect undefiend behavior\n");
 
     if (swap_data.initialized == false) {
         XWindowAttributes attr;
-        XGetWindowAttributes(dpy, win, &attr);
+        XGetWindowAttributes(dpy, drawable, &attr);
 
         swap_data.width = attr.width;
         swap_data.height = attr.height;
@@ -116,7 +139,7 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
     glimpl_swap_buffers(swap_data.width, swap_data.height, 1, GL_BGRA);
 
     /* display */
-    XPutImage(dpy, win, swap_data.NormalGC, swap_data.ximage, 0, 0, 0, 0, swap_data.width, swap_data.height);
+    XPutImage(dpy, drawable, swap_data.NormalGC, swap_data.ximage, 0, 0, 0, 0, swap_data.width, swap_data.height);
 }
 
 void *glXGetProcAddress(char *s);
