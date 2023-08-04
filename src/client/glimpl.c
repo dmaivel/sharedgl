@@ -23,8 +23,8 @@ struct gl_vertex_attrib_pointer {
     int stride;
     int *ptr;
 
-    int enabled;
-    int client_managed;
+    bool enabled;
+    bool client_managed;
 };
 
 struct gl_color_tex_vertex_pointer {
@@ -653,7 +653,7 @@ void glEnable(GLenum cap)
 
 void glEnableVertexAttribArray(GLuint index)
 {
-    glimpl_vaps[index].enabled = 1;
+    glimpl_vaps[index].enabled = true;
 
     if (!glimpl_vaps[index].client_managed) {
         pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
@@ -1126,7 +1126,7 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
         .normalized = normalized,
         .stride = stride,
         .ptr = (void*)pointer,
-        .enabled = 0,
+        .enabled = false,
         .client_managed = client_managed
     };
 
@@ -2895,7 +2895,7 @@ void glStencilMaskSeparate(GLenum face, GLuint mask)
 
 void glDisableVertexAttribArray(GLuint index)
 {
-    glimpl_vaps[index].enabled = 0;
+    glimpl_vaps[index].enabled = false;
 
     if (!glimpl_vaps[index].client_managed) {
         pb_push(SGL_CMD_DISABLEVERTEXATTRIBARRAY);
