@@ -25,7 +25,6 @@ void hook_install(const char *name, void *fn)
         .fn = fn
     };
     strcpy(hooks[hookc - 1].name, name);
-    // printf("[-] hook for %s installed!\n", name); fflush(stdout);
 }
 
 void __dlinit()
@@ -79,7 +78,7 @@ void *dlopen(const char *name, int flags)
 {
     if (!__dlopen)
         __dlinit();
-    // printf("dlopen: %s (%d)\n", name, flags);
+
     addlib(name);
     return __dlopen(name, flags);
 }
@@ -88,21 +87,27 @@ void *dlsym(void *h, const char* name)
 {
     if (!__dlsym)
         __dlinit();
-    // printf("dlsym: %s\n", name);
+
     for (int i = 0; i < hookc; i++)
         if (strcmp(name, hooks[i].name) == 0)
             return hooks[i].fn;
+
     /*
      * this is a fix for applications that use libepoxy
      *
      * blacklist glx and egl, only allowing opengl functions
      * to be returned without explicitly hooking them.
+     *
+     * side note: during testing, applications have crashed
+     * if this portion returns NULL (hence the if statement)
+     * this means some libGL functions may be leaking through
      */
     if (strstr(name, "gl") && strstr(name, "glX") == NULL && strstr(name, "egl") == NULL) {
         void *internal_gl_function = __dlsym(NULL, name);
         if (internal_gl_function)
             return internal_gl_function;
     }
+
     return __dlsym(h, name);
 }
 

@@ -51,14 +51,16 @@ struct gl_color_tex_vertex_pointer glimpl_color_ptr,
                                    glimpl_vertex_ptr;
 struct gl_normal_pointer           glimpl_normal_ptr;
 
-#define NUM_EXTENSIONS 6
-static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_framebuffer_sRGB GL_EXT_texture_filter_anisotropic";
+#define NUM_EXTENSIONS 8
+static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_bgra GL_EXT_framebuffer_sRGB GL_EXT_paletted_texture GL_EXT_texture_filter_anisotropic";
 static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
     "GL_ARB_framebuffer_object",
     "GL_ARB_shading_language_100",
     "GL_ARB_texture_storage",
     "GL_ARB_vertex_array_object",
+    "GL_EXT_bgra",
     "GL_EXT_framebuffer_sRGB",
+    "GL_EXT_paletted_texture",
     "GL_EXT_texture_filter_anisotropic"
 };
 
