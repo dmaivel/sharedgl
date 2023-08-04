@@ -94,7 +94,6 @@ void glimpl_goodbye()
 
 void glimpl_report(int width, int height)
 {
-    glimpl_commit();
     pb_push(SGL_CMD_REPORT_DIMS);
     pb_push(width);
     pb_push(height);
@@ -103,7 +102,6 @@ void glimpl_report(int width, int height)
 
 void glimpl_swap_buffers(int width, int height, int vflip, int format)
 {
-    glimpl_commit();
     pb_push(SGL_CMD_REQUEST_FRAMEBUFFER);
     pb_push(width);
     pb_push(height);
