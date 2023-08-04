@@ -130,7 +130,7 @@ https://github.com/dmaivel/sharedgl/assets/38770072/a774db97-807e-46b9-a453-fa2e
 </details>
 
 <details>
-<summary>Click to reveal: Running minetest in a windows virtual machine</summary>
+<summary>Click to reveal: Running minetest in a windows virtual machine (crashes later)</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/f9baf738-9c41-4c8d-9090-23a1ff682a71
 
