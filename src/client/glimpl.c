@@ -68,7 +68,7 @@ void glimpl_commit()
 {
     pb_push(0); /* processor will stop at zero */
     pb_write(SGL_OFFSET_REGISTER_COMMIT, 1);
-    while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1);
+    while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1); /* to-do: maybe usleep? */
     pb_reset();
 }
 
@@ -224,7 +224,7 @@ void glAttachShader(GLuint program, GLuint shader)
 
 void glBegin(GLenum mode) 
 {
-    glimpl_commit();
+    // glimpl_commit();
     pb_push(SGL_CMD_BEGIN);
     pb_push(mode);
 }
@@ -245,7 +245,7 @@ void glBindBuffer(GLenum target, GLuint buffer)
 
 void glBindBuffersBase(GLenum target, GLuint first, GLsizei count, const GLuint * buffers)
 {
-    glimpl_commit();
+    // glimpl_commit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(count); /* could be very bad mistake */
@@ -257,7 +257,7 @@ void glBindBuffersBase(GLenum target, GLuint first, GLsizei count, const GLuint 
     pb_push(first);
     pb_push(count);
 
-    glimpl_commit();
+    // glimpl_commit();
 }
 
 void glBindVertexArray(GLuint array)
@@ -281,7 +281,7 @@ void glBitmap(GLsizei width, GLsizei height, GLfloat xorig, GLfloat yorig, GLflo
     pb_push(xmove);
     pb_push(ymove);
 
-    glimpl_commit();
+    // glimpl_commit();
 }
 
 void glBlendFunc(GLenum sfactor, GLenum dfactor)
@@ -444,8 +444,6 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
-    glimpl_commit();
-
     struct gl_vertex_attrib_pointer *vap = glimpl_get_enabled_vap();
 
     if (vap->client_managed) {
@@ -474,7 +472,6 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     pb_push(count);
 
     // vap->enabled = 0;
-    glimpl_commit();
 }
 
 void glDrawBuffer(GLenum buf)
@@ -485,7 +482,7 @@ void glDrawBuffer(GLenum buf)
 
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices)
 {
-    glimpl_commit();
+    // glimpl_commit();
 
     if (indices) {
         int divisor = 1;
@@ -498,7 +495,6 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
             divisor = 3;
             break;
         default:
-            // printf("glDrawElements: unknown divisor (%x)\n", mode);
             break;
         }
 
@@ -640,7 +636,7 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
     pb_push(indices != NULL ? GL_UNSIGNED_INT : type); /* to-do: actually use type */
     pb_push(indices != NULL);
 
-    glimpl_commit();
+    // glimpl_commit();
 }
 
 void glEnable(GLenum cap)
@@ -662,13 +658,13 @@ void glEnableVertexAttribArray(GLuint index)
 void glEnd(void) 
 {
     pb_push(SGL_CMD_END);
-    glimpl_commit();
+    // glimpl_commit();
 }
 
 void glEndList(void)
 {
     pb_push(SGL_CMD_ENDLIST);
-    glimpl_commit();
+    // glimpl_commit();
 }
 
 void glEndQuery(GLenum target)
@@ -965,12 +961,12 @@ void glNormal3f(GLfloat nx, GLfloat ny, GLfloat nz)
 void glPopMatrix(void)
 {
     pb_push(SGL_CMD_POPMATRIX);
-    glimpl_commit();
+    // glimpl_commit();
 }
 
 void glPushMatrix(void)
 {
-    glimpl_commit();
+    // glimpl_commit();
     pb_push(SGL_CMD_PUSHMATRIX);
 }
 
@@ -1084,7 +1080,7 @@ void glUniform1f(GLint location, GLfloat v0)
 
 void glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
-    glimpl_commit();
+    // glimpl_commit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(count * 4 * 4);
@@ -1096,7 +1092,7 @@ void glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, cons
     pb_push(count);
     pb_push(transpose);
 
-    glimpl_commit();
+    // glimpl_commit();
 }
 
 void glUseProgram(GLuint program)
