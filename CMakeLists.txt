@@ -3,7 +3,7 @@ project(sharedgl VERSION 0.2.0 LANGUAGES C)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -rdynamic")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+# set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 
 IF(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
