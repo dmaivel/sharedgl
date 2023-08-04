@@ -122,7 +122,7 @@ void glimpl_init()
     if (fd == -1)
         fd = sgl_detect_memory("/dev/sharedgl");
     if (fd == -1) {
-        fprintf(stderr, "[sgl] failed to find memory\n");
+        fprintf(stderr, "glimpl_init: failed to find memory\n");
         exit(1);
     }
 

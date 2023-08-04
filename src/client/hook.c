@@ -97,10 +97,6 @@ void *dlsym(void *h, const char* name)
      *
      * blacklist glx and egl, only allowing opengl functions
      * to be returned without explicitly hooking them.
-     *
-     * side note: during testing, applications have crashed
-     * if this portion returns NULL (hence the if statement)
-     * this means some libGL functions may be leaking through
      */
     if (strstr(name, "gl") && strstr(name, "glX") == NULL && strstr(name, "egl") == NULL) {
         void *internal_gl_function = __dlsym(NULL, name);
