@@ -50,10 +50,12 @@ options:
 
 ## Running clients
 ### Linux
-For your OpenGL application to communicate with the server, the client library must be preloaded.
+For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
 
 ```bash
-LD_PRELOAD=/path/to/sharedgl/libsharedgl.so ...
+$ export LD_LIBRARY_PATH=/path/to/sharedgl/build
+$ glxgears
+$ ...
 ```
 
 ### Windows (VM)
@@ -92,7 +94,7 @@ cd kernel
 make
 ```
 
-Additionally, `libsharedgl.so` needs to be moved into the guest for preloading.
+Additionally, `libGL.so.1` needs to be moved into the guest for library loading.
 
 ## Windows
 For windows clients, the Windows VirtIO Drivers need to be installed, which can be found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). (Navigate to `...\virtio-win-upstream\Win10\amd64\`, right click on `ivshmem.inf`, and press `Install`).
@@ -104,7 +106,6 @@ For windows clients, the Windows VirtIO Drivers need to be installed, which can 
 - Resizing is not handled
 - Windows guests rendering is janky and prone to crashing
 - Inaccurate FPS in overlay (to-do: move timings from server to client)
-- GLX implementation relies on an existing GLX installation (not all GLX functions have been implemented, this means contexts above the reported version may be created)
 
 # Showcase
 
