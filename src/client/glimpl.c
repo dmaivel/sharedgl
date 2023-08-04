@@ -51,6 +51,17 @@ struct gl_color_tex_vertex_pointer glimpl_color_ptr,
                                    glimpl_vertex_ptr;
 struct gl_normal_pointer           glimpl_normal_ptr;
 
+#define NUM_EXTENSIONS 6
+static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_framebuffer_sRGB GL_EXT_texture_filter_anisotropic";
+static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
+    "GL_ARB_framebuffer_object",
+    "GL_ARB_shading_language_100",
+    "GL_ARB_texture_storage",
+    "GL_ARB_vertex_array_object",
+    "GL_EXT_framebuffer_sRGB",
+    "GL_EXT_texture_filter_anisotropic"
+};
+
 void glimpl_commit()
 {
     pb_push(0); /* processor will stop at zero */
@@ -688,6 +699,17 @@ void glGenBuffers(GLsizei n, GLuint* buffers)
     }
 }
 
+void glGenFramebuffers(GLsizei n, GLuint* framebuffers)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENFRAMEBUFFERS);
+        pb_push(1);
+
+        glimpl_commit();
+        framebuffers[i] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
 GLuint glGenLists(GLsizei range)
 {
     pb_push(SGL_CMD_GENLISTS);
@@ -741,13 +763,19 @@ void glGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params)
 void glGetProgramiv(GLuint program, GLenum pname, GLint* params)
 {
     /* stub */
-    *params = 1;
+    *params = GL_TRUE;
 }
 
 void glGetShaderiv(GLuint shader, GLenum pname, GLint* params)
 {
     /* stub */
-    *params = 1;
+    *params = GL_TRUE;
+}
+
+void glGetObjectParameterivARB(void *obj, GLenum pname, GLint* params)
+{
+    /* stub */
+    *params = GL_TRUE;
 }
 
 const GLubyte *glGetString(GLenum name)
@@ -763,10 +791,15 @@ const GLubyte *glGetString(GLenum name)
     case GL_VENDOR: return (const GLubyte *)"SharedGL";
     case GL_RENDERER: return (const GLubyte *)"SharedGL Renderer";
     case GL_VERSION: return (const GLubyte *)version;
-    case GL_EXTENSIONS: return (const GLubyte *)"";
-    case GL_SHADING_LANGUAGE_VERSION: return (const GLubyte *)"4.60";
+    case GL_EXTENSIONS: return (const GLubyte *)glimpl_extensions_full;
+    case GL_SHADING_LANGUAGE_VERSION: return (const GLubyte *)"1.20";
     }
     return (const GLubyte *)"?";
+}
+
+const GLubyte *glGetStringi(GLenum name, GLuint index)
+{
+    return (name != GL_EXTENSIONS || index >= NUM_EXTENSIONS || index < 0) ? (const GLubyte *)"?" : (const GLubyte *)glimpl_extensions_list[index];
 }
 
 GLint glGetUniformLocation(GLuint program, const GLchar* name)
@@ -845,6 +878,11 @@ void glGetFloatv(GLenum pname, GLfloat* data)
 
 void glGetIntegerv(GLenum pname, GLint* data)
 {
+    if (pname == GL_NUM_EXTENSIONS) {
+        *data = NUM_EXTENSIONS;
+        return;
+    }
+
     pb_push(SGL_CMD_GETINTEGERV);
     pb_push(pname);
     glimpl_commit();
