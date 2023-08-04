@@ -306,6 +306,12 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = res;
                 break;
             }
+            case SGL_CMD_GENFRAMEBUFFERS: {
+                GLuint res = 0;
+                glGenFramebuffers(*pb++, &res);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = res;
+                break;
+            }
             case SGL_CMD_GENLISTS:
                 *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGenLists(*pb++);
                 break;
