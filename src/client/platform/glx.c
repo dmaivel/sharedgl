@@ -10,7 +10,8 @@
 #include <string.h>
 #include <stdio.h>
 
-Window win = -1;
+static Window win = -1;
+static const char *glx_extensions = "GLX_ARB_create_context_profile";
 
 struct glx_swap_data {
     XVisualInfo vinfo;
@@ -57,7 +58,7 @@ void glXQueryDrawable(Display *dpy, GLXDrawable draw, int attribute, unsigned in
 
 const char *glXQueryExtensionsString(Display *dpy, int screen)
 {
-    return "";
+    return glx_extensions;
 }
 
 XVisualInfo *glXChooseVisual(Display *dpy, int screen, int *attrib_list)
@@ -89,7 +90,7 @@ const char *glXGetClientString(Display *dpy, int name)
     switch (name) {
     case GLX_VENDOR: return "SharedGL";
     case GLX_VERSION: return "1.4";
-    case GLX_EXTENSIONS: return "";
+    case GLX_EXTENSIONS: return glx_extensions;
     }
     return "";
 }
@@ -108,6 +109,59 @@ Bool glXMakeCurrent(Display *dpy, GLXDrawable drawable, GLXContext ctx)
 {
     win = drawable;
     return true;
+}
+
+int glXGetFBConfigAttrib(Display *dpy, GLXFBConfig config, int attribute, int *value)
+{
+    switch (attribute) {
+    case GLX_RENDER_TYPE:
+        *value |= GLX_RGBA_BIT;
+        break;
+    case GLX_DRAWABLE_TYPE:
+        *value |= GLX_WINDOW_BIT;
+        break;
+    case GLX_DOUBLEBUFFER:
+        *value = 1;
+        break;
+    case GLX_RED_SIZE:
+    case GLX_GREEN_SIZE:
+    case GLX_BLUE_SIZE:
+    case GLX_ALPHA_SIZE:
+    case GLX_STENCIL_SIZE:
+    case GLX_ACCUM_RED_SIZE:
+    case GLX_ACCUM_GREEN_SIZE:
+    case GLX_ACCUM_BLUE_SIZE:
+    case GLX_ACCUM_ALPHA_SIZE:
+        *value = 8;
+        break;
+    case GLX_DEPTH_SIZE:
+        *value = 24;
+        break;
+    }
+
+    return 1;
+}
+
+GLXFBConfig *glXGetFBConfigs(Display *dpy, int screen, int *nelements)
+{
+    GLXFBConfig *fb_config = malloc(sizeof(GLXFBConfig));
+    *nelements = 1;
+    return fb_config;
+}
+
+XVisualInfo *glXGetVisualFromFBConfig(Display *dpy, GLXFBConfig config)
+{
+    XVisualInfo *vinfo = malloc(sizeof(XVisualInfo));
+    XMatchVisualInfo(dpy, XDefaultScreen(dpy), 24, TrueColor, vinfo);
+    return vinfo;
+}
+
+/*
+ * to-do: to do.
+ */
+GLXContext glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list)
+{
+    return glXCreateContext(NULL, NULL, 0, 0);
 }
 
 void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
