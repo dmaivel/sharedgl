@@ -107,7 +107,7 @@ For windows clients, the Windows VirtIO Drivers need to be installed, which can 
 - Resizing is not handled
 - Windows guests rendering is janky and prone to crashing
 - Inaccurate FPS in overlay (to-do: move timings from server to client)
-- GLFW support is broken
+- GLFW cant request OpenGL profiles
 
 # Showcase
 
