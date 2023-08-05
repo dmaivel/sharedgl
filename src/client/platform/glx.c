@@ -11,7 +11,7 @@
 #include <stdio.h>
 
 static Window win = -1;
-static const char *glx_extensions = "GLX_ARB_create_context_profile";
+static const char *glx_extensions = "GLX_ARB_create_context_profile GLX_EXT_visual_info";
 
 struct glx_swap_data {
     XVisualInfo vinfo;
@@ -97,7 +97,7 @@ const char *glXGetClientString(Display *dpy, int name)
 
 GLXWindow glXCreateWindow(Display *dpy, GLXFBConfig config, Window win, const int *attrib_list)
 {
-    return 1;
+    return win;
 }
 
 void glXDestroyWindow(Display *dpy, GLXWindow win)
