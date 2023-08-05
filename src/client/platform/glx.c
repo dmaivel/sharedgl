@@ -46,6 +46,11 @@ GLXContext glXCreateContext(Display *dpy, XVisualInfo *vis, GLXContext share_lis
     return (GLXContext)1;
 }
 
+GLXContext glXGetCurrentContext( void )
+{
+    return (GLXContext)1;
+}
+
 void glXDestroyContext(Display *dpy, GLXContext ctx)
 {
 
@@ -192,9 +197,6 @@ const char *glXQueryServerString( Display *dpy, int screen, int name )
 void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 {
     static struct glx_swap_data swap_data = { 0 };
-
-    if (drawable != win)
-        printf("glXSwapBuffers: drawable is not logged window, expect undefiend behavior\n");
 
     if (swap_data.initialized == false) {
         XWindowAttributes attr;
