@@ -25,7 +25,6 @@ struct glx_swap_data {
     XEvent event;
 
     XGCValues gcv;
-    unsigned long gcm;
     GC NormalGC;
 
     bool initialized;
@@ -214,9 +213,8 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 
         swap_data.ximage = XCreateImage(dpy, swap_data.vinfo.visual, swap_data.vinfo.depth, ZPixmap, 0, glimpl_fb_address(), swap_data.width, swap_data.height, 8, swap_data.width*4);
     
-        swap_data.gcm = GCGraphicsExposures;
         swap_data.gcv.graphics_exposures = 0;
-        swap_data.NormalGC = XCreateGC(dpy, swap_data.parent, swap_data.gcm, &swap_data.gcv);
+        swap_data.NormalGC = XCreateGC(dpy, swap_data.parent, GCGraphicsExposures, &swap_data.gcv);
 
         glimpl_report(swap_data.width, swap_data.height);
 
