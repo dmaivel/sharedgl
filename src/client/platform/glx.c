@@ -31,6 +31,16 @@ struct glx_swap_data {
     bool initialized;
 };
 
+static const char *glximpl_name_to_string(int name)
+{
+    switch (name) {
+    case GLX_VENDOR: return "SharedGL";
+    case GLX_VERSION: return "1.4";
+    case GLX_EXTENSIONS: return glx_extensions;
+    }
+    return "?";
+}
+
 GLXContext glXCreateContext(Display *dpy, XVisualInfo *vis, GLXContext share_list, Bool direct)
 {
     return (GLXContext)1;
@@ -43,12 +53,12 @@ void glXDestroyContext(Display *dpy, GLXContext ctx)
 
 Bool glXMakeContextCurrent(Display *dpy, GLXDrawable draw, GLXDrawable read, GLXContext ctx)
 {
-    return true;
+    return True;
 }
 
 Bool glXQueryExtension(Display *dpy, int *errorb, int *event)
 {
-    return true;
+    return True;
 }
 
 void glXQueryDrawable(Display *dpy, GLXDrawable draw, int attribute, unsigned int *value)
@@ -82,17 +92,12 @@ Bool glXQueryVersion(Display *dpy, int *maj, int *min)
 {
     *maj = 1;
     *min = 4;
-    return true;
+    return True;
 }
 
 const char *glXGetClientString(Display *dpy, int name)
 {
-    switch (name) {
-    case GLX_VENDOR: return "SharedGL";
-    case GLX_VERSION: return "1.4";
-    case GLX_EXTENSIONS: return glx_extensions;
-    }
-    return "";
+    return glximpl_name_to_string(name);
 }
 
 GLXWindow glXCreateWindow(Display *dpy, GLXFBConfig config, Window win, const int *attrib_list)
@@ -162,6 +167,26 @@ XVisualInfo *glXGetVisualFromFBConfig(Display *dpy, GLXFBConfig config)
 GLXContext glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list)
 {
     return glXCreateContext(NULL, NULL, 0, 0);
+}
+
+int glXGetConfig(Display *dpy, XVisualInfo *visual, int attrib, int *value)
+{
+    return 1;
+}
+
+GLXFBConfig *glXChooseFBConfig(Display *dpy, int screen, const int *attrib_list, int *nitems)
+{
+    return malloc(sizeof(GLXFBConfig));
+}
+
+Bool glXIsDirect(Display *dpy, GLXContext ctx)
+{
+    return True;
+}
+
+const char *glXQueryServerString( Display *dpy, int screen, int name )
+{
+    return glximpl_name_to_string(name);
 }
 
 void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
