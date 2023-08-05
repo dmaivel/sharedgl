@@ -1,6 +1,4 @@
-#include <client/hook.h>
 #include <client/glimpl.h>
-#include <client/platform/glx.h>
 
 void __attribute__((constructor)) sharedgl_entry(void) 
 {

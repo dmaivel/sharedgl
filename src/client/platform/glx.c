@@ -1,14 +1,14 @@
-#include <X11/Xutil.h>
 #include <sharedgl.h>
 
 #include <client/platform/glx.h>
 #include <client/glimpl.h>
-#include <client/hook.h>
 
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#include <dlfcn.h>
 
 static Window win = -1;
 static const char *glx_extensions = "GLX_ARB_create_context_profile GLX_EXT_visual_info";
@@ -214,7 +214,7 @@ void* glXGetProcAddressARB(char* s)
     }
 
     /* to-do: use above str? */
-    return real_dlsym(NULL, s);
+    return dlsym(NULL, s);
 }
 
 void *glXGetProcAddress(char *s)
