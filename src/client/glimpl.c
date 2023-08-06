@@ -779,11 +779,13 @@ void glGenTextures(GLsizei n, GLuint* textures)
 
 void glGenVertexArrays(GLsizei n, GLuint* arrays)
 {
-    pb_push(SGL_CMD_GENVERTEXARRAYS);
-    pb_push(n);
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENVERTEXARRAYS);
+        pb_push(1);
 
-    glimpl_commit();
-    *arrays = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        glimpl_commit();
+        arrays[n] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
 }
 
 void glGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params)
