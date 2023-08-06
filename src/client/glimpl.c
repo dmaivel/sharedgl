@@ -895,12 +895,6 @@ GLint glGetAttribLocation(GLuint program, const GLchar* name)
     case GL_POLYGON_MODE: \
         memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 2); \
         break; \
-    case GL_MAJOR_VERSION: \
-        data[0] = pb_read(SGL_OFFSET_REGISTER_GLMAJ); \
-        break; \
-    case GL_MINOR_VERSION: \
-        data[0] = pb_read(SGL_OFFSET_REGISTER_GLMIN); \
-        break; \
     default: \
         memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 1); \
         break; \
@@ -916,8 +910,19 @@ void glGetFloatv(GLenum pname, GLfloat* data)
 
 void glGetIntegerv(GLenum pname, GLint* data)
 {
-    if (pname == GL_NUM_EXTENSIONS) {
-        *data = NUM_EXTENSIONS;
+    /*
+     * pre-check: these are name's we don't
+     * want to pass through
+     */
+    switch (pname) {
+    case GL_MAJOR_VERSION:
+        data[0] = pb_read(SGL_OFFSET_REGISTER_GLMAJ);
+        return;
+    case GL_MINOR_VERSION:
+        data[0] = pb_read(SGL_OFFSET_REGISTER_GLMIN);
+        return;
+    case GL_NUM_EXTENSIONS:
+        data[0] = NUM_EXTENSIONS;
         return;
     }
 
