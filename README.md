@@ -110,7 +110,7 @@ For windows clients, the Windows VirtIO Drivers need to be installed, which can 
 - GLFW cant request OpenGL profiles
 
 # Troubleshooting
-You may encounter weird errors such as `IOT instruction` or `No provider of glXXX found.` on the server-side. Although the code base is buggy, these are some tips to try to further attempt get an application to work:
+You may encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`. Although the code base is buggy, these are some tips to try to further attempts to get an application to work:
 - Change the GL version (i.e `-g 2.0`)
 - Allocate more memory (i.e `-m 256`)
 
