@@ -492,6 +492,10 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
 {
     // glimpl_commit();
 
+    /*
+     * to-do: check if mode and type is valid
+     */
+
     if (indices) {
         int max_index = 0;
         switch (type) {
@@ -637,37 +641,24 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
         pb_push(SGL_CMD_VP_UPLOAD);
         pb_push(count);
         switch (type) {
-        case GL_BYTE:
         case GL_UNSIGNED_BYTE: {
             const unsigned char *b = indices;
             for (int i = 0; i < count; i++)
                 pb_push(*b++);
             break;
         }
-        case GL_SHORT:
         case GL_UNSIGNED_SHORT: {
             const unsigned short *s = indices;
             for (int i = 0; i < count; i++)
                 pb_push(*s++);
             break;
         }
-        case GL_INT:
         case GL_UNSIGNED_INT: {
             const unsigned int *u = indices;
             for (int i = 0; i < count; i++)
                 pb_push(*u++);
             break;
         }
-        case GL_FLOAT:
-        case GL_FIXED: {
-            const float *f = indices;
-            for (int i = 0; i < count; i++)
-                pb_pushf(*f++);
-            break;
-        }
-        default:
-            //// printf("glDrawElements: unknown type (%x)\n", type);
-            break;
         }
     }
     
