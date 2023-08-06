@@ -480,40 +480,79 @@ void glDrawBuffer(GLenum buf)
     pb_push(buf);
 }
 
+#define GET_MAX_INDEX(x, y) \
+    for (int i = 0; i < count; i++) \
+        if (y[i] > x) \
+            x = y[i]
+
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices)
 {
     // glimpl_commit();
 
     if (indices) {
-        int divisor = 1;
-        switch (mode) {
-        case GL_TRIANGLE_FAN:
-        case GL_QUADS:
-            divisor = 4;
-            break;
-        case GL_TRIANGLES:
-            divisor = 3;
-            break;
-        default:
+        int max_index = 0;
+        switch (type) {
+        case GL_UNSIGNED_BYTE: {
+            const unsigned char *tindices = indices;
+            GET_MAX_INDEX(max_index, tindices);
             break;
         }
+        case GL_UNSIGNED_SHORT: {
+            const unsigned short *tindices = indices;
+            GET_MAX_INDEX(max_index, tindices);
+            break;
+        }
+        case GL_UNSIGNED_INT: {
+            const unsigned int *tindices = indices;
+            GET_MAX_INDEX(max_index, tindices);
+            break;
+        }
+        }
 
-        // GLsizei vertex_count = count * 2; // - (count / divisor);
+        max_index++;
 
-        /*
-         * to-do:
-         * fix over uploading
-         */
+        if (glimpl_normal_ptr.in_use && mode != GL_LINES) {
+            int max_normal = max_index;
+            int size = 4;
 
-        if (glimpl_normal_ptr.in_use) {
+            switch (mode) {
+            case GL_TRIANGLES:
+            case GL_TRIANGLE_FAN:
+            case GL_TRIANGLE_STRIP:
+                max_normal /= 3;
+                break;
+            case GL_QUADS:
+                max_normal /= 4;
+                break;
+            default:
+                // printf("mode: %04x\n", mode);
+                break;
+            }
+
+            switch (glimpl_normal_ptr.type) {
+            case GL_FLOAT:
+            case GL_INT:
+                size = 4;
+                break;
+            case GL_BYTE:
+                size = 1;
+                break;
+            case GL_SHORT:
+                size = 2;
+                break;
+            case GL_DOUBLE:
+                size = 8;
+                break;
+            }
+
             pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(count * glimpl_vertex_ptr.size);
+            pb_push(max_normal * size);
             const float *fvertices = glimpl_normal_ptr.pointer;
 
-            for (int i = 0; i < count; i++) {
-                for (int j = 0; j < glimpl_vertex_ptr.size; j++)
+            for (int i = 0; i < max_normal; i++) {
+                for (int j = 0; j < size; j++)
                     pb_pushf(*fvertices++);
-                for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
+                for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - size; j++)
                     fvertices++;
             }
 
@@ -539,9 +578,9 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
             } 
 
             pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(count * glimpl_color_ptr.size);
+            pb_push(max_index * glimpl_color_ptr.size);
             const float *color = glimpl_color_ptr.pointer;
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < max_index; i++) {
                 for (int j = 0; j < glimpl_color_ptr.size; j++)
                     pb_pushf(*color++);
                 for (int j = 0; j < (glimpl_color_ptr.stride / 4) - true_size; j++)
@@ -556,10 +595,10 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
 
         if (glimpl_tex_coord_ptr.in_use) {
             pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(count * glimpl_tex_coord_ptr.size);
+            pb_push(max_index * glimpl_tex_coord_ptr.size);
             const float *fvertices = glimpl_tex_coord_ptr.pointer;
 
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < max_index; i++) {
                 for (int j = 0; j < glimpl_tex_coord_ptr.size; j++)
                     pb_pushf(*fvertices++);
                 for (int j = 0; j < (glimpl_tex_coord_ptr.stride / 4) - glimpl_tex_coord_ptr.size; j++)
@@ -574,10 +613,10 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
 
         if (glimpl_vertex_ptr.in_use) {
             pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(count * glimpl_vertex_ptr.size);
+            pb_push(max_index * glimpl_vertex_ptr.size);
             const float *fvertices = glimpl_vertex_ptr.pointer;
 
-            for (int i = 0; i < count; i++) {
+            for (int i = 0; i < max_index; i++) {
                 for (int j = 0; j < glimpl_vertex_ptr.size; j++)
                     pb_pushf(*fvertices++);
                 for (int j = 0; j < (glimpl_vertex_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
@@ -638,6 +677,8 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
 
     // glimpl_commit();
 }
+
+#undef GET_MAX_INDEX
 
 void glEnable(GLenum cap)
 {
