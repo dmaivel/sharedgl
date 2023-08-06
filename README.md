@@ -117,16 +117,9 @@ You may encounter weird crashes/faults/errors such as `IOT instruction` or `No p
 # Showcase
 
 <details>
-<summary>Click to reveal: Running glxgears in a linux virtual machine</summary>
+<summary>Click to reveal: Running minetest in a windows virtual machine</summary>
 
-https://github.com/dmaivel/sharedgl/assets/38770072/0d46bf46-5693-4842-a81f-2f186c396e26
-
-</details>
-
-<details>
-<summary>Click to reveal: Running a compute shader in a linux virtual machine</summary>
-    
-https://github.com/dmaivel/sharedgl/assets/38770072/ded179b8-23dc-491d-ba34-4108e014f296
+https://github.com/dmaivel/sharedgl/assets/38770072/26c6216d-72f7-45b4-9c4f-1734de0d1c6d
 
 </details>
 
@@ -138,8 +131,15 @@ https://github.com/dmaivel/sharedgl/assets/38770072/a774db97-807e-46b9-a453-fa2e
 </details>
 
 <details>
-<summary>Click to reveal: Running minetest in a windows virtual machine (crashes later)</summary>
+<summary>Click to reveal: Running glxgears in a linux virtual machine</summary>
 
-https://github.com/dmaivel/sharedgl/assets/38770072/f9baf738-9c41-4c8d-9090-23a1ff682a71
+https://github.com/dmaivel/sharedgl/assets/38770072/0d46bf46-5693-4842-a81f-2f186c396e26
+
+</details>
+
+<details>
+<summary>Click to reveal: Running a compute shader in a linux virtual machine</summary>
+    
+https://github.com/dmaivel/sharedgl/assets/38770072/ded179b8-23dc-491d-ba34-4108e014f296
 
 </details>
