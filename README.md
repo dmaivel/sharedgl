@@ -114,6 +114,14 @@ You may encounter weird crashes/faults/errors such as `IOT instruction` or `No p
 - Change the GL version (i.e `-g 2.0`)
 - Allocate more memory (i.e `-m 256`)
 
+Application shows a blank window in the virtual machine?
+- Make sure the shared memory device passes through all the memory (check the size)
+
+Application doesn't run in the virtual machine? (Process exists but stalls)
+- Make sure the server is running
+    - If you start the server and it still won't run, shut down the VM, run `sudo ./sharedgl -x`, start the server, start the VM
+- Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for linux)
+
 # Showcase
 
 <details>
