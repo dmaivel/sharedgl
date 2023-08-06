@@ -54,7 +54,7 @@ options:
 For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
 
 ```bash
-$ export LD_LIBRARY_PATH=/path/to/sharedgl/build
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/sharedgl/build
 $ glxgears
 $ ...
 ```
