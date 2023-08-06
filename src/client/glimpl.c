@@ -511,7 +511,7 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
 
         max_index++;
 
-        if (glimpl_normal_ptr.in_use && mode != GL_LINES) {
+        if (glimpl_normal_ptr.in_use) {
             int max_normal = max_index;
             int size = 4;
 
@@ -525,7 +525,6 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
                 max_normal /= 4;
                 break;
             default:
-                // printf("mode: %04x\n", mode);
                 break;
             }
 
