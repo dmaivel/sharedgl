@@ -124,21 +124,21 @@ https://github.com/dmaivel/sharedgl/assets/38770072/26c6216d-72f7-45b4-9c4f-1734
 </details>
 
 <details>
-<summary>Click to reveal: Running glxgears in a windows virtual machine</summary>
+<summary>Click to reveal: Running glxgears in a windows virtual machine (outdated)</summary>
     
 https://github.com/dmaivel/sharedgl/assets/38770072/a774db97-807e-46b9-a453-fa2ee3f4ea84
 
 </details>
 
 <details>
-<summary>Click to reveal: Running glxgears in a linux virtual machine</summary>
+<summary>Click to reveal: Running glxgears in a linux virtual machine (outdated)</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/0d46bf46-5693-4842-a81f-2f186c396e26
 
 </details>
 
 <details>
-<summary>Click to reveal: Running a compute shader in a linux virtual machine</summary>
+<summary>Click to reveal: Running a compute shader in a linux virtual machine (outdated)</summary>
     
 https://github.com/dmaivel/sharedgl/assets/38770072/ded179b8-23dc-491d-ba34-4108e014f296
 
