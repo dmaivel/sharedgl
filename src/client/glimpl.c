@@ -163,6 +163,18 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLenum format, 
             pb_push(*p++);
         break;
     }
+    case GL_RGB8: {
+        unsigned int *p = (void*)pixels;
+        int size = width * height * 3;
+        int rem = size % 4;
+
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(size);
+
+        pb_memcpy((void*)pixels, size, 0);
+
+        break;
+    }
     case GL_RGBA8:
     case GL_RGBA:
     case GL_BGRA: {
@@ -171,15 +183,6 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLenum format, 
         pb_push(width * height);
         for (int i = 0; i < width * height; i++)
             pb_push(*p++);
-        break;
-    }
-    case GL_RGB8: {
-        unsigned char *p = (void*)pixels;
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(width * height);
-        for (int i = 0; i < width * height; i++)
-            pb_push(p[i * 3] << 8 | p[i * 3 + 1] << 16 | p[i * 3 + 2] << 24);
-        // format = GL_RGBA;
         break;
     }
     default:
@@ -1105,9 +1108,9 @@ void glTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffs
 void glTranslated(GLdouble x, GLdouble y, GLdouble z)
 {
     pb_push(SGL_CMD_TRANSLATED);
-    pb_pushf((float)x);
-    pb_pushf((float)y);
-    pb_pushf((float)z);
+    pb_pushf(x);
+    pb_pushf(y);
+    pb_pushf(z);
 }
 
 void glTranslatef(GLfloat x, GLfloat y, GLfloat z)
