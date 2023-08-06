@@ -3,7 +3,7 @@
 SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for capturing graphics calls and accelerated graphics within virtual machines. SGL is designed with the intent to be compatible with a wide range of platforms (WGL, GLX, EGL), making it possible to run on virtually any guest system.
 
 > [!IMPORTANT]\
-> Functionality is currently limitted as no version has been fully implemented. Additionally, this has only been tested on a handful of demoes (including glxgears) on X11 (GLX) and Windows (WGL) as EGL support has not been implemented yet.
+> Functionality is currently limitted as no version has been fully implemented. Additionally, this has only been tested on a handful of demoes (including glxgears) on X11 (GLX) and Windows (WGL) as EGL support has not been implemented yet. If you encounter crashes or weird bugs, scroll down for troubleshooting.
 
 # Getting started
 
@@ -108,6 +108,11 @@ For windows clients, the Windows VirtIO Drivers need to be installed, which can 
 - Windows guests rendering is janky and prone to crashing
 - Inaccurate FPS in overlay (to-do: move timings from server to client)
 - GLFW cant request OpenGL profiles
+
+# Troubleshooting
+You may encounter weird errors such as `IOT instruction` or `No provider of glXXX found.` on the server-side. Although the code base is buggy, these are some tips to try to further attempt get an application to work:
+- Change the GL version (i.e `-g 2.0`)
+- Allocate more memory (i.e `-m 256`)
 
 # Showcase
 
