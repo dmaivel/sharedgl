@@ -94,4 +94,6 @@ typedef XID GLXContextID;
 typedef XID GLXWindow;
 typedef XID GLXPbuffer;
 
+void glximpl_init();
+
 #endif

@@ -64,6 +64,9 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
     "GL_EXT_texture_filter_anisotropic"
 };
 
+static int glimpl_major = 1;
+static int glimpl_minor = 2;
+
 void glimpl_commit()
 {
     pb_push(0); /* processor will stop at zero */
@@ -131,6 +134,11 @@ void glimpl_init()
     pb_set();
 #endif
     pb_reset();
+
+    char *gl_version_override = getenv("GL_VERSION_OVERRIDE");
+
+    glimpl_major = gl_version_override ? gl_version_override[0] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMAJ);
+    glimpl_minor = gl_version_override ? gl_version_override[2] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMIN);
 
     pb_push(SGL_CMD_CREATE_CONTEXT);
     glimpl_commit();
@@ -823,8 +831,8 @@ const GLubyte *glGetString(GLenum name)
     static char version[16] = "X.X.0 SharedGL";
 
     if (version[0] == 'X') {
-        version[0] = '0' + (char)pb_read(SGL_OFFSET_REGISTER_GLMAJ);
-        version[2] = '0' + (char)pb_read(SGL_OFFSET_REGISTER_GLMIN);
+        version[0] = '0' + (char)glimpl_major;
+        version[2] = '0' + (char)glimpl_minor;
     }
 
     switch (name) {
@@ -918,10 +926,10 @@ void glGetIntegerv(GLenum pname, GLint* data)
      */
     switch (pname) {
     case GL_MAJOR_VERSION:
-        data[0] = pb_read(SGL_OFFSET_REGISTER_GLMAJ);
+        data[0] = glimpl_major;
         return;
     case GL_MINOR_VERSION:
-        data[0] = pb_read(SGL_OFFSET_REGISTER_GLMIN);
+        data[0] = glimpl_minor;
         return;
     case GL_NUM_EXTENSIONS:
         data[0] = NUM_EXTENSIONS;
