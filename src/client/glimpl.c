@@ -246,7 +246,7 @@ void glBindBuffer(GLenum target, GLuint buffer)
     pb_push(buffer);
 }
 
-void glBindBuffersBase(GLenum target, GLuint first, GLsizei count, const GLuint * buffers)
+void glBindBuffersBase(GLenum target, GLuint first, GLsizei count, const GLuint *buffers)
 {
     // glimpl_commit();
 
@@ -261,6 +261,14 @@ void glBindBuffersBase(GLenum target, GLuint first, GLsizei count, const GLuint 
     pb_push(count);
 
     // glimpl_commit();
+}
+
+void glBindFragDataLocation(GLuint program, GLuint color, const GLchar* name)
+{
+    pb_push(SGL_CMD_BINDFRAGDATALOCATION);
+    pb_push(program);
+    pb_push(color);
+    push_string(name);
 }
 
 void glBindVertexArray(GLuint array)
