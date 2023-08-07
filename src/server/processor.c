@@ -146,6 +146,13 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 glBindBuffer(target, buffer);
                 break;
             }
+            case SGL_CMD_BINDFRAGDATALOCATION: {
+                int program = *pb++,
+                    color = *pb++;
+                glBindFragDataLocation(program, color, (char*)pb);
+                ADVANCE_PAST_STRING();
+                break;
+            }
             case SGL_CMD_BINDVERTEXARRAY:
                 glBindVertexArray(*pb++);
                 break;
