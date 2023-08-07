@@ -13,6 +13,10 @@
 static Window win = -1;
 static const char *glx_extensions = "GLX_ARB_create_context_profile GLX_EXT_visual_info";
 
+static int glx_major = 1;
+static int glx_minor = 2;
+static const char *glx_majmin_string = "1.2";
+
 struct glx_swap_data {
     XVisualInfo vinfo;
     XVisualInfo *visual_list;
@@ -34,7 +38,7 @@ static const char *glximpl_name_to_string(int name)
 {
     switch (name) {
     case GLX_VENDOR: return "SharedGL";
-    case GLX_VERSION: return "1.4";
+    case GLX_VERSION: return glx_majmin_string;
     case GLX_EXTENSIONS: return glx_extensions;
     }
     return "?";
@@ -94,8 +98,8 @@ Display *glXGetCurrentDisplay(void)
 
 Bool glXQueryVersion(Display *dpy, int *maj, int *min)
 {
-    *maj = 1;
-    *min = 4;
+    *maj = glx_major;
+    *min = glx_minor;
     return True;
 }
 
@@ -193,6 +197,41 @@ const char *glXQueryServerString( Display *dpy, int screen, int name )
     return glximpl_name_to_string(name);
 }
 
+void glXCopyContext(Display *dpy, GLXContext src, GLXContext dst, unsigned long mask)
+{
+
+}
+
+GLXPixmap glXCreateGLXPixmap(Display *dpy, XVisualInfo *visual, Pixmap pixmap)
+{
+    return (GLXPixmap)1;
+}
+
+void glXDestroyGLXPixmap(Display *dpy, GLXPixmap pixmap)
+{
+
+}
+
+GLXDrawable glXGetCurrentDrawable(void)
+{
+    return win;
+}
+
+void glXUseXFont(Font font, int first, int count, int list)
+{
+    
+}
+
+void glXWaitGL(void)
+{
+
+}
+
+void glXWaitX(void)
+{
+
+}
+
 void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 {
     static struct glx_swap_data swap_data = { 0 };
@@ -245,4 +284,14 @@ void* glXGetProcAddressARB(char* s)
 void *glXGetProcAddress(char *s)
 {
     return glXGetProcAddressARB(s);
+}
+
+void glximpl_init()
+{
+    char *glx_version_override = getenv("GLX_VERSION_OVERRIDE");
+    if (glx_version_override) {
+        glx_majmin_string = glx_version_override;
+        glx_major = glx_version_override[0] - '0';
+        glx_minor = glx_version_override[2] - '0';
+    }
 }

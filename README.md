@@ -62,6 +62,13 @@ $ ...
 ### Windows (VM)
 For your OpenGL application to communicate with the server, the client library (`opengl32.dll`) must be located in the same directory as the application. Scroll down for more information regarding the setup for Windows guests.
 
+### Environmental variables
+When running clients, a user may specify one or more of the following environmental variables for version control:
+```
+GL_VERSION_OVERRIDE=X.X
+GLX_VERSION_OVERRIDE=X.X
+```
+
 # Virtual machines
 Before you start up your virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Use the `-v` command line argument when starting the server and place the output in its respective location, depending on whether you use libvirt or qemu. Scroll down for driver information.
 
