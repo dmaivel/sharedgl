@@ -62,8 +62,8 @@ $ ...
 ### Windows (VM)
 For your OpenGL application to communicate with the server, the client library (`opengl32.dll`) must be located in the same directory as the application. Scroll down for more information regarding the setup for Windows guests.
 
-### Environmental variables
-When running clients, a user may specify one or more of the following environmental variables for version control:
+### Environment variables
+When running clients, a user may specify one or more of the following environment variables for version control:
 ```
 GL_VERSION_OVERRIDE=X.X
 GLX_VERSION_OVERRIDE=X.X
