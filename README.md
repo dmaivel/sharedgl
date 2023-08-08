@@ -129,9 +129,6 @@ Application doesn't run in the virtual machine? (Process exists but stalls)
     - If you start the server and it still won't run, shut down the VM, run `sudo ./sharedgl -x`, start the server, start the VM
 - Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for linux)
 
-GLFW application can't open a window?
-- On linux, this is because the default GLX version that gets reported is `1.2`. GLFW supports `1.3+`. To fix this, specify `GLX_VERSION_OVERRIDE=1.3` or `GLX_VERSION_OVERRIDE=1.4`.
-
 # Showcase
 
 <details>
