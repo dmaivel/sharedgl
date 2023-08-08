@@ -14,8 +14,8 @@ static Window win = -1;
 static const char *glx_extensions = "GLX_ARB_create_context_profile GLX_EXT_visual_info";
 
 static int glx_major = 1;
-static int glx_minor = 2;
-static const char *glx_majmin_string = "1.2";
+static int glx_minor = 4;
+static const char *glx_majmin_string = "1.4";
 
 struct glx_swap_data {
     XVisualInfo vinfo;
