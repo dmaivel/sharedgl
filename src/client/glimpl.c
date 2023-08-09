@@ -939,7 +939,23 @@ void glGetIntegerv(GLenum pname, GLint* data)
     pb_push(SGL_CMD_GETINTEGERV);
     pb_push(pname);
     glimpl_commit();
+    GL_GET_MEMCPY_RETVAL(data, int);
+}
+
+void glGetBooleanv(GLenum pname, GLboolean* data)
+{
+    pb_push(SGL_CMD_GETBOOLEANV);
+    pb_push(pname);
+    glimpl_commit();
     GL_GET_MEMCPY_RETVAL(data, float);
+}
+
+void glGetDoublev(GLenum pname, GLboolean* data)
+{
+    pb_push(SGL_CMD_GETDOUBLEV);
+    pb_push(pname);
+    glimpl_commit();
+    GL_GET_MEMCPY_RETVAL(data, double);
 }
 
 #undef GL_GET_MEMCPY_RETVAL
@@ -5735,3 +5751,4 @@ void glVertexAttribL4dv(GLuint index, const GLdouble* v)
 {
     glVertexAttribL4d(index, v[0], v[1], v[2], v[3]);
 }
+

@@ -371,7 +371,19 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
             case SGL_CMD_GETINTEGERV: {
                 int v[16];
                 glGetIntegerv(*pb++, v);
-                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V,v, sizeof(int) * 16);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(int) * 16);
+                break;
+            }
+            case SGL_CMD_GETBOOLEANV: {
+                unsigned char v[16];
+                glGetBooleanv(*pb++, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(unsigned char) * 16);
+                break;
+            }
+            case SGL_CMD_GETDOUBLEV: {
+                double v[16];
+                glGetDoublev(*pb++, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(double) * 16);
                 break;
             }
             case SGL_CMD_LIGHTMODELFV: {
