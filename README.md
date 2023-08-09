@@ -113,7 +113,7 @@ This list describes the amount of functions left from each standard to implement
 - [ ] OpenGL 1
     - [ ] 1.0 (~21 remaining) (~306 total)
     - [ ] 1.1 (~6 remaining) (~30 total) 
-    - [ ] 1.2 (~1 remaining) (~4 total) 
+    - [x] 1.2 (~4 total) 
     - [ ] 1.3 (~11 remaining) (~46 total) 
     - [ ] 1.4 (~8 remaining) (~47 total) 
     - [ ] 1.5 (~9 remaining) (~19 total) 
