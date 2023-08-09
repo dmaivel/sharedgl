@@ -499,35 +499,29 @@ void glDrawBuffer(GLenum buf)
     pb_push(buf);
 }
 
-#define GET_MAX_INDEX(x, y) \
-    for (int i = 0; i < count; i++) \
+#define GET_MAX_INDEX(x, y, s, e) \
+    for (int i = s; i < e; i++) \
         if (y[i] > x) \
             x = y[i]
 
-void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices)
+static inline void glimpl_draw_elements(int mode, int type, int start, int end, const void *indices)
 {
-    // glimpl_commit();
-
-    /*
-     * to-do: check if mode and type is valid
-     */
-
     if (indices) {
         int max_index = 0;
         switch (type) {
         case GL_UNSIGNED_BYTE: {
             const unsigned char *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices);
+            GET_MAX_INDEX(max_index, tindices, start, end);
             break;
         }
         case GL_UNSIGNED_SHORT: {
             const unsigned short *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices);
+            GET_MAX_INDEX(max_index, tindices, start, end);
             break;
         }
         case GL_UNSIGNED_INT: {
             const unsigned int *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices);
+            GET_MAX_INDEX(max_index, tindices, start, end);
             break;
         }
         }
@@ -655,23 +649,23 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
          * to-do: pack?
          */
         pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(count);
+        pb_push(end - start);
         switch (type) {
         case GL_UNSIGNED_BYTE: {
             const unsigned char *b = indices;
-            for (int i = 0; i < count; i++)
+            for (int i = start; i < end; i++)
                 pb_push(*b++);
             break;
         }
         case GL_UNSIGNED_SHORT: {
             const unsigned short *s = indices;
-            for (int i = 0; i < count; i++)
+            for (int i = start; i < end; i++)
                 pb_push(*s++);
             break;
         }
         case GL_UNSIGNED_INT: {
             const unsigned int *u = indices;
-            for (int i = 0; i < count; i++)
+            for (int i = start; i < end; i++)
                 pb_push(*u++);
             break;
         }
@@ -680,11 +674,30 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
     
     pb_push(SGL_CMD_DRAWELEMENTS);
     pb_push(mode);
-    pb_push(count);
+    pb_push(end - start);
     pb_push(indices != NULL ? GL_UNSIGNED_INT : type); /* to-do: actually use type */
     pb_push(indices != NULL);
+}
+
+void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices)
+{
+    // glimpl_commit();
+
+    /*
+     * to-do: check if mode and type is valid
+     */
+
+    glimpl_draw_elements(mode, type, 0, count, indices);
 
     // glimpl_commit();
+}
+
+void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices)
+{
+    /*
+     * count is ignored?
+     */
+    glimpl_draw_elements(mode, type, start, end, indices);
 }
 
 #undef GET_MAX_INDEX
