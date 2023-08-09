@@ -154,7 +154,7 @@ static struct gl_vertex_attrib_pointer *glimpl_get_enabled_vap()
     return &glimpl_vaps[0];
 }
 
-static void glimpl_upload_texture(GLsizei width, GLsizei height, GLenum format, const void* pixels)
+static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, GLenum format, const void* pixels)
 {
     if (pixels == NULL) {
         pb_push(SGL_CMD_VP_NULL);
@@ -166,14 +166,14 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLenum format, 
     case GL_RGB: {
         unsigned char *p = (void*)pixels;
         pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(width * height);
-        for (int i = 0; i < width * height; i++)
+        pb_push(width * height * depth);
+        for (int i = 0; i < width * height * depth; i++)
             pb_push(*p++);
         break;
     }
     case GL_RGB8: {
         unsigned int *p = (void*)pixels;
-        int size = width * height * 3;
+        int size = width * height * depth * 3;
         int rem = size % 4;
 
         pb_push(SGL_CMD_VP_UPLOAD);
@@ -188,8 +188,8 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLenum format, 
     case GL_BGRA: {
         unsigned int *p = (void*)pixels;
         pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(width * height);
-        for (int i = 0; i < width * height; i++)
+        pb_push(width * height * depth);
+        for (int i = 0; i < width * height * depth; i++)
             pb_push(*p++);
         break;
     }
@@ -1055,11 +1055,87 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar** string, const G
     glimpl_commit();
 }
 
+void glTexImage1D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLint border, GLenum format, GLenum type, const void* pixels)
+{
+    glimpl_commit();
+
+    glimpl_upload_texture(width, 1, 1, internalformat, pixels);
+
+    pb_push(SGL_CMD_TEXIMAGE3D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(internalformat);
+    pb_push(width);
+    pb_push(border);
+    pb_push(format);
+    pb_push(type);
+    
+    glimpl_commit();
+}
+
+void glTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void* pixels)
+{
+    glimpl_commit();
+
+    glimpl_upload_texture(width, 1, 1, format, pixels);
+
+    pb_push(SGL_CMD_TEXSUBIMAGE3D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(xoffset);
+    pb_push(width);
+    pb_push(format);
+    pb_push(type);
+    
+    glimpl_commit();
+}
+
+void glTexImage3D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void* pixels)
+{
+    glimpl_commit();
+
+    glimpl_upload_texture(width, height, depth, internalformat, pixels);
+
+    pb_push(SGL_CMD_TEXIMAGE3D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(internalformat);
+    pb_push(width);
+    pb_push(height);
+    pb_push(depth);
+    pb_push(border);
+    pb_push(format);
+    pb_push(type);
+    
+    glimpl_commit();
+}
+
+void glTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
+{
+    glimpl_commit();
+
+    glimpl_upload_texture(width, height, depth, format, pixels);
+
+    pb_push(SGL_CMD_TEXSUBIMAGE3D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(xoffset);
+    pb_push(yoffset);
+    pb_push(zoffset);
+    pb_push(width);
+    pb_push(height);
+    pb_push(depth);
+    pb_push(format);
+    pb_push(type);
+    
+    glimpl_commit();
+}
+
 void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void* pixels)
 {
     glimpl_commit();
 
-    glimpl_upload_texture(width, height, internalformat, pixels);
+    glimpl_upload_texture(width, height, 1, internalformat, pixels);
 
     pb_push(SGL_CMD_TEXIMAGE2D);
     pb_push(target);
@@ -1078,7 +1154,7 @@ void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, G
 {
     glimpl_commit();
 
-    glimpl_upload_texture(width, height, format, pixels);
+    glimpl_upload_texture(width, height, 1, format, pixels);
 
     pb_push(SGL_CMD_TEXSUBIMAGE2D);
     pb_push(target);
@@ -1097,7 +1173,7 @@ void glTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffs
 {
     glimpl_commit();
 
-    glimpl_upload_texture(width, height, format, pixels);
+    glimpl_upload_texture(width, height, 1, format, pixels);
 
     pb_push(SGL_CMD_TEXTURESUBIMAGE2D);
     pb_push(texture);

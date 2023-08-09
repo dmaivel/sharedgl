@@ -452,6 +452,54 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 ADVANCE_PAST_STRING();
                 break;
             }
+            case SGL_CMD_TEXIMAGE1D: {
+                int target = *pb++,
+                    level = *pb++,
+                    internalformat = *pb++,
+                    width = *pb++,
+                    border = *pb++,
+                    format = *pb++,
+                    type = *pb++;
+                glTexImage1D(target, level, internalformat, width, border, format, type, uploaded);
+                break;
+            }
+            case SGL_CMD_TEXSUBIMAGE1D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    width = *pb++,
+                    format = *pb++,
+                    type = *pb++;
+                glTexSubImage1D(target, level, xoffset, width, format, type, uploaded);
+                break;
+            }
+            case SGL_CMD_TEXIMAGE3D: {
+                int target = *pb++,
+                    level = *pb++,
+                    internalformat = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    border = *pb++,
+                    format = *pb++,
+                    type = *pb++;
+                glTexImage3D(target, level, internalformat, width, height, depth, border, format, type, uploaded);
+                break;
+            }
+            case SGL_CMD_TEXSUBIMAGE3D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    format = *pb++,
+                    type = *pb++;
+                glTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, uploaded);
+                break;
+            }
             case SGL_CMD_TEXIMAGE2D: {
                 int target = *pb++,
                     level = *pb++,
