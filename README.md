@@ -107,6 +107,33 @@ Additionally, `libGL.so.1` needs to be moved into the guest for library loading.
 ## Windows
 For windows clients, the Windows VirtIO Drivers need to be installed, which can be found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). (Navigate to `...\virtio-win-upstream\Win10\amd64\`, right click on `ivshmem.inf`, and press `Install`).
 
+# Supported GL versions
+This list describes the amount of functions left from each standard to implement. This excludes EXT/ARB functions.
+
+- [ ] OpenGL 1
+    - [ ] 1.0 (~21 remaining) (~306 total)
+    - [ ] 1.1 (~6 remaining) (~30 total) 
+    - [ ] 1.2 (~1 remaining) (~4 total) 
+    - [ ] 1.3 (~11 remaining) (~46 total) 
+    - [ ] 1.4 (~8 remaining) (~47 total) 
+    - [ ] 1.5 (~9 remaining) (~19 total) 
+- [ ] OpenGL 2
+    - [ ] 2.0 (~26 remaining) (~93 total) 
+    - [ ] 2.1 (~6 remaining) (~6 total) 
+- [ ] OpenGL 3
+    - [ ] 3.0 (~26 remaining) (~84 total) 
+    - [ ] 3.1 (~7 remaining) (~15 total) 
+    - [ ] 3.2 (~14 remaining) (~19 total) 
+    - [ ] 3.3 (~29 remaining) (~58 total) 
+- [ ] OpenGL 4
+    - [ ] 4.0 (~24 remaining) (~46 total) 
+    - [ ] 4.1 (~36 remaining) (~89 total) 
+    - [ ] 4.2 (~4 remaining) (~12 total) 
+    - [ ] 4.3 (~24 remaining) (~44 total) 
+    - [ ] 4.4 (~8 remaining) (~9 total) 
+    - [ ] 4.5 (~51 remaining) (~122 total) 
+    - [x] 4.6 (~4 total) 
+
 # Limitations / Issues
 - Server can only handle a single client at a time
 - Missing many GL functions

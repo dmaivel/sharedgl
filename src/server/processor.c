@@ -1348,6 +1348,28 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 glTexEnvi(target, pname, param);
                 break;
             }
+            case SGL_CMD_TEXENVFV: {
+                int target = *pb++;
+                int pname = *pb++;
+                float param[4];
+                param[0] = *((float*)pb++);
+                param[1] = *((float*)pb++);
+                param[2] = *((float*)pb++);
+                param[3] = *((float*)pb++);
+                glTexEnvfv(target, pname, param);
+                break;
+            }
+            case SGL_CMD_TEXENVIV: {
+                int target = *pb++;
+                int pname = *pb++;
+                int param[4];
+                param[0] = *pb++;
+                param[1] = *pb++;
+                param[2] = *pb++;
+                param[3] = *pb++;
+                glTexEnviv(target, pname, param);
+                break;
+            }
             case SGL_CMD_TEXGEND: {
                 int coord = *pb++;
                 int pname = *pb++;
@@ -3675,6 +3697,69 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 float units = *((float*)pb++);
                 float clamp = *((float*)pb++);
                 glPolygonOffsetClamp(factor, units, clamp);
+                break;
+            }
+            case SGL_CMD_POLYGONSTIPPLE: {
+                unsigned char *mask = (unsigned char*)pb;
+                glPolygonStipple(mask);
+                pb += 32 * 32;
+                break;
+            }
+            case SGL_CMD_FEEDBACKBUFFER: {
+                int size = *pb++,
+                    type = *pb++;
+                glFeedbackBuffer(size, type, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_SELECTBUFFER: {
+                int size = *pb++;
+                glSelectBuffer(size, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_MAP1F: {
+                int target = *pb++;
+                float u1 = *((float*)pb++);
+                float u2 = *((float*)pb++);
+                int stride = *pb++;
+                int order = *pb++;
+                glMap1f(target, u1, u2, stride, order, uploaded);
+                break;
+            }
+            case SGL_CMD_PIXELMAPFV: {
+                int map = *pb++,
+                    mapsize = *pb++;
+                glPixelMapfv(map, mapsize, uploaded);
+                break;
+            }
+            case SGL_CMD_PIXELMAPUIV: {
+                int map = *pb++,
+                    mapsize = *pb++;
+                glPixelMapuiv(map, mapsize, uploaded);
+                break;
+            }
+            case SGL_CMD_GETCLIPPLANE: {
+                int plane = *pb++,
+                    is_float = *pb++;
+                if (is_float)
+                    glGetClipPlanef(plane, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                else
+                    glGetClipPlane(plane, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETLIGHTFV: {
+                int light = *pb++,
+                    pname = *pb++;
+                float v[4];
+                glGetLightfv(light, pname, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, 4 * sizeof(float));
+                break;
+            }
+            case SGL_CMD_GETLIGHTIV: {
+                int light = *pb++,
+                    pname = *pb++;
+                int v[4];
+                glGetLightiv(light, pname, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, 4 * sizeof(int));
                 break;
             }
             }
