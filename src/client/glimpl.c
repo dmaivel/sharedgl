@@ -5752,3 +5752,453 @@ void glVertexAttribL4dv(GLuint index, const GLdouble* v)
     glVertexAttribL4d(index, v[0], v[1], v[2], v[3]);
 }
 
+void glIndexdv(const GLdouble* c)
+{
+    glIndexd(c[0]);
+}
+
+void glIndexfv(const GLfloat* c)
+{
+    glIndexf(c[0]);
+}
+
+void glIndexiv(const GLint* c)
+{
+    glIndexi(c[0]);
+}
+
+void glIndexsv(const GLshort* c)
+{
+    glIndexs(c[0]);
+}
+
+void glIndexubv(const GLubyte* c)
+{
+    glIndexub(c[0]);
+}
+
+void glRectdv(const GLdouble* v1, const GLdouble* v2)
+{
+    glRectd(v1[0], v1[1], v2[0], v2[1]);
+}
+
+void glRectfv(const GLfloat* v1, const GLfloat* v2)
+{
+    glRectf(v1[0], v1[1], v2[0], v2[1]);
+}
+
+void glRectiv(const GLint* v1, const GLint* v2)
+{
+    glRecti(v1[0], v1[1], v2[0], v2[1]);
+}
+
+void glRectsv(const GLshort* v1, const GLshort* v2)
+{
+    glRects(v1[0], v1[1], v2[0], v2[1]);
+}
+
+void glEdgeFlagv(const GLboolean* flag)
+{
+    glEdgeFlag(flag[0]);
+}
+
+/*
+ * to-do:
+ * perhaps get rid of `params_fixed`
+ */
+
+void glFogiv(GLenum pname, const GLint* params)
+{
+    if (pname != GL_FOG_COLOR) {
+        glFogi(pname, params[0]);
+    }
+
+    const GLfloat params_fixed[4] = {
+        params[0],
+        params[1],
+        params[2],
+        params[3]
+    };
+
+    glFogfv(pname, params_fixed);
+}
+
+void glLightiv(GLenum light, GLenum pname, const GLint* params)
+{
+    const GLfloat params_fixed[4] = {
+        params[0],
+        params[1],
+        params[2],
+        params[3]
+    };
+
+    glLightfv(light, pname, params_fixed);
+}
+
+void glLightModeliv(GLenum pname, const GLint* params)
+{
+    const GLfloat params_fixed[4] = {
+        params[0],
+        params[1],
+        params[2],
+        params[3]
+    };
+
+    glLightModelfv(pname, params_fixed);
+}
+
+void glMaterialiv(GLenum face, GLenum pname, const GLint* params)
+{
+    const GLfloat params_fixed[4] = {
+        params[0],
+        params[1],
+        params[2],
+        params[3]
+    };
+
+    glMaterialfv(face, pname, params_fixed);
+}
+
+void glPolygonStipple(const GLubyte* mask)
+{
+    int *pmask = (int*)mask;
+
+    pb_push(SGL_CMD_POLYGONSTIPPLE);
+    for (int i = 0; i < 32 * 32 / 4; i++)
+        pb_push(pmask[i]);
+}
+
+void glTexEnvfv(GLenum target, GLenum pname, const GLfloat* params)
+{
+    if (pname == GL_TEXTURE_ENV_COLOR) {
+        pb_push(SGL_CMD_TEXENVFV);
+        pb_push(target);
+        pb_push(pname);
+        pb_pushf(params[0]);
+        pb_pushf(params[1]);
+        pb_pushf(params[2]);
+        pb_pushf(params[3]);
+        return;
+    }
+
+    glTexEnvf(target, pname, params[0]);
+}
+
+void glTexEnviv(GLenum target, GLenum pname, const GLint* params)
+{
+    if (pname == GL_TEXTURE_ENV_COLOR) {
+        pb_push(SGL_CMD_TEXENVFV);
+        pb_push(target);
+        pb_push(pname);
+        pb_push(params[0]);
+        pb_push(params[1]);
+        pb_push(params[2]);
+        pb_push(params[3]);
+        return;
+    }
+
+    glTexEnvi(target, pname, params[0]);
+}
+
+/*
+ * to-do: perhaps fix the three functions below, they may
+ * not function properly (see what i did there)
+ */
+
+void glTexGendv(GLenum coord, GLenum pname, const GLdouble* params)
+{
+    glTexGend(coord, pname, params[0]);
+}
+
+void glTexGenfv(GLenum coord, GLenum pname, const GLfloat* params)
+{
+    glTexGenf(coord, pname, params[0]);
+}
+
+void glTexGeniv(GLenum coord, GLenum pname, const GLint* params)
+{
+    glTexGeni(coord, pname, params[0]);
+}
+
+void glFeedbackBuffer(GLsizei size, GLenum type, GLfloat* buffer)
+{
+    pb_push(SGL_CMD_FEEDBACKBUFFER);
+    pb_push(size);
+    pb_push(type);
+
+    glimpl_commit();
+    memcpy(buffer, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
+}
+
+void glSelectBuffer(GLsizei size, GLuint* buffer)
+{
+    pb_push(SGL_CMD_SELECTBUFFER);
+    pb_push(size);
+
+    glimpl_commit();
+    memcpy(buffer, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
+}
+
+void glMap1d(GLenum target, GLdouble u1, GLdouble u2, GLint stride, GLint order, const GLdouble* points)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(order);
+    for (int i = 0; i < order; i++)
+        pb_pushf(points[i * stride]);
+    
+    pb_push(SGL_CMD_MAP1F); /* not a mistake; cant handle doubles */
+    pb_push(target);
+    pb_pushf(u1);
+    pb_pushf(u2);
+    pb_push(stride);
+    pb_push(order);
+}
+
+void glMap1f(GLenum target, GLfloat u1, GLfloat u2, GLint stride, GLint order, const GLfloat* points)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(order);
+    for (int i = 0; i < order; i++)
+        pb_pushf(points[i * stride]);
+    
+    pb_push(SGL_CMD_MAP1F);
+    pb_push(target);
+    pb_pushf(u1);
+    pb_pushf(u2);
+    pb_push(stride);
+    pb_push(order);
+}
+
+/*
+ * to-do: 2 functions below are probably wrong
+ */
+
+void glMap2d(GLenum target, GLdouble u1, GLdouble u2, GLint ustride, GLint uorder, GLdouble v1, GLdouble v2, GLint vstride, GLint vorder, const GLdouble* points)
+{
+    glMap1d(target, u1, u2, ustride, uorder, points);
+    glMap1d(target, v1, v2, vstride, vorder, points);
+}
+
+void glMap2f(GLenum target, GLfloat u1, GLfloat u2, GLint ustride, GLint uorder, GLfloat v1, GLfloat v2, GLint vstride, GLint vorder, const GLfloat* points)
+{
+    glMap1f(target, u1, u2, ustride, uorder, points);
+    glMap1f(target, v1, v2, vstride, vorder, points);
+}
+
+void glPixelMapfv(GLenum map, GLsizei mapsize, const GLfloat* values)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(mapsize);
+    for (int i = 0; i < mapsize; i++)
+        pb_pushf(values[i]);
+
+    pb_push(SGL_CMD_PIXELMAPFV);
+    pb_push(map);
+    pb_push(mapsize);
+}
+
+void glPixelMapuiv(GLenum map, GLsizei mapsize, const GLuint* values)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(mapsize);
+    for (int i = 0; i < mapsize; i++)
+        pb_push(values[i]);
+
+    pb_push(SGL_CMD_PIXELMAPUIV);
+    pb_push(map);
+    pb_push(mapsize);
+}
+
+void glPixelMapusv(GLenum map, GLsizei mapsize, const GLushort* values)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(mapsize);
+    for (int i = 0; i < mapsize; i++)
+        pb_push(values[i]);
+
+    pb_push(SGL_CMD_PIXELMAPUIV); /* not a mistake; don't passthru short */
+    pb_push(map);
+    pb_push(mapsize);
+}
+
+void glDrawPixels(GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels)
+{
+    /*
+     * le epic troll part 3: to-do: do something
+     */
+}
+
+void glGetClipPlane(GLenum plane, GLdouble* equation)
+{
+    pb_push(SGL_CMD_GETCLIPPLANE);
+    pb_push(plane);
+    pb_push(0); /* is dst float? */
+
+    glimpl_commit();
+    memcpy(equation, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), 4 * sizeof(double));
+}
+
+void glGetClipPlanef(GLenum plane, GLfloat* equation)
+{
+    pb_push(SGL_CMD_GETCLIPPLANE);
+    pb_push(plane);
+    pb_push(1); /* is dst float? */
+
+    glimpl_commit();
+    memcpy(equation, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), 4 * sizeof(float));
+}
+
+void glGetLightfv(GLenum light, GLenum pname, GLfloat* params)
+{
+    int size = 1;
+    switch (pname) {
+    case GL_AMBIENT:
+    case GL_DIFFUSE:
+    case GL_SPECULAR:
+    case GL_POSITION:
+        size = 4;
+        break;
+    case GL_SPOT_DIRECTION:
+        size = 3;
+        break;
+    }
+
+    pb_push(SGL_CMD_GETLIGHTFV);
+    pb_push(light);
+    pb_push(pname);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
+}
+
+void glGetLightiv(GLenum light, GLenum pname, GLint* params)
+{
+    int size = 1;
+    switch (pname) {
+    case GL_AMBIENT:
+    case GL_DIFFUSE:
+    case GL_SPECULAR:
+    case GL_POSITION:
+        size = 4;
+        break;
+    case GL_SPOT_DIRECTION:
+        size = 3;
+        break;
+    }
+
+    pb_push(SGL_CMD_GETLIGHTIV);
+    pb_push(light);
+    pb_push(pname);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(int));
+}
+
+/*
+ * to-do: implement
+ */
+
+void glGetMapdv(GLenum target, GLenum query, GLdouble* v)
+{
+
+}
+
+void glGetMapfv(GLenum target, GLenum query, GLfloat* v)
+{
+
+}
+
+void glGetMapiv(GLenum target, GLenum query, GLint* v)
+{
+
+}
+
+void glGetMaterialfv(GLenum face, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetMaterialiv(GLenum face, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetPixelMapfv(GLenum map, GLfloat* values)
+{
+
+}
+
+void glGetPixelMapuiv(GLenum map, GLuint* values)
+{
+
+}
+
+void glGetPixelMapusv(GLenum map, GLushort* values)
+{
+
+}
+
+void glGetPolygonStipple(GLubyte* mask)
+{
+
+}
+
+void glGetTexEnvfv(GLenum target, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetTexEnviv(GLenum target, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetTexGendv(GLenum coord, GLenum pname, GLdouble* params)
+{
+
+}
+
+void glGetTexGenfv(GLenum coord, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetTexGeniv(GLenum coord, GLenum pname, GLint* params)
+{
+
+}
+
+void glCallLists(GLsizei n, GLenum type, const void* lists)
+{
+
+}
+
+void glTexParameterfv(GLenum target, GLenum pname, const GLfloat* params)
+{
+
+}
+
+void glTexParameteriv(GLenum target, GLenum pname, const GLint* params)
+{
+
+}
+
+void glGetTexParameterfv(GLenum target, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetTexParameteriv(GLenum target, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* params)
+{
+
+}
