@@ -3762,6 +3762,19 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, 4 * sizeof(int));
                 break;
             }
+            case SGL_CMD_ARETEXTURESRESIDENT: {
+                unsigned int tex = *pb++;
+                GLboolean res;
+                glAreTexturesResident(1, &tex, &res);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = res;
+                break;
+            }
+            case SGL_CMD_PRIORITIZETEXTURES: {
+                unsigned int tex = *pb++;
+                float priority = *((float*)pb++);
+                glPrioritizeTextures(1, &tex, &priority);
+                break;
+            }
             }
             if (!begun) {
                 int error = glGetError();

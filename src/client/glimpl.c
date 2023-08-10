@@ -36,7 +36,7 @@ struct gl_color_tex_vertex_pointer {
     bool in_use;
 };
 
-struct gl_normal_pointer {
+struct gl_normal_index_pointer {
     GLenum type;
     GLsizei stride;
     const void *pointer;
@@ -44,12 +44,24 @@ struct gl_normal_pointer {
     bool in_use;
 };
 
-struct gl_vertex_attrib_pointer glimpl_vaps[GLIMPL_MAX_OBJECTS];
+struct gl_edge_flag_pointer {
+    GLsizei stride;
+    const void *pointer;
 
-struct gl_color_tex_vertex_pointer glimpl_color_ptr,
-                                   glimpl_tex_coord_ptr,
-                                   glimpl_vertex_ptr;
-struct gl_normal_pointer           glimpl_normal_ptr;
+    bool in_use;
+};
+
+struct gl_vertex_attrib_pointer     glimpl_vaps[GLIMPL_MAX_OBJECTS];
+
+struct gl_color_tex_vertex_pointer  glimpl_color_ptr,
+                                    glimpl_tex_coord_ptr,
+                                    glimpl_vertex_ptr;
+
+struct gl_normal_index_pointer      glimpl_normal_ptr,
+                                    glimpl_index_pointer,
+                                    glimpl_interleaved_pointer;
+
+struct gl_edge_flag_pointer         glimpl_edge_flag_ptr;
 
 #define NUM_EXTENSIONS 8
 static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_bgra GL_EXT_framebuffer_sRGB GL_EXT_paletted_texture GL_EXT_texture_filter_anisotropic";
@@ -1347,7 +1359,7 @@ void glColorPointer(GLint size, GLenum type, GLsizei stride, const void* pointer
 
 void glNormalPointer(GLenum type, GLsizei stride, const void* pointer)
 {
-    glimpl_normal_ptr = (struct gl_normal_pointer){
+    glimpl_normal_ptr = (struct gl_normal_index_pointer){
         .type = type,
         .stride = stride,
         .pointer = pointer,
@@ -1371,6 +1383,35 @@ void glVertexPointer(GLint size, GLenum type, GLsizei stride, const void* pointe
     glimpl_vertex_ptr = (struct gl_color_tex_vertex_pointer){
         .size = size,
         .type = type,
+        .stride = stride,
+        .pointer = pointer,
+        .in_use = true
+    };
+}
+
+void glEdgeFlagPointer(GLsizei stride, const void* pointer)
+{
+    glimpl_edge_flag_ptr = (struct gl_edge_flag_pointer){
+        .stride = stride,
+        .pointer = pointer,
+        .in_use = true
+    };
+}
+
+void glIndexPointer(GLenum type, GLsizei stride, const void* pointer)
+{
+    glimpl_index_pointer = (struct gl_normal_index_pointer){
+        .type = type,
+        .stride = stride,
+        .pointer = pointer,
+        .in_use = true
+    };
+}
+
+void glInterleavedArrays(GLenum format, GLsizei stride, const void* pointer)
+{
+    glimpl_interleaved_pointer = (struct gl_normal_index_pointer){
+        .type = format,
         .stride = stride,
         .pointer = pointer,
         .in_use = true
@@ -6214,4 +6255,51 @@ void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat*
 void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* params)
 {
 
+}
+
+void glGetPointerv(GLenum pname, GLvoid **params)
+{
+    switch (pname) {
+    case GL_VERTEX_ARRAY_POINTER:
+        *params = (void*)glimpl_vertex_ptr.pointer;
+        break;
+    case GL_NORMAL_ARRAY_POINTER:
+        *params = (void*)glimpl_normal_ptr.pointer;
+        break;
+    case GL_COLOR_ARRAY_POINTER:
+        *params = (void*)glimpl_color_ptr.pointer;
+        break;
+    case GL_TEXTURE_COORD_ARRAY_POINTER:
+        *params = (void*)glimpl_tex_coord_ptr.pointer;
+        break;
+    default:
+        *params = (void*)0;
+        break;
+    }
+}
+
+GLboolean glAreTexturesResident(GLsizei n, const GLuint* textures, GLboolean* residences)
+{
+    GLboolean res = GL_TRUE;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_ARETEXTURESRESIDENT);
+        pb_push(textures[i]);
+
+        glimpl_commit();
+        residences[i] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        
+        res = res && residences[i];
+    }
+
+    return res;
+}
+
+void glPrioritizeTextures(GLsizei n, const GLuint* textures, const GLfloat* priorities)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_PRIORITIZETEXTURES);
+        pb_push(textures[i]);
+        pb_pushf(priorities[i]);
+    }
 }
