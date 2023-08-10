@@ -6516,3 +6516,91 @@ void glFogCoorddv(const GLdouble* coord)
 {
     glFogCoordd(coord[0]);
 }
+
+void glDeleteQueries(GLsizei n, const GLuint* ids)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETEQUERIES);
+        pb_push(ids[i]);
+    }
+}
+
+void glGetQueryiv(GLenum target, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETQUERYIV);
+    pb_push(target);
+    pb_push(pname);
+
+    glimpl_commit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetQueryObjectiv(GLuint id, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETQUERYOBJECTIV);
+    pb_push(id);
+    pb_push(pname);
+
+    glimpl_commit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetQueryObjectuiv(GLuint id, GLenum pname, GLuint* params)
+{
+    pb_push(SGL_CMD_GETQUERYOBJECTUIV);
+    pb_push(id);
+    pb_push(pname);
+
+    glimpl_commit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void* data)
+{
+    glimpl_commit();
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(size / sizeof(int)); /* could be very bad mistake */
+    int *idata = (int*)data;
+    for (int i = 0; i < size / sizeof(int); i++)
+        pb_push(idata[i]);
+    
+    pb_push(SGL_CMD_BUFFERSUBDATA);
+    pb_push(target);
+    pb_push(offset);
+    pb_push(size);
+
+    glimpl_commit();
+}
+
+void glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, void* data)
+{
+    /*
+     * stub
+     */
+}
+
+void* glMapBuffer(GLenum target, GLenum access)
+{
+    /*
+     * stub
+     */
+    return NULL;
+}
+
+void glGetBufferParameteriv(GLenum target, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETBUFFERPARAMETERIV);
+    pb_push(target);
+    pb_push(pname);
+
+    glimpl_commit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetBufferPointerv(GLenum target, GLenum pname, void* *params)
+{
+    /*
+     * stub
+     */
+}

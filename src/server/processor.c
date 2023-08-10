@@ -3862,6 +3862,50 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 glMultTransposeMatrixf(m);
                 break;
             }
+            case SGL_CMD_DELETEQUERIES: {
+                unsigned int id = *pb++;
+                glDeleteQueries(1, &id);
+                break;
+            }
+            case SGL_CMD_GETQUERYIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                int params;
+                glGetQueryiv(target, pname, &params);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = params;
+                break;
+            }
+            case SGL_CMD_GETQUERYOBJECTIV: {
+                int id = *pb++,
+                    pname = *pb++;
+                int params;
+                glGetQueryObjectiv(id, pname, &params);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = params;
+                break;
+            }
+            case SGL_CMD_GETQUERYOBJECTUIV: {
+                int id = *pb++,
+                    pname = *pb++;
+                unsigned int params;
+                glGetQueryObjectuiv(id, pname, &params);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = params;
+                break;
+            }
+            case SGL_CMD_BUFFERSUBDATA: {
+                int target = *pb++,
+                    offset = *pb++,
+                    size = *pb++;
+                glBufferSubData(target, offset, size, uploaded);
+                break;
+            }
+            case SGL_CMD_GETBUFFERPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                int params;
+                glGetBufferParameteriv(target, pname, &params);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = params;
+                break;
+            }
             }
             if (!begun) {
                 int error = glGetError();
@@ -3871,7 +3915,6 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
         }
 
         /* commit done */
-        //memset(p + SGL_OFFSET_COMMAND_START, 0, (size_t)pb - (size_t)(p + SGL_OFFSET_COMMAND_START));
         *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) = 0;
     }
 }
