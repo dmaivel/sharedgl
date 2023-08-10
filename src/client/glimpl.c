@@ -6303,3 +6303,161 @@ void glPrioritizeTextures(GLsizei n, const GLuint* textures, const GLfloat* prio
         pb_pushf(priorities[i]);
     }
 }
+
+void glCompressedTexImage3D(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, const void* data)
+{
+    glimpl_commit();
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(imageSize / 4);
+    pb_memcpy((void*)data, imageSize, 0);
+
+    pb_push(SGL_CMD_COMPRESSEDTEXIMAGE3D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(internalformat);
+    pb_push(width);
+    pb_push(height);
+    pb_push(depth);
+    pb_push(border);
+    pb_push(imageSize);
+
+    glimpl_commit();
+}
+
+void glCompressedTexImage2D(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void* data)
+{
+    glimpl_commit();
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(imageSize / 4);
+    pb_memcpy((void*)data, imageSize, 0);
+
+    pb_push(SGL_CMD_COMPRESSEDTEXIMAGE2D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(internalformat);
+    pb_push(width);
+    pb_push(height);
+    pb_push(border);
+    pb_push(imageSize);
+
+    glimpl_commit();
+}
+
+void glCompressedTexImage1D(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLint border, GLsizei imageSize, const void* data)
+{
+    glimpl_commit();
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(imageSize / 4);
+    pb_memcpy((void*)data, imageSize, 0);
+
+    pb_push(SGL_CMD_COMPRESSEDTEXIMAGE1D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(internalformat);
+    pb_push(width);
+    pb_push(border);
+    pb_push(imageSize);
+
+    glimpl_commit();
+}
+
+void glCompressedTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void* data)
+{
+    glimpl_commit();
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(imageSize / 4);
+    pb_memcpy((void*)data, imageSize, 0);
+
+    pb_push(SGL_CMD_COMPRESSEDTEXSUBIMAGE3D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(xoffset);
+    pb_push(yoffset);
+    pb_push(zoffset);
+    pb_push(width);
+    pb_push(height);
+    pb_push(depth);
+    pb_push(format);
+    pb_push(imageSize);
+
+    glimpl_commit();
+}
+
+void glCompressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void* data)
+{
+    glimpl_commit();
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(imageSize / 4);
+    pb_memcpy((void*)data, imageSize, 0);
+
+    pb_push(SGL_CMD_COMPRESSEDTEXSUBIMAGE2D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(xoffset);
+    pb_push(yoffset);
+    pb_push(width);
+    pb_push(height);
+    pb_push(format);
+    pb_push(imageSize);
+
+    glimpl_commit();
+}
+
+void glCompressedTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void* data)
+{
+    glimpl_commit();
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(imageSize / 4);
+    pb_memcpy((void*)data, imageSize, 0);
+
+    pb_push(SGL_CMD_COMPRESSEDTEXSUBIMAGE1D);
+    pb_push(target);
+    pb_push(level);
+    pb_push(xoffset);
+    pb_push(width);
+    pb_push(format);
+    pb_push(imageSize);
+
+    glimpl_commit();
+}
+
+void glGetCompressedTexImage(GLenum target, GLint level, void* img)
+{
+    /*
+     * to-do: do
+     */
+}
+
+void glLoadTransposeMatrixf(const GLfloat* m)
+{
+    pb_push(SGL_CMD_LOADTRANSPOSEMATRIXF);
+    for (int i = 0; i < 16; i++)
+        pb_pushf(m[i]);
+}
+
+void glLoadTransposeMatrixd(const GLdouble* m)
+{
+    pb_push(SGL_CMD_LOADTRANSPOSEMATRIXF);
+    for (int i = 0; i < 16; i++)
+        pb_pushf(m[i]);
+}
+
+void glMultTransposeMatrixf(const GLfloat* m)
+{
+    pb_push(SGL_CMD_MULTTRANSPOSEMATRIXF);
+    for (int i = 0; i < 16; i++)
+        pb_pushf(m[i]);
+}
+
+void glMultTransposeMatrixd(const GLdouble* m)
+{
+    pb_push(SGL_CMD_MULTTRANSPOSEMATRIXF);
+    for (int i = 0; i < 16; i++)
+        pb_pushf(m[i]);
+}

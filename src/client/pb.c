@@ -154,7 +154,7 @@ void pb_copy(void *data, int s, size_t length)
 
 void pb_memcpy(void *dstsrc, size_t length, int is_dst_client)
 {
-    length = length + (length % 4);
+    length = length - (length % 4);
     if (is_dst_client) {
         memcpy(dstsrc, cur, length);
         cur += length;

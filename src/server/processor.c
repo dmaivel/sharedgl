@@ -3775,6 +3775,93 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 glPrioritizeTextures(1, &tex, &priority);
                 break;
             }
+            case SGL_CMD_COMPRESSEDTEXIMAGE3D: {
+                int target = *pb++,
+                    level = *pb++,
+                    internalformat = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    border = *pb++,
+                    imageSize = *pb++;
+                glCompressedTexImage3D(target, level, internalformat, width, height, depth, border, imageSize, uploaded);
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXIMAGE2D: {
+                int target = *pb++,
+                    level = *pb++,
+                    internalformat = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    border = *pb++,
+                    imageSize = *pb++;
+                glCompressedTexImage2D(target, level, internalformat, width, height, border, imageSize, uploaded);
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXIMAGE1D: {
+                int target = *pb++,
+                    level = *pb++,
+                    internalformat = *pb++,
+                    width = *pb++,
+                    border = *pb++,
+                    imageSize = *pb++;
+                glCompressedTexImage1D(target, level, internalformat, width, border, imageSize, uploaded);
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXSUBIMAGE3D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    format = *pb++,
+                    imageSize = *pb++;
+                glCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, uploaded);
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXSUBIMAGE2D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    format = *pb++,
+                    imageSize = *pb++;
+                glCompressedTexSubImage2D(target, level, xoffset, yoffset, width, height, format, imageSize, uploaded);
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXSUBIMAGE1D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    format = *pb++,
+                    imageSize = *pb++;
+                glCompressedTexSubImage1D(target, level, xoffset, width, format, imageSize, uploaded);
+                break;
+            }
+            case SGL_CMD_LOADTRANSPOSEMATRIXF: {
+                float m[16];
+                for (int i = 0; i < 16; i++)
+                    m[i] = *((float*)pb++);
+                glLoadTransposeMatrixf(m);
+                break;
+            }
+            case SGL_CMD_MULTTRANSPOSEMATRIXF: {
+                float m[16];
+                for (int i = 0; i < 16; i++)
+                    m[i] = *((float*)pb++);
+                glMultTransposeMatrixf(m);
+                break;
+            }
             }
             if (!begun) {
                 int error = glGetError();
