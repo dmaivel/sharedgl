@@ -55,11 +55,13 @@ struct gl_vertex_attrib_pointer     glimpl_vaps[GLIMPL_MAX_OBJECTS];
 
 struct gl_color_tex_vertex_pointer  glimpl_color_ptr,
                                     glimpl_tex_coord_ptr,
-                                    glimpl_vertex_ptr;
+                                    glimpl_vertex_ptr,
+                                    glimpl_color2_ptr;
 
 struct gl_normal_index_pointer      glimpl_normal_ptr,
                                     glimpl_index_pointer,
-                                    glimpl_interleaved_pointer;
+                                    glimpl_interleaved_pointer,
+                                    glimpl_fog_coord_pointer;
 
 struct gl_edge_flag_pointer         glimpl_edge_flag_ptr;
 
@@ -1412,6 +1414,27 @@ void glInterleavedArrays(GLenum format, GLsizei stride, const void* pointer)
 {
     glimpl_interleaved_pointer = (struct gl_normal_index_pointer){
         .type = format,
+        .stride = stride,
+        .pointer = pointer,
+        .in_use = true
+    };
+}
+
+void glFogCoordPointer(GLenum type, GLsizei stride, const void* pointer)
+{
+    glimpl_fog_coord_pointer = (struct gl_normal_index_pointer){
+        .type = type,
+        .stride = stride,
+        .pointer = pointer,
+        .in_use = true
+    };
+}
+
+void glSecondaryColorPointer(GLint size, GLenum type, GLsizei stride, const void* pointer)
+{
+    glimpl_color2_ptr = (struct gl_color_tex_vertex_pointer){
+        .size = size,
+        .type = type,
         .stride = stride,
         .pointer = pointer,
         .in_use = true
@@ -6460,4 +6483,36 @@ void glMultTransposeMatrixd(const GLdouble* m)
     pb_push(SGL_CMD_MULTTRANSPOSEMATRIXF);
     for (int i = 0; i < 16; i++)
         pb_pushf(m[i]);
+}
+
+void glMultiDrawArrays(GLenum mode, const GLint* first, const GLsizei* count, GLsizei drawcount)
+{
+    for (int i = 0; i < drawcount; i++)
+        glDrawArrays(mode, first[i], count[i]);
+}
+
+void glMultiDrawElements(GLenum mode, const GLsizei* count, GLenum type, const void* const*indices, GLsizei drawcount)
+{
+    for (int i = 0; i < drawcount; i++)
+        glDrawElements(mode, count[i], type, indices[i]);
+}
+
+void glPointParameterfv(GLenum pname, const GLfloat* params)
+{
+    glPointParameterf(pname, params[0]);
+}
+
+void glPointParameteriv(GLenum pname, const GLint* params)
+{
+    glPointParameteri(pname, params[0]);
+}
+
+void glFogCoordfv(const GLfloat* coord)
+{
+    glFogCoordf(coord[0]);
+}
+
+void glFogCoorddv(const GLdouble* coord)
+{
+    glFogCoordd(coord[0]);
 }
