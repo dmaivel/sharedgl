@@ -856,10 +856,28 @@ void glGetObjectParameterivARB(void *obj, GLenum pname, GLint* params)
 const GLubyte *glGetString(GLenum name)
 {
     static char version[16] = "X.X.0 SharedGL";
+    static char glsl_vr[5] = "X.X0";
 
     if (version[0] == 'X') {
         version[0] = '0' + (char)glimpl_major;
         version[2] = '0' + (char)glimpl_minor;
+        
+        char *glsl_override = getenv("GLSL_VERSION_OVERRIDE");
+
+        if (glsl_override) {
+            glsl_vr[0] = glsl_override[0];
+            glsl_vr[2] = glsl_override[2];
+        } 
+        else {
+            if ((glimpl_major == 3 && glimpl_minor == 3) || glimpl_major > 3) {
+                glsl_vr[0] = version[0];
+                glsl_vr[2] = version[2];
+            }
+            else {
+                glsl_vr[0] = '1';
+                glsl_vr[2] = '5';
+            }
+        }
     }
 
     switch (name) {
@@ -867,7 +885,7 @@ const GLubyte *glGetString(GLenum name)
     case GL_RENDERER: return (const GLubyte *)"SharedGL Renderer";
     case GL_VERSION: return (const GLubyte *)version;
     case GL_EXTENSIONS: return (const GLubyte *)glimpl_extensions_full;
-    case GL_SHADING_LANGUAGE_VERSION: return (const GLubyte *)"1.20";
+    case GL_SHADING_LANGUAGE_VERSION: return (const GLubyte *)glsl_vr;
     }
     return (const GLubyte *)"?";
 }
