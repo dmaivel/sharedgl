@@ -28,7 +28,7 @@ static const char *usage =
     "    -v                 display virtual machine arguments\n"
     "    -o                 enables fps overlay on clients (shows server side fps)\n"
     "    -x                 remove shared memory file\n"
-    "    -g [MAJOR.MINOR]   report specific opengl version (default: 1.2)\n"
+    "    -g [MAJOR.MINOR]   report specific opengl version (default: 2.1)\n"
     "    -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)\n"
     "    -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)\n";
 
@@ -64,8 +64,8 @@ int main(int argc, char **argv)
     shm_size = 16;
     bool print_virtual_machine_arguments = false;
 
-    int major = 1;
-    int minor = 2;
+    int major = SGL_DEFAULT_MAJOR;
+    int minor = SGL_DEFAULT_MINOR;
 
     for (int i = 1; i < argc; i++) {
         switch (argv[i][1]) {

@@ -11,6 +11,23 @@
 #define GLAPI
 #endif
 
+#define SGL_OFFSET_REGISTER_COMMIT (sizeof(int) * 0)
+#define SGL_OFFSET_REGISTER_RETVAL (sizeof(int) * 1)
+#define SGL_OFFSET_REGISTER_BUSY (sizeof(int) * 3)
+#define SGL_OFFSET_REGISTER_BUSY_FOR (sizeof(int) * 4)
+#define SGL_OFFSET_REGISTER_REQFB (sizeof(int) * 5)
+#define SGL_OFFSET_REGISTER_FBSTART (sizeof(int) * 6)
+#define SGL_OFFSET_REGISTER_MEMSIZE (sizeof(int) * 10)
+#define SGL_OFFSET_REGISTER_GLMAJ (sizeof(int) * 11)
+#define SGL_OFFSET_REGISTER_GLMIN (sizeof(int) * 12)
+#define SGL_OFFSET_REGISTER_RETVAL_V (sizeof(int) * 13)
+#define SGL_OFFSET_COMMAND_START 0x1000
+
+#define SGL_DEFAULT_MAJOR 2
+#define SGL_DEFAULT_MINOR 1
+
+#define SGL_SHARED_MEMORY_NAME "sharedgl_shared_memory"
+
 enum {
     SGL_CMD_INVALID,
     SGL_CMD_FLIP,
@@ -1082,20 +1099,6 @@ enum {
 
     SGL_CMD_MAX
 };
-
-#define SGL_OFFSET_REGISTER_COMMIT (sizeof(int) * 0)
-#define SGL_OFFSET_REGISTER_RETVAL (sizeof(int) * 1)
-#define SGL_OFFSET_REGISTER_BUSY (sizeof(int) * 3)
-#define SGL_OFFSET_REGISTER_BUSY_FOR (sizeof(int) * 4)
-#define SGL_OFFSET_REGISTER_REQFB (sizeof(int) * 5)
-#define SGL_OFFSET_REGISTER_FBSTART (sizeof(int) * 6)
-#define SGL_OFFSET_REGISTER_MEMSIZE (sizeof(int) * 10)
-#define SGL_OFFSET_REGISTER_GLMAJ (sizeof(int) * 11)
-#define SGL_OFFSET_REGISTER_GLMIN (sizeof(int) * 12)
-#define SGL_OFFSET_REGISTER_RETVAL_V (sizeof(int) * 13)
-#define SGL_OFFSET_COMMAND_START 0x1000
-
-#define SGL_SHARED_MEMORY_NAME "sharedgl_shared_memory"
 
 #ifdef SGL_STRING_TABLE
 #define STRING(x) #x
