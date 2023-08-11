@@ -44,7 +44,7 @@ options:
     -v                 display virtual machine arguments
     -o                 enables fps overlay on clients (shows server side fps)
     -x                 remove shared memory file
-    -g [MAJOR.MINOR]   report specific opengl version (default: 1.2)
+    -g [MAJOR.MINOR]   report specific opengl version (default: 2.1)
     -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)
     -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)
 ```

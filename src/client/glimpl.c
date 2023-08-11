@@ -78,8 +78,8 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
     "GL_EXT_texture_filter_anisotropic"
 };
 
-static int glimpl_major = 1;
-static int glimpl_minor = 2;
+static int glimpl_major = SGL_DEFAULT_MAJOR;
+static int glimpl_minor = SGL_DEFAULT_MINOR;
 
 void glimpl_commit()
 {
