@@ -188,7 +188,6 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
     case GL_RGB8: {
         unsigned int *p = (void*)pixels;
         int size = width * height * depth * 3;
-        int rem = size % 4;
 
         pb_push(SGL_CMD_VP_UPLOAD);
         pb_push(size);
@@ -205,6 +204,16 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
         pb_push(width * height * depth);
         for (int i = 0; i < width * height * depth; i++)
             pb_push(*p++);
+        break;
+    }
+    case GL_LUMINANCE_ALPHA: {
+        unsigned char *p = (void*)pixels;
+        int size = width * height * depth * 2;
+        
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(size);
+        pb_memcpy((void*)pixels, size);
+
         break;
     }
     default:
