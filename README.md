@@ -67,6 +67,7 @@ When running clients, a user may specify one or more of the following environmen
 ```
 GL_VERSION_OVERRIDE=X.X
 GLX_VERSION_OVERRIDE=X.X
+GLSL_VERSION_OVERRIDE=X.X
 ```
 
 # Virtual machines
