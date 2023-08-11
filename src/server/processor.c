@@ -3996,6 +3996,258 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 glGetTexLevelParameteriv(target, level, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
+            case SGL_CMD_BINDATTRIBLOCATION: {
+                int program = *pb++,
+                    index = *pb++;
+                char *name = (char*)pb;
+                glBindAttribLocation(program, index, name);
+                ADVANCE_PAST_STRING();
+                break;
+            }
+            case SGL_CMD_GETACTIVEATTRIB: {
+                int program = *pb++,
+                    index = *pb++,
+                    bufSize = *pb++;
+                glGetActiveAttrib(
+                    program,
+                    index,
+                    bufSize,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei),
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei) + sizeof(GLint),
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum)
+                );
+                break;
+            }
+            case SGL_CMD_GETACTIVEUNIFORM: {
+                int program = *pb++,
+                    index = *pb++,
+                    bufSize = *pb++;
+                glGetActiveUniform(
+                    program,
+                    index,
+                    bufSize,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei),
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei) + sizeof(GLint),
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum)
+                );
+                break;
+            }
+            case SGL_CMD_GETATTACHEDSHADERS: {
+                int program = *pb++,
+                    maxCount = *pb++;
+                glGetAttachedShaders(program, maxCount,  p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei));
+                break;
+            }
+            case SGL_CMD_GETPROGRAMINFOLOG: {
+                int program = *pb++,
+                    bufSize = *pb++;
+                glGetProgramInfoLog(program, bufSize,  p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei));
+                break;
+            }
+            case SGL_CMD_GETSHADERINFOLOG: {
+                int program = *pb++,
+                    bufSize = *pb++;
+                glGetShaderInfoLog(program, bufSize,  p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei));
+                break;
+            }
+            case SGL_CMD_GETSHADERSOURCE: {
+                int shader = *pb++,
+                    bufSize = *pb++;
+                glGetShaderSource(shader, bufSize,  p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei));
+                break;
+            }
+            case SGL_CMD_GETUNIFORMFV: {
+                int program = *pb++,
+                    location = *pb++;
+                glGetUniformfv(program, location, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_GETUNIFORMIV: {
+                int program = *pb++,
+                    location = *pb++;
+                glGetUniformiv(program, location, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_GETVERTEXATTRIBDV: {
+                int index = *pb++,
+                    pname = *pb++;
+                glGetVertexAttribdv(index, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETVERTEXATTRIBFV: {
+                int index = *pb++,
+                    pname = *pb++;
+                glGetVertexAttribfv(index, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETVERTEXATTRIBIV: {
+                int index = *pb++,
+                    pname = *pb++;
+                glGetVertexAttribiv(index, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX2FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix2fv(location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX3FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix3fv(location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4NBV: {
+                int index = *pb++;
+                GLbyte v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4Nbv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4NIV: {
+                int index = *pb++;
+                GLint v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4Niv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4NSV: {
+                int index = *pb++;
+                GLshort v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4Nsv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4NUIV: {
+                int index = *pb++;
+                GLuint v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4Nuiv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4NUSV: {
+                int index = *pb++;
+                GLushort v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4Nusv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4BV: {
+                int index = *pb++;
+                GLbyte v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4bv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4IV: {
+                int index = *pb++;
+                GLint v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4iv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4SV: {
+                int index = *pb++;
+                GLshort v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4sv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4UIV: {
+                int index = *pb++;
+                GLuint v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4uiv(index, v);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIB4USV: {
+                int index = *pb++;
+                GLushort v[4];
+                v[0] = *pb++;
+                v[1] = *pb++;
+                v[2] = *pb++;
+                v[3] = *pb++;
+                glVertexAttrib4usv(index, v);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX2X3FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix2x3fv(location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX3X2FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix3x2fv(location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX2X4FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix2x4fv(location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX4X2FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix4x2fv(location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX3X4FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix3x4fv(location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_UNIFORMMATRIX4X3FV: {
+                int location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glUniformMatrix4x3fv(location, count, transpose, uploaded);
+                break;
+            }
             }
             if (!begun) {
                 int error = glGetError();

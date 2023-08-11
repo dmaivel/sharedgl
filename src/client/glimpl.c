@@ -6758,3 +6758,364 @@ void glGetBufferPointerv(GLenum target, GLenum pname, void* *params)
      * stub
      */
 }
+
+void glDrawBuffers(GLsizei n, const GLenum* bufs)
+{
+    for (int i = 0; i < n; i++)
+        glDrawBuffer(bufs[i]);
+}
+
+void glBindAttribLocation(GLuint program, GLuint index, const GLchar* name)
+{
+    pb_push(SGL_CMD_BINDATTRIBLOCATION);
+    pb_push(program);
+    pb_push(index);
+    push_string(name);
+}
+
+void glGetActiveAttrib(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size, GLenum* type, GLchar* name)
+{
+    pb_push(SGL_CMD_GETACTIVEATTRIB);
+    pb_push(program);
+    pb_push(index);
+    pb_push(512); /* bufSize */
+    
+    glimpl_commit();
+    GLsizei len;
+    memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
+    memcpy(size, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), sizeof(GLint));
+    memcpy(type, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint), sizeof(GLenum));
+    memcpy(name, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum), len);
+
+    if (length)
+        *length = len;
+}
+
+void glGetActiveUniform(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLint* size, GLenum* type, GLchar* name)
+{
+    pb_push(SGL_CMD_GETACTIVEUNIFORM);
+    pb_push(program);
+    pb_push(index);
+    pb_push(512); /* bufSize */
+    
+    glimpl_commit();
+    GLsizei len;
+    memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
+    memcpy(size, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), sizeof(GLint));
+    memcpy(type, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint), sizeof(GLenum));
+    memcpy(name, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum), len);
+
+    if (length)
+        *length = len;
+}
+
+void glGetAttachedShaders(GLuint program, GLsizei maxCount, GLsizei* count, GLuint* shaders)
+{
+    pb_push(SGL_CMD_GETATTACHEDSHADERS);
+    pb_push(program);
+    pb_push(128); /* maxCount */
+
+    glimpl_commit();
+    GLsizei len;
+    memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
+    memcpy(shaders, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len * sizeof(GLuint));
+    *count = len;
+}
+
+void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
+{
+    pb_push(SGL_CMD_GETPROGRAMINFOLOG);
+    pb_push(program);
+    pb_push(512); /* bufSize */
+
+    glimpl_commit();
+    GLsizei len;
+    memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
+    memcpy(infoLog, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len);
+    *length = len;
+}
+
+void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
+{
+    pb_push(SGL_CMD_GETSHADERINFOLOG);
+    pb_push(shader);
+    pb_push(512); /* bufSize */
+
+    glimpl_commit();
+    GLsizei len;
+    memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
+    memcpy(infoLog, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len);
+    *length = len;
+}
+
+void glGetShaderSource(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* source)
+{
+    pb_push(SGL_CMD_GETSHADERSOURCE);
+    pb_push(shader);
+    pb_push(3072); /* bufSize */
+
+    glimpl_commit();
+    GLsizei len;
+    memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
+    memcpy(source, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len);
+    *length = len;
+}
+
+void glGetUniformfv(GLuint program, GLint location, GLfloat* params)
+{
+    pb_push(SGL_CMD_GETUNIFORMFV);
+    pb_push(program);
+    pb_push(location);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL), sizeof(float));
+}
+
+void glGetUniformiv(GLuint program, GLint location, GLint* params)
+{
+    pb_push(SGL_CMD_GETUNIFORMIV);
+    pb_push(program);
+    pb_push(location);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL), sizeof(int));
+}
+
+void glGetVertexAttribdv(GLuint index, GLenum pname, GLdouble* params)
+{
+    pb_push(SGL_CMD_GETVERTEXATTRIBDV);
+    pb_push(index);
+    pb_push(pname);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLdouble) + ((pname == GL_CURRENT_VERTEX_ATTRIB) * 3 * sizeof(GLdouble)));
+}
+
+void glGetVertexAttribfv(GLuint index, GLenum pname, GLfloat* params)
+{
+    pb_push(SGL_CMD_GETVERTEXATTRIBFV);
+    pb_push(index);
+    pb_push(pname);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_CURRENT_VERTEX_ATTRIB) * 3 * sizeof(float)));
+}
+
+void glGetVertexAttribiv(GLuint index, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETVERTEXATTRIBIV);
+    pb_push(index);
+    pb_push(pname);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int) + ((pname == GL_CURRENT_VERTEX_ATTRIB) * 3 * sizeof(int)));
+}
+
+void glGetVertexAttribPointerv(GLuint index, GLenum pname, void* *pointer)
+{
+    *pointer = glimpl_vaps[index].ptr;
+}
+
+void glUniformMatrix2fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2 * 2);
+    for (int i = 0; i < count * 2 * 2; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX2FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glUniformMatrix3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 3 * 3);
+    for (int i = 0; i < count * 3 * 3; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX3FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glVertexAttrib4Nbv(GLuint index, const GLbyte* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4NBV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4Niv(GLuint index, const GLint* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4NIV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4Nsv(GLuint index, const GLshort* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4NSV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4Nuiv(GLuint index, const GLuint* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4NUIV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4Nusv(GLuint index, const GLushort* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4NUSV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4bv(GLuint index, const GLbyte* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4BV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4iv(GLuint index, const GLint* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4IV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4ubv(GLuint index, const GLubyte* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4UBV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4uiv(GLuint index, const GLuint* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4UIV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glVertexAttrib4usv(GLuint index, const GLushort* v)
+{
+    pb_push(SGL_CMD_VERTEXATTRIB4USV);
+    pb_push(index);
+    pb_push(v[0]);
+    pb_push(v[1]);
+    pb_push(v[2]);
+    pb_push(v[3]);
+}
+
+void glUniformMatrix2x3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2 * 3);
+    for (int i = 0; i < count * 2 * 3; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX2X3FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glUniformMatrix3x2fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 3 * 2);
+    for (int i = 0; i < count * 3 * 2; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX3X2FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glUniformMatrix2x4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2 * 4);
+    for (int i = 0; i < count * 2 * 4; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX2X4FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glUniformMatrix4x2fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2 * 4);
+    for (int i = 0; i < count * 2 * 4; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX4X2FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glUniformMatrix3x4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 3 * 4);
+    for (int i = 0; i < count * 3 * 4; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX3X4FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glUniformMatrix4x3fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 3 * 4);
+    for (int i = 0; i < count * 3 * 4; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_UNIFORMMATRIX4X3FV);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
