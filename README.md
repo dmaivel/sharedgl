@@ -110,8 +110,8 @@ For windows clients, the Windows VirtIO Drivers need to be installed, which can 
 # Supported GL versions
 This list describes the amount of functions left from each standard to implement. This excludes EXT/ARB functions. This list may be inaccurate in terms of totals and also counts stubs as implementations.
 
-- [ ] OpenGL 1
-    - [ ] 1.0 (~21 remaining) (~306 total)
+- [x] OpenGL 1
+    - [x] 1.0 (~306 total)
     - [x] 1.1 (~30 total) 
     - [x] 1.2 (~4 total) 
     - [x] 1.3 (~46 total) 

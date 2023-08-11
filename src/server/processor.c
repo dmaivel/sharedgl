@@ -3906,6 +3906,96 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                 *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = params;
                 break;
             }
+            case SGL_CMD_GETMATERIALFV: {
+                int face = *pb++,
+                    pname = *pb++;
+                glGetMaterialfv(face, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETMATERIALIV: {
+                int face = *pb++,
+                    pname = *pb++;
+                glGetMaterialfv(face, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXENVFV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTexEnvfv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXENVIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTexEnviv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXGENDV: {
+                int coord = *pb++,
+                    pname = *pb++;
+                glGetTexGendv(coord, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXGENFV: {
+                int coord = *pb++,
+                    pname = *pb++;
+                glGetTexGenfv(coord, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXGENIV: {
+                int coord = *pb++,
+                    pname = *pb++;
+                glGetTexGeniv(coord, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_TEXPARAMETERFV: {
+                int target = *pb++,
+                    pname = *pb++;
+                float params[4];
+                params[0] = *((float*)pb++);
+                params[1] = *((float*)pb++);
+                params[2] = *((float*)pb++);
+                params[3] = *((float*)pb++);
+                glTexParameterfv(target, pname, params);
+                break;
+            }
+            case SGL_CMD_TEXPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                int params[4];
+                params[0] = *pb++;
+                params[1] = *pb++;
+                params[2] = *pb++;
+                params[3] = *pb++;
+                glTexParameteriv(target, pname, params);
+                break;
+            }
+            case SGL_CMD_GETTEXPARAMETERFV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTexParameterfv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTexParameteriv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXLEVELPARAMETERFV: {
+                int target = *pb++,
+                    level = *pb++,
+                    pname = *pb++;
+                glGetTexLevelParameterfv(target, level, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETTEXLEVELPARAMETERIV: {
+                int target = *pb++,
+                    level = *pb++,
+                    pname = *pb++;
+                glGetTexLevelParameteriv(target, level, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
             }
             if (!begun) {
                 int error = glGetError();

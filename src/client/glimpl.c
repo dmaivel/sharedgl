@@ -193,7 +193,7 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
         pb_push(SGL_CMD_VP_UPLOAD);
         pb_push(size);
 
-        pb_memcpy((void*)pixels, size, 0);
+        pb_memcpy((void*)pixels, size);
 
         break;
     }
@@ -6171,113 +6171,249 @@ void glGetLightiv(GLenum light, GLenum pname, GLint* params)
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(int));
 }
 
-/*
- * to-do: implement
- */
-
 void glGetMapdv(GLenum target, GLenum query, GLdouble* v)
 {
-
+    /*
+     * stub
+     */
 }
 
 void glGetMapfv(GLenum target, GLenum query, GLfloat* v)
 {
-
+    /*
+     * stub
+     */
 }
 
 void glGetMapiv(GLenum target, GLenum query, GLint* v)
 {
-
+    /*
+     * stub
+     */
 }
 
 void glGetMaterialfv(GLenum face, GLenum pname, GLfloat* params)
 {
+    int size = 1;
+    switch (pname) {
+    case GL_AMBIENT:
+    case GL_DIFFUSE:
+    case GL_SPECULAR:
+    case GL_EMISSION:
+        size = 4;
+        break;
+    case GL_COLOR_INDEXES:
+        size = 3;
+        break;
+    }
 
+    pb_push(SGL_CMD_GETMATERIALFV);
+    pb_push(face);
+    pb_push(pname);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
 }
 
 void glGetMaterialiv(GLenum face, GLenum pname, GLint* params)
 {
+    int size = 1;
+    switch (pname) {
+    case GL_AMBIENT:
+    case GL_DIFFUSE:
+    case GL_SPECULAR:
+    case GL_EMISSION:
+        size = 4;
+        break;
+    case GL_COLOR_INDEXES:
+        size = 3;
+        break;
+    }
 
+    pb_push(SGL_CMD_GETMATERIALIV);
+    pb_push(face);
+    pb_push(pname);
+
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(int));
 }
 
 void glGetPixelMapfv(GLenum map, GLfloat* values)
 {
-
+    /*
+     * stub
+     */
 }
 
 void glGetPixelMapuiv(GLenum map, GLuint* values)
 {
-
+    /*
+     * stub
+     */
 }
 
 void glGetPixelMapusv(GLenum map, GLushort* values)
 {
-
+    /*
+     * stub
+     */
 }
 
 void glGetPolygonStipple(GLubyte* mask)
 {
-
+    /*
+     * stub
+     */
 }
 
 void glGetTexEnvfv(GLenum target, GLenum pname, GLfloat* params)
 {
-
+    pb_push(SGL_CMD_GETTEXENVFV);
+    pb_push(target);
+    pb_push(pname);
+    
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_TEXTURE_ENV_COLOR) * (3 * sizeof(float))));
 }
 
 void glGetTexEnviv(GLenum target, GLenum pname, GLint* params)
 {
-
+    pb_push(SGL_CMD_GETTEXENVIV);
+    pb_push(target);
+    pb_push(pname);
+    
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int) + ((pname == GL_TEXTURE_ENV_COLOR) * (3 * sizeof(int))));
 }
 
 void glGetTexGendv(GLenum coord, GLenum pname, GLdouble* params)
 {
-
+    pb_push(SGL_CMD_GETTEXGENDV);
+    pb_push(coord);
+    pb_push(pname);
+    
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(double) + ((pname == GL_OBJECT_PLANE || pname == GL_EYE_PLANE) * (3 * sizeof(double))));
 }
 
 void glGetTexGenfv(GLenum coord, GLenum pname, GLfloat* params)
 {
-
+    pb_push(SGL_CMD_GETTEXGENFV);
+    pb_push(coord);
+    pb_push(pname);
+    
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_OBJECT_PLANE || pname == GL_EYE_PLANE) * (3 * sizeof(float))));
 }
 
 void glGetTexGeniv(GLenum coord, GLenum pname, GLint* params)
 {
-
+    pb_push(SGL_CMD_GETTEXGENIV);
+    pb_push(coord);
+    pb_push(pname);
+    
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int) + ((pname == GL_OBJECT_PLANE || pname == GL_EYE_PLANE) * (3 * sizeof(int))));
 }
 
 void glCallLists(GLsizei n, GLenum type, const void* lists)
 {
-
+    for (int i = 0; i < n; i++) {
+        switch (type) {
+        case GL_BYTE:
+        case GL_UNSIGNED_BYTE:
+            glCallList(((unsigned char*)lists)[i]);
+            break;
+        case GL_SHORT:
+        case GL_UNSIGNED_SHORT:
+            glCallList(((unsigned short*)lists)[i]);
+            break;
+        case GL_INT:
+        case GL_UNSIGNED_INT:
+            glCallList(((unsigned int*)lists)[i]);
+            break;
+        case GL_FLOAT:
+            glCallList(((float*)lists)[i]);
+            break;
+        /*
+         * GL_2_BYTES GL_3_BYTES GL_4_BYTES
+         */
+        }
+    }
 }
 
 void glTexParameterfv(GLenum target, GLenum pname, const GLfloat* params)
 {
+    if (pname != GL_TEXTURE_BORDER_COLOR && pname != GL_TEXTURE_SWIZZLE_RGBA) {
+        glTexParameterf(target, pname, params[0]);
+        return;
+    }
 
+    pb_push(SGL_CMD_TEXPARAMETERFV);
+    pb_push(target);
+    pb_push(pname);
+    pb_pushf(params[0]);
+    pb_pushf(params[1]);
+    pb_pushf(params[2]);
+    pb_pushf(params[3]);
 }
 
 void glTexParameteriv(GLenum target, GLenum pname, const GLint* params)
 {
+    if (pname != GL_TEXTURE_BORDER_COLOR && pname != GL_TEXTURE_SWIZZLE_RGBA) {
+        glTexParameteri(target, pname, params[0]);
+        return;
+    }
 
+    pb_push(SGL_CMD_TEXPARAMETERIV);
+    pb_push(target);
+    pb_push(pname);
+    pb_push(params[0]);
+    pb_push(params[1]);
+    pb_push(params[2]);
+    pb_push(params[3]);
 }
 
 void glGetTexParameterfv(GLenum target, GLenum pname, GLfloat* params)
 {
+    pb_push(SGL_CMD_GETTEXPARAMETERFV);
+    pb_push(target);
+    pb_push(pname);
 
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_TEXTURE_BORDER_COLOR || pname == GL_TEXTURE_SWIZZLE_RGBA) * (3 * sizeof(float))));
 }
 
 void glGetTexParameteriv(GLenum target, GLenum pname, GLint* params)
 {
+    pb_push(SGL_CMD_GETTEXPARAMETERIV);
+    pb_push(target);
+    pb_push(pname);
 
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_TEXTURE_BORDER_COLOR || pname == GL_TEXTURE_SWIZZLE_RGBA) * (3 * sizeof(float))));
 }
 
 void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat* params)
 {
-
+    pb_push(SGL_CMD_GETTEXLEVELPARAMETERFV);
+    pb_push(target);
+    pb_push(level);
+    pb_push(pname);
+    
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float));
 }
 
 void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* params)
 {
-
+    pb_push(SGL_CMD_GETTEXLEVELPARAMETERIV);
+    pb_push(target);
+    pb_push(level);
+    pb_push(pname);
+    
+    glimpl_commit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int));
 }
 
 void glGetPointerv(GLenum pname, GLvoid **params)
@@ -6333,7 +6469,7 @@ void glCompressedTexImage3D(GLenum target, GLint level, GLenum internalformat, G
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
-    pb_memcpy((void*)data, imageSize, 0);
+    pb_memcpy((void*)data, imageSize);
 
     pb_push(SGL_CMD_COMPRESSEDTEXIMAGE3D);
     pb_push(target);
@@ -6354,7 +6490,7 @@ void glCompressedTexImage2D(GLenum target, GLint level, GLenum internalformat, G
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
-    pb_memcpy((void*)data, imageSize, 0);
+    pb_memcpy((void*)data, imageSize);
 
     pb_push(SGL_CMD_COMPRESSEDTEXIMAGE2D);
     pb_push(target);
@@ -6374,7 +6510,7 @@ void glCompressedTexImage1D(GLenum target, GLint level, GLenum internalformat, G
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
-    pb_memcpy((void*)data, imageSize, 0);
+    pb_memcpy((void*)data, imageSize);
 
     pb_push(SGL_CMD_COMPRESSEDTEXIMAGE1D);
     pb_push(target);
@@ -6393,7 +6529,7 @@ void glCompressedTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint 
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
-    pb_memcpy((void*)data, imageSize, 0);
+    pb_memcpy((void*)data, imageSize);
 
     pb_push(SGL_CMD_COMPRESSEDTEXSUBIMAGE3D);
     pb_push(target);
@@ -6416,7 +6552,7 @@ void glCompressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint 
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
-    pb_memcpy((void*)data, imageSize, 0);
+    pb_memcpy((void*)data, imageSize);
 
     pb_push(SGL_CMD_COMPRESSEDTEXSUBIMAGE2D);
     pb_push(target);
@@ -6437,7 +6573,7 @@ void glCompressedTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsize
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
-    pb_memcpy((void*)data, imageSize, 0);
+    pb_memcpy((void*)data, imageSize);
 
     pb_push(SGL_CMD_COMPRESSEDTEXSUBIMAGE1D);
     pb_push(target);
