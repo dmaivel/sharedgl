@@ -6792,9 +6792,9 @@ void glGetActiveAttrib(GLuint program, GLuint index, GLsizei bufSize, GLsizei* l
     glimpl_commit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
-    memcpy(size, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), sizeof(GLint));
-    memcpy(type, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint), sizeof(GLenum));
-    memcpy(name, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum), len);
+    memcpy(size, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), sizeof(GLint));
+    memcpy(type, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint)), sizeof(GLenum));
+    memcpy(name, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum)), len);
 
     if (length)
         *length = len;
@@ -6810,9 +6810,9 @@ void glGetActiveUniform(GLuint program, GLuint index, GLsizei bufSize, GLsizei* 
     glimpl_commit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
-    memcpy(size, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), sizeof(GLint));
-    memcpy(type, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint), sizeof(GLenum));
-    memcpy(name, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum), len);
+    memcpy(size, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), sizeof(GLint));
+    memcpy(type, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint)), sizeof(GLenum));
+    memcpy(name, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei) + sizeof(GLint) + sizeof(GLenum)), len);
 
     if (length)
         *length = len;
@@ -6827,7 +6827,7 @@ void glGetAttachedShaders(GLuint program, GLsizei maxCount, GLsizei* count, GLui
     glimpl_commit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
-    memcpy(shaders, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len * sizeof(GLuint));
+    memcpy(shaders, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len * sizeof(GLuint));
     *count = len;
 }
 
@@ -6840,7 +6840,7 @@ void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLcha
     glimpl_commit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
-    memcpy(infoLog, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len);
+    memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
     *length = len;
 }
 
@@ -6853,7 +6853,7 @@ void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar*
     glimpl_commit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
-    memcpy(infoLog, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len);
+    memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
     *length = len;
 }
 
@@ -6866,7 +6866,7 @@ void glGetShaderSource(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* 
     glimpl_commit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
-    memcpy(source, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei), len);
+    memcpy(source, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
     *length = len;
 }
 
