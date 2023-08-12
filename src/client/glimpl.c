@@ -164,8 +164,7 @@ static struct gl_vertex_attrib_pointer *glimpl_get_enabled_vap()
         if (glimpl_vaps[i].enabled)
             return &glimpl_vaps[i];
 
-    /* dumb fallback */
-    return &glimpl_vaps[0];
+    return NULL;
 }
 
 static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, GLenum format, const void* pixels)
@@ -484,30 +483,156 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
     pb_push(num_groups_z);
 }
 
+static inline void glimpl_push_client_pointers(int mode, int max_index)
+{
+    if (glimpl_normal_ptr.in_use) {
+        int max_normal = max_index;
+        int size = 4;
+
+        switch (mode) {
+        case GL_TRIANGLES:
+        case GL_TRIANGLE_FAN:
+        case GL_TRIANGLE_STRIP:
+            max_normal /= 3;
+            break;
+        case GL_QUADS:
+            max_normal /= 4;
+            break;
+        default:
+            break;
+        }
+
+        switch (glimpl_normal_ptr.type) {
+        case GL_FLOAT:
+        case GL_INT:
+            size = 4;
+            break;
+        case GL_BYTE:
+            size = 1;
+            break;
+        case GL_SHORT:
+            size = 2;
+            break;
+        case GL_DOUBLE:
+            size = 8;
+            break;
+        }
+
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_normal * size);
+        const float *fvertices = glimpl_normal_ptr.pointer;
+
+        for (int i = 0; i < max_normal; i++) {
+            for (int j = 0; j < size; j++)
+                pb_pushf(*fvertices++);
+            for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - size; j++)
+                fvertices++;
+        }
+
+        pb_push(SGL_CMD_NORMALPOINTER);
+        pb_push(glimpl_normal_ptr.type);
+        pb_push(0);
+    }
+
+    if (glimpl_color_ptr.in_use) {
+        int true_size = glimpl_color_ptr.size;
+
+        if (true_size > 4) {
+            switch (true_size) {
+            case GL_RGB:
+            case GL_BGR:
+                true_size = 3;
+                break;
+            case GL_RGBA:
+            case GL_BGRA:
+                true_size = 4;
+                break;
+            }
+        } 
+
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_index * glimpl_color_ptr.size);
+        const float *color = glimpl_color_ptr.pointer;
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_color_ptr.size; j++)
+                pb_pushf(*color++);
+            for (int j = 0; j < (glimpl_color_ptr.stride / 4) - true_size; j++)
+                color++;
+        }
+
+        pb_push(SGL_CMD_COLORPOINTER);
+        pb_push(glimpl_color_ptr.size);
+        pb_push(glimpl_color_ptr.type);
+        pb_push(0);
+    }
+
+    if (glimpl_tex_coord_ptr.in_use) {
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_index * glimpl_tex_coord_ptr.size);
+        const float *fvertices = glimpl_tex_coord_ptr.pointer;
+
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_tex_coord_ptr.size; j++)
+                pb_pushf(*fvertices++);
+            for (int j = 0; j < (glimpl_tex_coord_ptr.stride / 4) - glimpl_tex_coord_ptr.size; j++)
+                fvertices++;
+        }
+
+        pb_push(SGL_CMD_TEXCOORDPOINTER);
+        pb_push(glimpl_tex_coord_ptr.size);
+        pb_push(glimpl_tex_coord_ptr.type);
+        pb_push(0);
+    }
+
+    if (glimpl_vertex_ptr.in_use) {
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_index * glimpl_vertex_ptr.size);
+        const float *fvertices = glimpl_vertex_ptr.pointer;
+
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
+                pb_pushf(*fvertices++);
+            for (int j = 0; j < (glimpl_vertex_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
+                fvertices++;
+        }
+
+        pb_push(SGL_CMD_VERTEXPOINTER);
+        pb_push(glimpl_vertex_ptr.size);
+        pb_push(glimpl_vertex_ptr.type);
+        pb_push(0);
+    }
+}
+
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
     struct gl_vertex_attrib_pointer *vap = glimpl_get_enabled_vap();
 
-    if (vap->client_managed) {
-        if (vap->ptr > (int*)0x10000) {
-            pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(vap->size * count);
-            for (int i = 0; i < vap->size * count; i++)
-                pb_push(vap->ptr[i]);
+    if (vap) {
+        if (vap->client_managed) {
+            if (vap->ptr > (int*)0x10000) {
+                pb_push(SGL_CMD_VP_UPLOAD);
+                pb_push(vap->size * count);
+                for (int i = 0; i < vap->size * count; i++)
+                    pb_push(vap->ptr[i]);
+            }
+
+            pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
+            pb_push(vap->index);
+            pb_push(vap->size);
+            pb_push(vap->type);
+            pb_push(vap->normalized);
+            pb_push(vap->stride);
+            pb_push((int)((long)vap->ptr & 0x00000000FFFFFFFF));
+
+            pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
+            pb_push(vap->index);
         }
-
-        pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
-        pb_push(vap->index);
-        pb_push(vap->size);
-        pb_push(vap->type);
-        pb_push(vap->normalized);
-        pb_push(vap->stride);
-        pb_push((int)((long)vap->ptr & 0x00000000FFFFFFFF));
-
-        pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
-        pb_push(vap->index);
     }
-    
+    else {
+        glimpl_push_client_pointers(mode, count);
+    }
+
+
     pb_push(SGL_CMD_DRAWARRAYS);
     pb_push(mode);
     pb_push(first);
@@ -550,123 +675,7 @@ static inline void glimpl_draw_elements(int mode, int type, int start, int end, 
         }
 
         max_index++;
-
-        if (glimpl_normal_ptr.in_use) {
-            int max_normal = max_index;
-            int size = 4;
-
-            switch (mode) {
-            case GL_TRIANGLES:
-            case GL_TRIANGLE_FAN:
-            case GL_TRIANGLE_STRIP:
-                max_normal /= 3;
-                break;
-            case GL_QUADS:
-                max_normal /= 4;
-                break;
-            default:
-                break;
-            }
-
-            switch (glimpl_normal_ptr.type) {
-            case GL_FLOAT:
-            case GL_INT:
-                size = 4;
-                break;
-            case GL_BYTE:
-                size = 1;
-                break;
-            case GL_SHORT:
-                size = 2;
-                break;
-            case GL_DOUBLE:
-                size = 8;
-                break;
-            }
-
-            pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(max_normal * size);
-            const float *fvertices = glimpl_normal_ptr.pointer;
-
-            for (int i = 0; i < max_normal; i++) {
-                for (int j = 0; j < size; j++)
-                    pb_pushf(*fvertices++);
-                for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - size; j++)
-                    fvertices++;
-            }
-
-            pb_push(SGL_CMD_NORMALPOINTER);
-            pb_push(glimpl_normal_ptr.type);
-            pb_push(0);
-        }
-
-        if (glimpl_color_ptr.in_use) {
-            int true_size = glimpl_color_ptr.size;
-
-            if (true_size > 4) {
-                switch (true_size) {
-                case GL_RGB:
-                case GL_BGR:
-                    true_size = 3;
-                    break;
-                case GL_RGBA:
-                case GL_BGRA:
-                    true_size = 4;
-                    break;
-                }
-            } 
-
-            pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(max_index * glimpl_color_ptr.size);
-            const float *color = glimpl_color_ptr.pointer;
-            for (int i = 0; i < max_index; i++) {
-                for (int j = 0; j < glimpl_color_ptr.size; j++)
-                    pb_pushf(*color++);
-                for (int j = 0; j < (glimpl_color_ptr.stride / 4) - true_size; j++)
-                    color++;
-            }
-
-            pb_push(SGL_CMD_COLORPOINTER);
-            pb_push(glimpl_color_ptr.size);
-            pb_push(glimpl_color_ptr.type);
-            pb_push(0);
-        }
-
-        if (glimpl_tex_coord_ptr.in_use) {
-            pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(max_index * glimpl_tex_coord_ptr.size);
-            const float *fvertices = glimpl_tex_coord_ptr.pointer;
-
-            for (int i = 0; i < max_index; i++) {
-                for (int j = 0; j < glimpl_tex_coord_ptr.size; j++)
-                    pb_pushf(*fvertices++);
-                for (int j = 0; j < (glimpl_tex_coord_ptr.stride / 4) - glimpl_tex_coord_ptr.size; j++)
-                    fvertices++;
-            }
-
-            pb_push(SGL_CMD_TEXCOORDPOINTER);
-            pb_push(glimpl_tex_coord_ptr.size);
-            pb_push(glimpl_tex_coord_ptr.type);
-            pb_push(0);
-        }
-
-        if (glimpl_vertex_ptr.in_use) {
-            pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(max_index * glimpl_vertex_ptr.size);
-            const float *fvertices = glimpl_vertex_ptr.pointer;
-
-            for (int i = 0; i < max_index; i++) {
-                for (int j = 0; j < glimpl_vertex_ptr.size; j++)
-                    pb_pushf(*fvertices++);
-                for (int j = 0; j < (glimpl_vertex_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
-                    fvertices++;
-            }
-
-            pb_push(SGL_CMD_VERTEXPOINTER);
-            pb_push(glimpl_vertex_ptr.size);
-            pb_push(glimpl_vertex_ptr.type);
-            pb_push(0);
-        }
+        glimpl_push_client_pointers(mode, max_index);
 
         /*
          * to-do: pack?
