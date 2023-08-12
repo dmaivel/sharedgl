@@ -486,46 +486,14 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
 static inline void glimpl_push_client_pointers(int mode, int max_index)
 {
     if (glimpl_normal_ptr.in_use) {
-        int max_normal = max_index;
-        int size = 4;
-
-        switch (mode) {
-        case GL_TRIANGLES:
-        case GL_TRIANGLE_FAN:
-        case GL_TRIANGLE_STRIP:
-            max_normal /= 3;
-            break;
-        case GL_QUADS:
-            max_normal /= 4;
-            break;
-        default:
-            break;
-        }
-
-        switch (glimpl_normal_ptr.type) {
-        case GL_FLOAT:
-        case GL_INT:
-            size = 4;
-            break;
-        case GL_BYTE:
-            size = 1;
-            break;
-        case GL_SHORT:
-            size = 2;
-            break;
-        case GL_DOUBLE:
-            size = 8;
-            break;
-        }
-
         pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_normal * size);
+        pb_push(max_index * glimpl_vertex_ptr.size);
         const float *fvertices = glimpl_normal_ptr.pointer;
 
-        for (int i = 0; i < max_normal; i++) {
-            for (int j = 0; j < size; j++)
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
                 pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - size; j++)
+            for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
                 fvertices++;
         }
 

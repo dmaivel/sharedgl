@@ -275,10 +275,6 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
                     type = *pb++,
                     status = *pb++;
                 glDrawElements(mode, count, type, status ? uploaded : NULL);
-                //// printf("glDrawElements(0x%x, %d, 0x%x, [%d, %d, %d, %d, %d, %d, ...]);\n", mode, count, type, ((int*)uploaded)[0], ((int*)uploaded)[1], ((int*)uploaded)[2], ((int*)uploaded)[3], ((int*)uploaded)[4], ((int*)uploaded)[5]);
-                //for (int i = 0; i < count; i++)
-                //    printf("%d ", ((int*)uploaded)[i]);
-                //printf("\n");
                 break;
             }
             case SGL_CMD_ENABLE:
