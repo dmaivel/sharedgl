@@ -82,8 +82,8 @@ int main(int argc, char **argv)
             shm_unlink(SGL_SHARED_MEMORY_NAME);
             return 0;
         case 'g':
-            major = atoi(argv[i + 1]);
-            minor = atoi(&argv[i + 1][2]);
+            major = argv[i + 1][0] - '0';
+            minor = argv[i + 1][2] - '0';
             i++;
             break;
         case 'r': {
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
 
     if (ftruncate(shm_fd, shm_size) == -1) {
         fprintf(stderr, "[-] failed to truncate shared memory\n");
-        return -1;
+        return -2;
     }
 
     shm_ptr = mmap(0, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
