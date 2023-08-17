@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(sharedgl VERSION 0.3.0 LANGUAGES C)
+project(sharedgl VERSION 0.3.0 LANGUAGES C CXX)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -rdynamic")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -rdynamic")
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -march=native")
 
 IF(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
@@ -18,6 +20,8 @@ IF(UNIX)
 ELSEIF(WIN32)
     file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/winmain.c" "src/client/pb.c" "src/client/glimpl.c")
     file(GLOB GLOBBED_CLIENT_P_SOURCES CONFIGURE_DEPENDS "src/client/platform/wgl.c")
+
+    file(GLOB GLOBBED_DXUMD_SOURCES CONFIGURE_DEPENDS "src/sgldxumd/*.cpp")
 ENDIF(UNIX)
 
 # server
@@ -35,3 +39,10 @@ ELSEIF(WIN32)
     set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "opengl32")
     target_link_libraries(sharedgl-core ${CMAKE_SOURCE_DIR}/inc/client/platform/minhook/minhook.lib)
 ENDIF(UNIX)
+
+# sgldxumd
+IF(WIN32)
+    add_library(sharedgl-dxumd SHARED ${GLOBBED_DXUMD_SOURCES})
+    set_target_properties(sharedgl-dxumd PROPERTIES OUTPUT_NAME "sgldxumd")
+    target_include_directories(sharedgl-dxumd PUBLIC "C:\\Program Files\ (x86)\\Windows\ Kits\\10\\Include\\10.0.19041.0\\um" "C:\\Program Files\ (x86)\\Windows\ Kits\\10\\Include\\10.0.19041.0\\shared")
+ENDIF(WIN32)
