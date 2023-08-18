@@ -158,7 +158,7 @@ EXTERN_C NTSTATUS APIENTRY D3DKMTQueryAdapterInfo(CONST D3DKMT_QUERYADAPTERINFO 
                 (D3DKMT_SEGMENTSIZEINFO*)pData->pPrivateDriverData;
         pResult->DedicatedVideoMemorySize = 0;
         pResult->DedicatedSystemMemorySize = 0;
-        pResult->SharedSystemMemorySize = 3ULL*1024ULL*1024ULL*1024ULL;
+        pResult->SharedSystemMemorySize = 1024ull*1024ull*1024ull;
         return STATUS_SUCCESS;
     }
     case KMTQAITYPE_CHECKDRIVERUPDATESTATUS:
