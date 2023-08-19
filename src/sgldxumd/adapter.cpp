@@ -53,7 +53,7 @@ static void APIENTRY SetAdapter(D3D10DDIARG_OPENADAPTER *pOpenData)
     pOpenData->pAdapterFuncs->pfnCloseAdapter = CloseAdapter;
 }
 
-EXTERN_C HRESULT APIENTRY OpenAdapter10(D3D10DDIARG_OPENADAPTER *pOpenData)   // IN
+EXTERN_C HRESULT APIENTRY OpenAdapter10(D3D10DDIARG_OPENADAPTER *pOpenData)
 {
     switch (pOpenData->Interface) {
     case D3D10_0_DDI_INTERFACE_VERSION:
