@@ -1,4 +1,5 @@
 #include <sgldxumd/sgldxumd.hpp>
+#include <cwchar>
 
 EXTERN_C NTSTATUS APIENTRY D3DKMTCreateDevice(D3DKMT_CREATEDEVICE *pData)
 {
@@ -153,9 +154,13 @@ EXTERN_C NTSTATUS APIENTRY D3DKMTQueryAdapterInfo(CONST D3DKMT_QUERYADAPTERINFO 
         DWORD dwRet = GetModuleFileNameW(hModule, pResult->UmdFileName, MAX_PATH);
         return STATUS_SUCCESS;
     }
+    case KMTQAITYPE_UMOPENGLINFO: {
+        D3DKMT_OPENGLINFO *pResult = (D3DKMT_OPENGLINFO*)pData->pPrivateDriverData;
+        wcscpy(pResult->UmdOpenGlIcdFileName, L"opengl32.dll"); /* to-do: change opengl name */
+        return STATUS_SUCCESS;
+    }
     case KMTQAITYPE_GETSEGMENTSIZE: {
-        D3DKMT_SEGMENTSIZEINFO *pResult =
-                (D3DKMT_SEGMENTSIZEINFO*)pData->pPrivateDriverData;
+        D3DKMT_SEGMENTSIZEINFO *pResult = (D3DKMT_SEGMENTSIZEINFO*)pData->pPrivateDriverData;
         pResult->DedicatedVideoMemorySize = 0;
         pResult->DedicatedSystemMemorySize = 0;
         pResult->SharedSystemMemorySize = 1024ull*1024ull*1024ull;
