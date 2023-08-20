@@ -6,7 +6,9 @@
 
 VOID Main()
 {
+#ifdef OVERRIDE_OPENGL32
     WglInit();
+#endif
     glimpl_init();
 }
 
