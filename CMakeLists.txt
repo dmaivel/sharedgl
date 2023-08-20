@@ -9,6 +9,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -march=native")
 
 IF(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gz")
 ENDIF(WIN32)
 
 file(GLOB GLOBBED_SERVER_SOURCES CONFIGURE_DEPENDS "src/server/*.c")
@@ -36,7 +37,13 @@ IF(UNIX)
     set_target_properties(sharedgl-core PROPERTIES VERSION 1)
 ELSEIF(WIN32)
     add_library(sharedgl-core SHARED ${GLOBBED_CLIENT_SOURCES} ${GLOBBED_CLIENT_P_SOURCES})
-    set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "sharedgl")
+    IF(CMAKE_GENERATOR_PLATFORM MATCHES "Win32")
+        set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "sharedgl32")
+        target_link_options(sharedgl-core PRIVATE /machine:x86)
+    ELSE()
+        set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "sharedgl64")
+        target_link_options(sharedgl-core PRIVATE /machine:x64)
+    ENDIF()
 ENDIF(UNIX)
 
 # sgldxumd

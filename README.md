@@ -1,6 +1,6 @@
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)  <img style="float: right;" src="media/icon.png" alt=icon width="192" height="192">
 
-SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for capturing graphics calls and accelerated graphics within virtual machines. SGL is designed with the intent to be compatible with a wide range of platforms (WGL, GLX, EGL), making it possible to run on virtually any guest system.
+SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for capturing graphics calls and accelerated graphics within virtual machines. SGL is designed with the intent to be compatible with a wide range of platforms (WGL, GLX, EGL), making it possible to run on virtually any guest system without the need for full GPU passthrough solutions.
 
 > [!IMPORTANT]\
 > Functionality is currently limitted as some chunks of the OpenGL standard are yet to be implemented (to check the status on near fully supported versions, scroll down). Additionally, this has only been tested on a handful of demoes (including glxgears) on X11 (GLX) and Windows (WGL) as EGL support has not been implemented yet. If you encounter crashes or weird bugs, scroll down for troubleshooting.
@@ -13,7 +13,7 @@ The following libraries are required for building the server and client on linux
 - libx11
 
 ## Build
-The following script builds the host and client for linux.
+The following script builds the host and client for linux (currently only x64 is "officially" supported).
 ```bash
 git clone https://github.com/dmaivel/sharedgl.git
 cd sharedgl
@@ -23,7 +23,7 @@ cmake ..
 cmake --build . --config Release
 ```
 
-The following script compiles the windows client (this must be done on windows, through the `Visual Studio Developer Command Prompt / Powershell`).
+The following script compiles the windows client (this must be done on windows, through the `Visual Studio Developer Command Prompt / Powershell`). For more information regarding the build process for Windows, including building for x86, scroll down.
 ```bash
 git clone https://github.com/dmaivel/sharedgl.git
 cd sharedgl
@@ -50,6 +50,10 @@ options:
 ```
 
 ## Running clients
+
+> [!IMPORTANT]\
+> In addition to installing the library, you also need to install a driver and attach a shared memory device if you are using a virtual machine. For more information, scroll down to the virtual machine section.
+
 ### Linux
 For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
 
@@ -60,19 +64,26 @@ $ ...
 ```
 
 ### Windows (VM)
-For your OpenGL application to communicate with the server, the client library (`sharedgl.dll`) must be installed using the following steps **(to-do: make an install script)**:
-1. Move `sharedgl.dll` to `C:\Windows\System32\`
-2. Open `regedit` and navigate to `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\OpenGLDrivers\`
-3. Create a new key named `MSOGL` and navigate into it
-4. Create a new string named `DLL` and set it to `sharedgl.dll`
-5. Create a new DWORD named `DriverVersion` and set it to `1`
-6. Create a new DWORD named `Flags` and set it to `1`
-7. Create a new DWORD named `Version` and set it to `2`
+There are two ways to install the library on windows (keep scrolling for more information regarding VMs):
+1. Use a release
+    1. Download the latest release for windows and extract the zip file.
+    2. Navigate into the extracted folder and run `wininstall.bat` and allow admin privledges.
+    3. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
+2. Compile from source (use cmd / powershell / Visual Studio Developer Command Prompt)
+    1. Download the source (preferably thru `git`).
+    2. Navigate into the folder, create a new folder named `build`, and navigate into it (mkdir `build` && cd `build`).
+    3. Run `cmake ..`, which will target the system's architecture.
+        - The steps below can be ran after building for another target.
+        - To explicitly state an x64 build, run `cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..` instead.
+        - To explicitly state an x86 (32-bit) build, run `cmake -DCMAKE_GENERATOR_PLATFORM=Win32 ..` instead.
+    4. Upon building either the x64 binary or x86 binary or both binaries, move the install script (`...\sharedgl\scripts\wininstall.bat`) into the same folder where the built binaries reside (`...\sharedgl\build\Release\`).
+    5. Run the script and allow admin privledges.
+    6. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
 
-Now, whenever an application (currently only x64) that uses OpenGL is ran, SharedGL will be used.
+An uninstall script, `winuninstall.bat` is also provided.
 
 > [!NOTE]\
-> Previous releases' clients are named opengl32.dll, meaning they are not ICDs. If you use a client from release <= 0.3.0, then all you need to do is drop it into the same folder as your OpenGL application.
+> Previous releases' clients are named opengl32.dll, meaning they are not ICDs. If you use a client from release <= 0.3.0, then all you need to do is drop it into the same folder as your OpenGL application. It is not recommended that you use the clients from these releases as they become outdated and are not reliable.
 
 ### Environment variables
 When running clients, a user may specify one or more of the following environment variables for version control:
