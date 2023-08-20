@@ -1,3 +1,4 @@
+#ifdef OVERRIDE_OPENGL32
 #ifndef _SGL_WGL_H_
 #define _SGL_WGL_H_
 
@@ -5,4 +6,5 @@
 
 void WglInit();
 
+#endif
 #endif

@@ -11,7 +11,13 @@ void glimpl_swap_buffers(int width, int height, int vflip, int format);
 void *glimpl_fb_address();
 
 /*
- * gl... functions don't need to be public
+ * gl... functions don't need to be public, however
+ * for windows icd we seemingly need to get a proc
+ * table for 1.1
  */
+#ifdef _WIN32
+#include <client/platform/gldrv.h>
+PGLCLTPROCTABLE glimpl_GetProcTable();
+#endif
 
 #endif

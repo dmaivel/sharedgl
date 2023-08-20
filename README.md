@@ -60,7 +60,19 @@ $ ...
 ```
 
 ### Windows (VM)
-For your OpenGL application to communicate with the server, the client library (`opengl32.dll`) must be located in the same directory as the application. Scroll down for more information regarding the setup for Windows guests.
+For your OpenGL application to communicate with the server, the client library (`sharedgl.dll`) must be installed using the following steps **(to-do: make an install script)**:
+1. Move `sharedgl.dll` to `C:\Windows\System32\`
+2. Open `regedit` and navigate to `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\OpenGLDrivers\`
+3. Create a new key named `MSOGL` and navigate into it
+4. Create a new string named `DLL` and set it to `sharedgl.dll`
+5. Create a new DWORD named `DriverVersion` and set it to `1`
+6. Create a new DWORD named `Flags` and set it to `1`
+7. Create a new DWORD named `Version` and set it to `2`
+
+Now, whenever an application (currently only x64) that uses OpenGL is ran, SharedGL will be used.
+
+> [!NOTE]\
+> Previous releases' clients are named opengl32.dll, meaning they are not ICDs. If you use a client from release <= 0.3.0, then all you need to do is drop it into the same folder as your OpenGL application.
 
 ### Environment variables
 When running clients, a user may specify one or more of the following environment variables for version control:

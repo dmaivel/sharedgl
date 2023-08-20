@@ -1,3 +1,18 @@
+/*
+ * DISCLAIMER:
+ *
+ * This portion of the repository is served as a drop-in replacement for `opengl32.dll`
+ * Because a proper ICD implementation is provided by `drv.c`, this part of the code base
+ * has been rendered useless as Window's opengl32 will call upon drvXXXXX functions. This
+ * also means we don't need to use MinHook to hook onto SwapBuffers, ChoosePixelFormat,
+ * and SetPixelFormat. Hooks shouldn't have been in place for these functions to begin with
+ * as there are WGL equivelents, which means this code needs to be rewritten for it to
+ * function again as MinHook will be removed from the repository. The rewriting is not currently
+ * a priority, but this note will be updated when such a rewrite comes along. This means even
+ * if the end-user defines `OVERRIDE_OPENGL32`, this code will not compile.
+ */
+
+#ifdef OVERRIDE_OPENGL32
 #ifdef _WIN32
 
 #include <client/platform/wgl.h>
@@ -110,4 +125,5 @@ void WglInit()
     MH_EnableHook(SetPixelFormat);
 }
 
+#endif
 #endif
