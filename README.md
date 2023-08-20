@@ -95,9 +95,11 @@ There are two ways to install the library on windows:
         - The steps below can be ran after building for another target.
         - To explicitly state an x64 build, run `cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..` instead.
         - To explicitly state an x86 (32-bit) build, run `cmake -DCMAKE_GENERATOR_PLATFORM=Win32 ..` instead.
-    4. Upon building either the x64 binary or x86 binary or both binaries, move the install script (`...\sharedgl\scripts\wininstall.bat`) into the same folder where the built binaries reside (`...\sharedgl\build\Release\`).
-    5. Run the script and allow admin privledges.
-    6. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
+    4. Build by running `cmake --build . --target sharedgl-core --config Release`.
+        - Repeat step 3 if you want to compile for both architectures.
+    5. Upon building either the x64 binary or x86 binary or both binaries, move the install script (`...\sharedgl\scripts\wininstall.bat`) into the same folder where the built binaries reside (`...\sharedgl\build\Release\`).
+    6. Run the script and allow admin privledges.
+    7. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
 
 An uninstall script, `winuninstall.bat` is also provided.
 
