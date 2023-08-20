@@ -49,12 +49,15 @@ options:
     -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)
 ```
 
-## Running clients
+### Environment variables
+When running clients, a user may specify one or more of the following environment variables for version control:
+```
+GL_VERSION_OVERRIDE=X.X
+GLX_VERSION_OVERRIDE=X.X
+GLSL_VERSION_OVERRIDE=X.X
+```
 
-> [!IMPORTANT]\
-> In addition to installing the library, you also need to install a driver and attach a shared memory device if you are using a virtual machine. For more information, scroll down to the virtual machine section.
-
-### Linux
+## Linux
 For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
 
 ```bash
@@ -63,8 +66,24 @@ $ glxgears
 $ ...
 ```
 
-### Windows (VM)
-There are two ways to install the library on windows (keep scrolling for more information regarding VMs):
+### Linux in a VM
+
+[Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
+
+For virtual linux clients, an additional kernel module needs to be compiled. The compiled result, `sharedgl.ko`, needs to be moved into the guest, and loaded. There is an `install.sh` script within this directory which may be moved alongside the module for ease of use. It is recommended that you add `sharedgl` to your modprobe config following installation, otherwise it must be loaded manually on each boot.
+```bash
+# within 'sharedgl' directory
+cd kernel
+make
+```
+
+> [!WARNING]\
+> If you move the client library to the guest from the host instead of compiling it in the guest, you may encounter the `SIGILL` exception in the virtual machine as the build compiles with the native (host) architecture. To fix, either change your cpu model to `host-model`/`host-passthrough` or comment out the `-march=native` line in the cmake script (will most likely reduce performance).
+
+## Windows (in a VM)
+[Windows is only supportted as a guest: Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
+
+There are two ways to install the library on windows:
 1. Use a release
     1. Download the latest release for windows and extract the zip file.
     2. Navigate into the extracted folder and run `wininstall.bat` and allow admin privledges.
@@ -85,13 +104,7 @@ An uninstall script, `winuninstall.bat` is also provided.
 > [!NOTE]\
 > Previous releases' clients are named opengl32.dll, meaning they are not ICDs. If you use a client from release <= 0.3.0, then all you need to do is drop it into the same folder as your OpenGL application. It is not recommended that you use the clients from these releases as they become outdated and are not reliable.
 
-### Environment variables
-When running clients, a user may specify one or more of the following environment variables for version control:
-```
-GL_VERSION_OVERRIDE=X.X
-GLX_VERSION_OVERRIDE=X.X
-GLSL_VERSION_OVERRIDE=X.X
-```
+Additionally (because only virtualized Windows guests are supported), the Windows VirtIO Drivers need to be installed, which can be found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). (Navigate to `...\virtio-win-upstream\Win10\amd64\`, right click on `ivshmem.inf`, and press `Install`).
 
 # Virtual machines
 Before you start up your virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Use the `-v` command line argument when starting the server and place the output in its respective location, depending on whether you use libvirt or qemu. Scroll down for driver information.
@@ -114,22 +127,6 @@ Before you start up your virtual machine, you must pass a shared memory device a
 # THIS IS A SAMPLE; ONLY USE THIS AS A GUIDE ON WHERE TO PLACE THE OUTPUT
 qemu-system-x86_64 -object memory-backend-file,size=??M,share,mem-path=/dev/shm/sharedgl_shared_memory,id=sharedgl_shared_memory
 ```
-
-> [!WARNING]\
-> If you move the client library to the guest from the host instead of compiling it in the guest, you may encounter the `SIGILL` exception in the virtual machine as the build compiles with the native (host) architecture. To fix, either change your cpu model to `host-model`/`host-passthrough` or comment out the `-march=native` line in the cmake script (will most likely reduce performance).
-
-## Linux
-For virtual linux clients, an additional kernel module needs to be compiled. The compiled result, `sharedgl.ko`, needs to be moved into the guest, and loaded. There is an `install.sh` script within this directory which may be moved alongside the module for ease of use. It is recommended that you add `sharedgl` to your modprobe config following installation, otherwise it must be loaded manually on each boot.
-```bash
-# within 'sharedgl' directory
-cd kernel
-make
-```
-
-Additionally, `libGL.so.1` needs to be moved into the guest for library loading.
-
-## Windows
-For windows clients, the Windows VirtIO Drivers need to be installed, which can be found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). (Navigate to `...\virtio-win-upstream\Win10\amd64\`, right click on `ivshmem.inf`, and press `Install`).
 
 # Supported GL versions
 This list describes the amount of functions left from each standard to implement. This excludes EXT/ARB functions. This list may be inaccurate in terms of totals and also counts stubs as implementations.
