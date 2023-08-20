@@ -102,7 +102,7 @@ There are two ways to install the library on windows:
 An uninstall script, `winuninstall.bat` is also provided.
 
 > [!NOTE]\
-> Previous releases' clients are named opengl32.dll, meaning they are not ICDs. If you use a client from release <= 0.3.0, then all you need to do is drop it into the same folder as your OpenGL application. It is not recommended that you use the clients from these releases as they become outdated and are not reliable.
+> Previous releases' clients are named `opengl32.dll`, meaning they are not ICDs. If you use a client from `release <= 0.3.0`, then all you need to do is drop it into the same folder as your OpenGL application. It is not recommended that you use the clients from these releases as they become outdated and are not reliable.
 
 Additionally (because only virtualized Windows guests are supported), the Windows VirtIO Drivers need to be installed, which can be found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). (Navigate to `...\virtio-win-upstream\Win10\amd64\`, right click on `ivshmem.inf`, and press `Install`).
 
