@@ -21,7 +21,7 @@ static void *shm_ptr;
 static size_t shm_size;
 
 static const char *usage =
-    "usage: sharedgl [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]\n"
+    "usage: sglrenderer [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]\n"
     "\n"
     "options:\n"
     "    -h                 display help information\n"
