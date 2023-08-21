@@ -26,8 +26,10 @@ ELSEIF(WIN32)
 ENDIF(UNIX)
 
 # server
-add_executable(sharedgl ${GLOBBED_SERVER_SOURCES})
-target_link_libraries(sharedgl SDL2 epoxy)
+IF(UNIX)
+    add_executable(sglrenderer ${GLOBBED_SERVER_SOURCES})
+    target_link_libraries(sglrenderer SDL2 epoxy)
+ENDIF(UNIX)
 
 # client
 IF(UNIX)

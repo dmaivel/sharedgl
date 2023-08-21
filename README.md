@@ -34,10 +34,10 @@ cmake --build . --target sharedgl-core --config Release
 ```
 
 # Usage
-Regardless of the where the client is being ran, the server must be started before starting any clients (and can only be ran on linux systems).
+Regardless of the where the client is being ran, the server must be started before starting any clients. Note that the server can only be ran on linux.
 
 ```bash
-usage: sharedgl [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]
+usage: sglrenderer [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]
 
 options:
     -h                 display help information
