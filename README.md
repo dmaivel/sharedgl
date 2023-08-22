@@ -3,7 +3,7 @@
 SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for accelerated graphics within QEMU/KVM guests. SGL is designed to be compatible with Windows and Linux, allowing for 3D acceleration without the need for GPU passthrough.
 
 > [!IMPORTANT]\
-> The server, `sglrenderer`, is currently only supported on Linux. The primary target of this project is Windows (guests), where there is little 3D acceleration support, as GPU passthrough was previously the only option for reasonable graphics processing. If you encounter bugs/crashes, scroll down for troubleshooting tips. To see which OpenGL standards are supported, scroll down to the support section.
+> The client is supported on both Windows and Linux, however the server, `sglrenderer`, is currently only supported on Linux. The primary target of this project is Windows (guests), where there is little 3D acceleration support, as GPU passthrough was previously the only option for reasonable graphics processing. If you encounter bugs/crashes, scroll down for troubleshooting tips. To see which OpenGL standards are supported, scroll down to the support section.
 
 # Getting started
 
