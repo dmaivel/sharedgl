@@ -159,10 +159,8 @@ This list describes the amount of functions left from each standard to implement
 
 # Limitations / Issues
 - Server can only handle a single client at a time
-- Missing many GL functions
-- Vsync does not work
+- Vsync hasnt been implemented
 - Resizing is not handled
-- Windows guests rendering is janky and prone to crashing
 - Inaccurate FPS in overlay (to-do: move timings from server to client)
 - GLFW cant request OpenGL profiles
 
