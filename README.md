@@ -1,9 +1,9 @@
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)  <img style="float: right;" src="media/icon.png" alt=icon width="192" height="192">
 
-SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for capturing graphics calls and accelerated graphics within virtual machines. SGL is designed with the intent to be compatible with a wide range of platforms (WGL, GLX, EGL), making it possible to run on virtually any guest system without the need for full GPU passthrough solutions.
+SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for accelerated graphics within QEMU/KVM guests. SGL is designed to be compatible with Windows and Linux, allowing for 3D acceleration without the need for GPU passthrough.
 
 > [!IMPORTANT]\
-> Functionality is currently limitted as some chunks of the OpenGL standard are yet to be implemented (to check the status on near fully supported versions, scroll down). Additionally, this has only been tested on a handful of demoes (including glxgears) on X11 (GLX) and Windows (WGL) as EGL support has not been implemented yet. If you encounter crashes or weird bugs, scroll down for troubleshooting.
+> The server, `sglrenderer`, is currently only supported on Linux. The primary target of this project is Windows (guests), where there is little 3D acceleration support, as GPU passthrough was previously the only option for reasonable graphics processing. If you encounter bugs/crashes, scroll down for troubleshooting tips. To see which OpenGL standards are supported, scroll down to the support section.
 
 # Getting started
 
@@ -65,6 +65,9 @@ $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/sharedgl/build
 $ glxgears
 $ ...
 ```
+
+> [!NOTE]\
+> The client library for linux is not exclusive to virtual machines, meaning you can run it on your host for debugging.
 
 ### Linux in a VM
 
