@@ -176,7 +176,7 @@ Application shows a blank window in the virtual machine?
 
 Application doesn't run in the virtual machine? (Process exists but stalls)
 - Make sure the server is running
-    - If you start the server and it still won't run, shut down the VM, run `sudo ./sharedgl -x`, start the server, start the VM
+    - If you start the server and it still won't run, shut down the VM, run `sudo ./sglrenderer -x`, start the server, start the VM
 - Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for linux)
 
 # Showcase
