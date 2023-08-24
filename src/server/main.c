@@ -20,6 +20,8 @@
 static void *shm_ptr;
 static size_t shm_size;
 
+int *internal_cmd_ptr;
+
 static const char *usage =
     "usage: sglrenderer [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]\n"
     "\n"
@@ -50,10 +52,17 @@ static void generate_virtual_machine_arguments(size_t m)
     printf("\n");
 }
 
-static void term_handler(int a)
+static void term_handler(int sig)
 {
     munmap(shm_ptr, shm_size);
-    // shm_unlink(SGL_SHARED_MEMORY_NAME);
+
+    switch (sig) {
+    case SIGINT:
+        break;
+    case SIGSEGV:
+        printf("[!] server stopped: segmentation fault (cmd: %d)", *internal_cmd_ptr);
+        break;
+    }
 
     puts("");
     exit(1);
@@ -107,9 +116,10 @@ int main(int argc, char **argv)
         }
     }
 
-    printf("[*] press CTRL+C to terminate server\n\n");
     signal(SIGINT, term_handler);
+    signal(SIGSEGV, term_handler);
 
+    printf("[*] press CTRL+C to terminate server\n\n");
     printf("[*] reporting gl version %d.%d\n\n", major, minor);
 
     if (print_virtual_machine_arguments)
@@ -129,5 +139,5 @@ int main(int argc, char **argv)
     }
 
     shm_ptr = mmap(0, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    sgl_cmd_processor_start(shm_size, shm_ptr, major, minor);
+    sgl_cmd_processor_start(shm_size, shm_ptr, major, minor, &internal_cmd_ptr);
 }
