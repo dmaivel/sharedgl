@@ -3,6 +3,6 @@
 
 #include <stdlib.h>
 
-void sgl_cmd_processor_start(size_t m, void *p, int major, int minor);
+void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **internal_cmd_ptr);
 
 #endif

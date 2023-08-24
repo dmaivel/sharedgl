@@ -23,7 +23,7 @@ static bool wait_for_commit(void *p)
     if ((((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \
         pb++;
 
-void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
+void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **internal_cmd_ptr)
 {
     int width, height;
     sgl_get_max_resolution(&width, &height);
@@ -51,6 +51,10 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
     *(int*)(p + SGL_OFFSET_REGISTER_GLMIN) = minor;
 
     void *uploaded = NULL;
+    int cmd;
+
+    if (internal_cmd_ptr)
+        *internal_cmd_ptr = &cmd;
 
     while (1) {
         while (!wait_for_commit(p))
@@ -58,7 +62,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor)
 
         int *pb = p + SGL_OFFSET_COMMAND_START;
         while (*pb != SGL_CMD_INVALID) {
-            int cmd = *pb;
+            cmd = *pb;
             // printf("[+] command: %s (%d)\n", *pb < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[*pb] : "????", *pb); fflush(stdout);
             //if (*pb >= SGL_CMD_MAX)
             //    exit(1);
