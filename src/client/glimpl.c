@@ -749,23 +749,27 @@ void glFrustum(GLdouble left, GLdouble right, GLdouble bottom, GLdouble top, GLd
 
 void glGenBuffers(GLsizei n, GLuint* buffers)
 {
+    GLuint *p = buffers;
+
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_GENBUFFERS);
         pb_push(1);
 
         glimpl_commit();
-        buffers[i] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
 
 void glGenFramebuffers(GLsizei n, GLuint* framebuffers)
 {
+    GLuint *p = framebuffers;
+
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_GENFRAMEBUFFERS);
         pb_push(1);
 
         glimpl_commit();
-        framebuffers[i] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
 
@@ -780,34 +784,40 @@ GLuint glGenLists(GLsizei range)
 
 void glGenQueries(GLsizei n, GLuint* ids)
 {
+    GLuint *p = ids;
+
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_GENQUERIES);
         pb_push(1);
 
         glimpl_commit();
-        ids[i] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
 
 void glGenTextures(GLsizei n, GLuint* textures)
 {
+    GLuint *p = textures;
+    
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_GENTEXTURES);
         pb_push(1);
 
         glimpl_commit();
-        textures[i] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
 
 void glGenVertexArrays(GLsizei n, GLuint* arrays)
 {
+    GLuint *p = arrays;
+
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_GENVERTEXARRAYS);
         pb_push(1);
 
         glimpl_commit();
-        arrays[n] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
 
@@ -6444,15 +6454,16 @@ void glGetPointerv(GLenum pname, GLvoid **params)
 GLboolean glAreTexturesResident(GLsizei n, const GLuint* textures, GLboolean* residences)
 {
     GLboolean res = GL_TRUE;
+    GLboolean *p = residences;
 
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_ARETEXTURESRESIDENT);
         pb_push(textures[i]);
 
         glimpl_commit();
-        residences[i] = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        *p = pb_read(SGL_OFFSET_REGISTER_RETVAL);
         
-        res = res && residences[i];
+        res = res && *p++;
     }
 
     return res;
