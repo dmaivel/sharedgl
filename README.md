@@ -1,9 +1,4 @@
-# SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
-<p align="center">
-
-<img src="https://github.com/dmaivel/sharedgl/assets/38770072/0ac387cb-478f-43ec-bbd6-9799e877731f" alt="Promotional" style="width:100%;"/>
-
-</p>
+# SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)  <img style="float: right;" src="media/icon.png" alt=icon width="192" height="192">
 
 SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for accelerated graphics within QEMU/KVM guests. SGL is designed to be compatible with Windows and Linux, allowing for 3D acceleration without the need for GPU passthrough.
 
