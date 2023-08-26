@@ -988,10 +988,10 @@ void glGetBooleanv(GLenum pname, GLboolean* data)
     pb_push(SGL_CMD_GETBOOLEANV);
     pb_push(pname);
     glimpl_commit();
-    GL_GET_MEMCPY_RETVAL(data, float);
+    GL_GET_MEMCPY_RETVAL(data, GLboolean);
 }
 
-void glGetDoublev(GLenum pname, GLboolean* data)
+void glGetDoublev(GLenum pname, GLdouble* data)
 {
     pb_push(SGL_CMD_GETDOUBLEV);
     pb_push(pname);
