@@ -1037,7 +1037,7 @@ static void overlay_draw_char(int *display, int width, char c, int x, int y, uns
 
     for (int cy = 0; cy < 16; cy++)
         for (int cx = 0; cx < 8; cx++)
-            display[(y + cy) * width + (x + (7 - cx))] = gylph[cy] & mask[cx] ? fg : (display[(y + cy) * width + (x + (7 - cx))] - 50 );
+            display[(y + cy) * width + (x + (7 - cx))] = gylph[cy] & mask[cx] ? fg : bg;
 }
 
 static void overlay_draw_text(int *display, int width, char *text, int x, int y, unsigned int fg, unsigned int bg) 
