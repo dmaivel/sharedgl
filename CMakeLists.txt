@@ -2,9 +2,7 @@ cmake_minimum_required(VERSION 3.5.0)
 project(sharedgl VERSION 0.3.1 LANGUAGES C CXX)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -rdynamic")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -rdynamic")
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -march=native")
 
 IF(WIN32)
