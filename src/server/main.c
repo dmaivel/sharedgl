@@ -70,11 +70,12 @@ static void term_handler(int sig)
 
 int main(int argc, char **argv)
 {
-    shm_size = 16;
     bool print_virtual_machine_arguments = false;
 
     int major = SGL_DEFAULT_MAJOR;
     int minor = SGL_DEFAULT_MINOR;
+
+    shm_size = 16;
 
     for (int i = 1; i < argc; i++) {
         switch (argv[i][1]) {
