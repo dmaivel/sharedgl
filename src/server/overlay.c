@@ -1030,17 +1030,17 @@ static const unsigned char IBM[4096] =
     0x00, 0x00, 0x00, 0x00
 };
 
-static void overlay_draw_char(int* display, int width, char c, int x, int y, unsigned int fg, unsigned int bg) 
+static void overlay_draw_char(int *display, int width, char c, int x, int y, unsigned int fg, unsigned int bg) 
 {
     int mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
     const unsigned char *gylph = IBM + (int)c * 16;
 
     for (int cy = 0; cy < 16; cy++)
         for (int cx = 0; cx < 8; cx++)
-            display[(y + cy) * width + (x + (7 - cx))] = gylph[cy] & mask[cx] ? fg : bg;
+            display[(y + cy) * width + (x + (7 - cx))] = gylph[cy] & mask[cx] ? fg : (display[(y + cy) * width + (x + (7 - cx))] - 50 );
 }
 
-static void overlay_draw_text(int* display, int width, char* text, int x, int y, unsigned int fg, unsigned int bg) 
+static void overlay_draw_text(int *display, int width, char *text, int x, int y, unsigned int fg, unsigned int bg) 
 {
     char* c = text;
     for (int i = x; *c; i += 8)
