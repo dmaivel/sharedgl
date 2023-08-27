@@ -1035,9 +1035,19 @@ static void overlay_draw_char(int *display, int width, char c, int x, int y, uns
     int mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
     const unsigned char *gylph = IBM + (int)c * 16;
 
+    unsigned char *color;
+
     for (int cy = 0; cy < 16; cy++)
-        for (int cx = 0; cx < 8; cx++)
-            display[(y + cy) * width + (x + (7 - cx))] = gylph[cy] & mask[cx] ? fg : bg;
+        for (int cx = 0; cx < 8; cx++) {
+            color = (unsigned char*)&display[(y + cy) * width + (x + (7 - cx))];
+            color[0] = color[0] * 120 / 255;
+            color[1] = color[1] * 120 / 255;
+            color[2] = color[2] * 120 / 255;
+            color[3] = color[3] * 120 / 255;
+
+            if (gylph[cy] & mask[cx])
+                display[(y + cy) * width + (x + (7 - cx))] = fg;
+        }
 }
 
 static void overlay_draw_text(int *display, int width, char *text, int x, int y, unsigned int fg, unsigned int bg) 
@@ -1080,7 +1090,9 @@ void overlay_stage2(struct overlay_context *ctx, int *frame, int width)
     if (ctx->current_ticks) {
         char str[12];
         sprintf(str, "FPS: %ld", ctx->fps);
-        overlay_draw_text(frame, width, str, 0, 0, 0xffffff, 0x0000000);
+
+        overlay_draw_text(frame, width, "SharedGL Renderer", 0, 0, 0xffffff, 0x0000000);
+        overlay_draw_text(frame, width, str, 0, 16, 0xffffff, 0x0000000);
     }
 
     ctx->current_ticks = clock();
