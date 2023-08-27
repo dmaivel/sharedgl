@@ -1351,7 +1351,7 @@ void glColorPointer(GLint size, GLenum type, GLsizei stride, const void* pointer
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true /* may become an issue, doubtful */
+        .in_use = glimpl_color_ptr.in_use
     };
 }
 
@@ -1361,7 +1361,7 @@ void glNormalPointer(GLenum type, GLsizei stride, const void* pointer)
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_normal_ptr.in_use
     };
 }
 
@@ -1372,7 +1372,7 @@ void glTexCoordPointer(GLint size, GLenum type, GLsizei stride, const void* poin
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_tex_coord_ptr.in_use
     };
 }
 
@@ -1383,7 +1383,7 @@ void glVertexPointer(GLint size, GLenum type, GLsizei stride, const void* pointe
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_vertex_ptr.in_use
     };
 }
 
@@ -1392,7 +1392,7 @@ void glEdgeFlagPointer(GLsizei stride, const void* pointer)
     glimpl_edge_flag_ptr = (struct gl_edge_flag_pointer){
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_edge_flag_ptr.in_use
     };
 }
 
@@ -1402,7 +1402,7 @@ void glIndexPointer(GLenum type, GLsizei stride, const void* pointer)
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_index_pointer.in_use
     };
 }
 
@@ -1412,7 +1412,7 @@ void glInterleavedArrays(GLenum format, GLsizei stride, const void* pointer)
         .type = format,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_interleaved_pointer.in_use
     };
 }
 
@@ -1422,7 +1422,7 @@ void glFogCoordPointer(GLenum type, GLsizei stride, const void* pointer)
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_fog_coord_pointer.in_use
     };
 }
 
@@ -1433,7 +1433,7 @@ void glSecondaryColorPointer(GLint size, GLenum type, GLsizei stride, const void
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = true
+        .in_use = glimpl_color2_ptr.in_use
     };
 }
 
