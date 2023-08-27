@@ -257,7 +257,6 @@ void glAttachShader(GLuint program, GLuint shader)
 
 void glBegin(GLenum mode) 
 {
-    // glimpl_commit();
     pb_push(SGL_CMD_BEGIN);
     pb_push(mode);
 }
@@ -278,8 +277,6 @@ void glBindBuffer(GLenum target, GLuint buffer)
 
 void glBindBuffersBase(GLenum target, GLuint first, GLsizei count, const GLuint *buffers)
 {
-    // glimpl_commit();
-
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(count); /* could be very bad mistake */
     for (int i = 0; i < count; i++)
@@ -289,8 +286,6 @@ void glBindBuffersBase(GLenum target, GLuint first, GLsizei count, const GLuint 
     pb_push(target);
     pb_push(first);
     pb_push(count);
-
-    // glimpl_commit();
 }
 
 void glBindFragDataLocation(GLuint program, GLuint color, const GLchar* name)
@@ -321,8 +316,6 @@ void glBitmap(GLsizei width, GLsizei height, GLfloat xorig, GLfloat yorig, GLflo
     pb_push(yorig);
     pb_push(xmove);
     pb_push(ymove);
-
-    // glimpl_commit();
 }
 
 void glBlendFunc(GLenum sfactor, GLenum dfactor)
@@ -681,15 +674,11 @@ static inline void glimpl_draw_elements(int mode, int type, int start, int end, 
 
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices)
 {
-    // glimpl_commit();
-
     /*
      * to-do: check if mode and type is valid
      */
 
     glimpl_draw_elements(mode, type, 0, count, indices);
-
-    // glimpl_commit();
 }
 
 void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices)
@@ -697,6 +686,7 @@ void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, G
     /*
      * count is ignored?
      */
+
     glimpl_draw_elements(mode, type, start, end, indices);
 }
 
@@ -721,13 +711,11 @@ void glEnableVertexAttribArray(GLuint index)
 void glEnd(void) 
 {
     pb_push(SGL_CMD_END);
-    // glimpl_commit();
 }
 
 void glEndList(void)
 {
     pb_push(SGL_CMD_ENDLIST);
-    // glimpl_commit();
 }
 
 void glEndQuery(GLenum target)
@@ -1075,12 +1063,10 @@ void glNormal3f(GLfloat nx, GLfloat ny, GLfloat nz)
 void glPopMatrix(void)
 {
     pb_push(SGL_CMD_POPMATRIX);
-    // glimpl_commit();
 }
 
 void glPushMatrix(void)
 {
-    // glimpl_commit();
     pb_push(SGL_CMD_PUSHMATRIX);
 }
 
@@ -1270,8 +1256,6 @@ void glUniform1f(GLint location, GLfloat v0)
 
 void glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
 {
-    // glimpl_commit();
-
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(count * 4 * 4);
     for (int i = 0; i < count * 4 * 4; i++)
@@ -1281,8 +1265,6 @@ void glUniformMatrix4fv(GLint location, GLsizei count, GLboolean transpose, cons
     pb_push(location);
     pb_push(count);
     pb_push(transpose);
-
-    // glimpl_commit();
 }
 
 void glUseProgram(GLuint program)
