@@ -221,6 +221,160 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
     }
 }
 
+static inline void glimpl_push_client_pointers(int mode, int max_index)
+{
+    if (glimpl_normal_ptr.in_use) {
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_index * glimpl_vertex_ptr.size);
+        const float *fvertices = glimpl_normal_ptr.pointer;
+
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
+                pb_pushf(*fvertices++);
+            for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
+                fvertices++;
+        }
+
+        pb_push(SGL_CMD_NORMALPOINTER);
+        pb_push(glimpl_normal_ptr.type);
+        pb_push(0);
+    }
+
+    if (glimpl_color_ptr.in_use) {
+        int true_size = glimpl_color_ptr.size;
+
+        if (true_size > 4) {
+            switch (true_size) {
+            case GL_RGB:
+            case GL_BGR:
+                true_size = 3;
+                break;
+            case GL_RGBA:
+            case GL_BGRA:
+                true_size = 4;
+                break;
+            }
+        } 
+
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_index * glimpl_color_ptr.size);
+        const float *color = glimpl_color_ptr.pointer;
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_color_ptr.size; j++)
+                pb_pushf(*color++);
+            for (int j = 0; j < (glimpl_color_ptr.stride / 4) - true_size; j++)
+                color++;
+        }
+
+        pb_push(SGL_CMD_COLORPOINTER);
+        pb_push(glimpl_color_ptr.size);
+        pb_push(glimpl_color_ptr.type);
+        pb_push(0);
+    }
+
+    if (glimpl_tex_coord_ptr.in_use) {
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_index * glimpl_tex_coord_ptr.size);
+        const float *fvertices = glimpl_tex_coord_ptr.pointer;
+
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_tex_coord_ptr.size; j++)
+                pb_pushf(*fvertices++);
+            for (int j = 0; j < (glimpl_tex_coord_ptr.stride / 4) - glimpl_tex_coord_ptr.size; j++)
+                fvertices++;
+        }
+
+        pb_push(SGL_CMD_TEXCOORDPOINTER);
+        pb_push(glimpl_tex_coord_ptr.size);
+        pb_push(glimpl_tex_coord_ptr.type);
+        pb_push(0);
+    }
+
+    if (glimpl_vertex_ptr.in_use) {
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(max_index * glimpl_vertex_ptr.size);
+        const float *fvertices = glimpl_vertex_ptr.pointer;
+
+        for (int i = 0; i < max_index; i++) {
+            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
+                pb_pushf(*fvertices++);
+            for (int j = 0; j < (glimpl_vertex_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
+                fvertices++;
+        }
+
+        pb_push(SGL_CMD_VERTEXPOINTER);
+        pb_push(glimpl_vertex_ptr.size);
+        pb_push(glimpl_vertex_ptr.type);
+        pb_push(0);
+    }
+}
+
+#define GET_MAX_INDEX(x, y, s, e) \
+    for (int i = s; i < e; i++) \
+        if (y[i] > x) \
+            x = y[i]
+
+static inline void glimpl_draw_elements(int mode, int type, int start, int end, const void *indices)
+{
+    if (indices) {
+        int max_index = 0;
+        switch (type) {
+        case GL_UNSIGNED_BYTE: {
+            const unsigned char *tindices = indices;
+            GET_MAX_INDEX(max_index, tindices, start, end);
+            break;
+        }
+        case GL_UNSIGNED_SHORT: {
+            const unsigned short *tindices = indices;
+            GET_MAX_INDEX(max_index, tindices, start, end);
+            break;
+        }
+        case GL_UNSIGNED_INT: {
+            const unsigned int *tindices = indices;
+            GET_MAX_INDEX(max_index, tindices, start, end);
+            break;
+        }
+        }
+
+        max_index++;
+        glimpl_push_client_pointers(mode, max_index);
+
+        /*
+         * to-do: pack?
+         */
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(end - start);
+        switch (type) {
+        case GL_UNSIGNED_BYTE: {
+            const unsigned char *b = indices;
+            for (int i = start; i < end; i++)
+                pb_push(*b++);
+            break;
+        }
+        case GL_UNSIGNED_SHORT: {
+            const unsigned short *s = indices;
+            for (int i = start; i < end; i++)
+                pb_push(*s++);
+            break;
+        }
+        case GL_UNSIGNED_INT: {
+            const unsigned int *u = indices;
+            for (int i = start; i < end; i++)
+                pb_push(*u++);
+            break;
+        }
+        }
+    }
+    
+    pb_push(SGL_CMD_DRAWELEMENTS);
+    pb_push(mode);
+    pb_push(end - start);
+    pb_push(indices != NULL ? GL_UNSIGNED_INT : type); /* to-do: actually use type */
+    pb_push(indices != NULL);
+}
+
+#undef GET_MAX_INDEX
+
 static void push_string(const char *s)
 {
     int len = strlen(s);
@@ -476,94 +630,6 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
     pb_push(num_groups_z);
 }
 
-static inline void glimpl_push_client_pointers(int mode, int max_index)
-{
-    if (glimpl_normal_ptr.in_use) {
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_vertex_ptr.size);
-        const float *fvertices = glimpl_normal_ptr.pointer;
-
-        for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
-                pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
-                fvertices++;
-        }
-
-        pb_push(SGL_CMD_NORMALPOINTER);
-        pb_push(glimpl_normal_ptr.type);
-        pb_push(0);
-    }
-
-    if (glimpl_color_ptr.in_use) {
-        int true_size = glimpl_color_ptr.size;
-
-        if (true_size > 4) {
-            switch (true_size) {
-            case GL_RGB:
-            case GL_BGR:
-                true_size = 3;
-                break;
-            case GL_RGBA:
-            case GL_BGRA:
-                true_size = 4;
-                break;
-            }
-        } 
-
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_color_ptr.size);
-        const float *color = glimpl_color_ptr.pointer;
-        for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_color_ptr.size; j++)
-                pb_pushf(*color++);
-            for (int j = 0; j < (glimpl_color_ptr.stride / 4) - true_size; j++)
-                color++;
-        }
-
-        pb_push(SGL_CMD_COLORPOINTER);
-        pb_push(glimpl_color_ptr.size);
-        pb_push(glimpl_color_ptr.type);
-        pb_push(0);
-    }
-
-    if (glimpl_tex_coord_ptr.in_use) {
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_tex_coord_ptr.size);
-        const float *fvertices = glimpl_tex_coord_ptr.pointer;
-
-        for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_tex_coord_ptr.size; j++)
-                pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_tex_coord_ptr.stride / 4) - glimpl_tex_coord_ptr.size; j++)
-                fvertices++;
-        }
-
-        pb_push(SGL_CMD_TEXCOORDPOINTER);
-        pb_push(glimpl_tex_coord_ptr.size);
-        pb_push(glimpl_tex_coord_ptr.type);
-        pb_push(0);
-    }
-
-    if (glimpl_vertex_ptr.in_use) {
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_vertex_ptr.size);
-        const float *fvertices = glimpl_vertex_ptr.pointer;
-
-        for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
-                pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_vertex_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
-                fvertices++;
-        }
-
-        pb_push(SGL_CMD_VERTEXPOINTER);
-        pb_push(glimpl_vertex_ptr.size);
-        pb_push(glimpl_vertex_ptr.type);
-        pb_push(0);
-    }
-}
-
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
     struct gl_vertex_attrib_pointer *vap = glimpl_get_enabled_vap();
@@ -608,70 +674,6 @@ void glDrawBuffer(GLenum buf)
     pb_push(buf);
 }
 
-#define GET_MAX_INDEX(x, y, s, e) \
-    for (int i = s; i < e; i++) \
-        if (y[i] > x) \
-            x = y[i]
-
-static inline void glimpl_draw_elements(int mode, int type, int start, int end, const void *indices)
-{
-    if (indices) {
-        int max_index = 0;
-        switch (type) {
-        case GL_UNSIGNED_BYTE: {
-            const unsigned char *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices, start, end);
-            break;
-        }
-        case GL_UNSIGNED_SHORT: {
-            const unsigned short *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices, start, end);
-            break;
-        }
-        case GL_UNSIGNED_INT: {
-            const unsigned int *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices, start, end);
-            break;
-        }
-        }
-
-        max_index++;
-        glimpl_push_client_pointers(mode, max_index);
-
-        /*
-         * to-do: pack?
-         */
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(end - start);
-        switch (type) {
-        case GL_UNSIGNED_BYTE: {
-            const unsigned char *b = indices;
-            for (int i = start; i < end; i++)
-                pb_push(*b++);
-            break;
-        }
-        case GL_UNSIGNED_SHORT: {
-            const unsigned short *s = indices;
-            for (int i = start; i < end; i++)
-                pb_push(*s++);
-            break;
-        }
-        case GL_UNSIGNED_INT: {
-            const unsigned int *u = indices;
-            for (int i = start; i < end; i++)
-                pb_push(*u++);
-            break;
-        }
-        }
-    }
-    
-    pb_push(SGL_CMD_DRAWELEMENTS);
-    pb_push(mode);
-    pb_push(end - start);
-    pb_push(indices != NULL ? GL_UNSIGNED_INT : type); /* to-do: actually use type */
-    pb_push(indices != NULL);
-}
-
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices)
 {
     /*
@@ -689,8 +691,6 @@ void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, G
 
     glimpl_draw_elements(mode, type, start, end, indices);
 }
-
-#undef GET_MAX_INDEX
 
 void glEnable(GLenum cap)
 {
