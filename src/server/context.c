@@ -81,7 +81,7 @@ void sgl_set_current(struct sgl_host_context *ctx)
         SDL_GL_MakeCurrent(ctx->window, ctx->gl_context);
 }
 
-void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int vflip, int format)
+void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int vflip, int format, size_t mem_usage)
 {
     static struct overlay_context overlay_ctx = { 0 };
 
@@ -105,7 +105,7 @@ void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int v
         }
     }
 
-    overlay_stage2(&overlay_ctx, data, width);
+    overlay_stage2(&overlay_ctx, data, width, mem_usage);
 
     return data;
 }

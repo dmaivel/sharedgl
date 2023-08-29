@@ -14,6 +14,6 @@ void sgl_get_max_resolution(int *width, int *height);
 struct sgl_host_context *sgl_context_create();
 void sgl_context_destroy(struct sgl_host_context *ctx);
 void sgl_set_current(struct sgl_host_context *ctx);
-void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int vflip, int format);
+void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int vflip, int format, size_t mem_usage);
 
 #endif

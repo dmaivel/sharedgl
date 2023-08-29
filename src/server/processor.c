@@ -93,7 +93,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                     h = *pb++,
                     vflip = *pb++,
                     format = *pb++;
-                sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format);
+                sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format, (size_t)pb - (size_t)(p + SGL_OFFSET_COMMAND_START));
                 break;
             }
             case SGL_CMD_VP_UPLOAD: {
