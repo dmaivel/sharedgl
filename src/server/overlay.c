@@ -1082,17 +1082,31 @@ void overlay_stage1(struct overlay_context *ctx)
         ctx->fps = CLOCKS_PER_SEC / ctx->delta_ticks;
 }
 
-void overlay_stage2(struct overlay_context *ctx, int *frame, int width)
+void overlay_stage2(struct overlay_context *ctx, int *frame, int width, size_t mem_usage)
 {
     if (!overlay_enabled)
         return;
 
+    double usage = mem_usage;
+    bool is_mb = false;
+
+    if (mem_usage > 0x100000) {
+        usage /= 0x100000;
+        is_mb = true;
+    }
+    else {
+        usage /= 0x1000;
+    }
+
     if (ctx->current_ticks) {
         char str[12];
+        char mem[24];
         sprintf(str, "FPS: %ld", ctx->fps);
+        sprintf(mem, "MEM: %.2f %s", usage, is_mb ? "MB" : "KB");
 
         overlay_draw_text(frame, width, "SharedGL Renderer", 0, 0, 0xffffff, 0x0000000);
-        overlay_draw_text(frame, width, str, 0, 16, 0xffffff, 0x0000000);
+        overlay_draw_text(frame, width, mem, 0, 16, 0xffffff, 0x0000000);
+        overlay_draw_text(frame, width, str, 0, 32, 0xffffff, 0x0000000);
     }
 
     ctx->current_ticks = clock();

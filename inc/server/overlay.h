@@ -10,6 +10,6 @@ struct overlay_context {
 
 void overlay_enable();
 void overlay_stage1(struct overlay_context *ctx);
-void overlay_stage2(struct overlay_context *ctx, int *frame, int width);
+void overlay_stage2(struct overlay_context *ctx, int *frame, int width, size_t mem_usage);
 
 #endif
