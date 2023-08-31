@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <inttypes.h>
+
 #ifndef _WIN32
 #define __USE_GNU
 #define _GNU_SOURCE
@@ -44,20 +46,25 @@ HANDLE Handle;
 #endif
 
 void *ptr;
-
 void *base;
 int *cur;
+
+void *in_base;
+int *in_cur;
 
 #ifndef _WIN32
 void pb_set(int fd)
 {
-    ptr = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED, fd, 0);
+    ptr = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     
     int alloc_size = *(int*)(ptr + SGL_OFFSET_REGISTER_MEMSIZE);
     munmap(ptr, 0x1000);
-    ptr = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED, fd, 0);
+    ptr = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
     base = ptr + 0x1000;
+
+    in_base = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    in_cur = in_base;
 }
 #else
 void pb_set(void)
@@ -105,6 +112,9 @@ void pb_set(void)
 
     ptr = Map.Pointer;
     base = (PVOID)((DWORD64)Map.Pointer + (DWORD64)0x1000);
+
+    in_base = VirtualAlloc(NULL, Map.Size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    in_cur = in_base;
 }
 
 void pb_unset(void)
@@ -117,18 +127,19 @@ void pb_unset(void)
 void pb_reset()
 {
     cur = base;
+    in_cur = in_base;
     // pb_ctx.current_offset = pb_ctx.reset_offset;
 }
 
 void pb_push(int c)
 {
-    *cur++ = c;
+    *in_cur++ = c;
     // pb_ctx.current_offset += sizeof(c);
 }
 
 void pb_pushf(float c)
 {
-    *cur++ = *(int*)&c;
+    *in_cur++ = *(int*)&c;
     // pb_ctx.current_offset += sizeof(c);
 }
 
@@ -137,9 +148,9 @@ int pb_read(int s)
     return *(int*)((size_t)ptr + s);
 }
 
-long pb_read64(int s)
+int64_t pb_read64(int s)
 {
-    return *(long*)((size_t)ptr + s);
+    return *(int64_t*)((size_t)ptr + s);
 }
 
 void pb_write(int s, int c)
@@ -155,11 +166,16 @@ void pb_copy(void *data, int s, size_t length)
 void pb_memcpy(void *src, size_t length)
 {
     length = length - (length % 4);
-    memcpy(cur, src, length);
-    cur += length;
+    memcpy(in_cur, src, length);
+    in_cur += length;
 }
 
 void *pb_ptr(size_t offs)
 {
     return (void*)((size_t)ptr + offs);
+}
+
+void pb_copy_to_shared()
+{
+    memcpy(base, in_base, (size_t)in_cur - (size_t)in_base);
 }

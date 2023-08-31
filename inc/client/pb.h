@@ -22,11 +22,13 @@ void pb_push(int c);
 void pb_pushf(float c);
 
 int pb_read(int s);
-long pb_read64(int s);
+int64_t pb_read64(int s);
 void pb_write(int s, int c);
 void pb_copy(void *data, int s, size_t length);
 void pb_memcpy(void *src, size_t length);
 
 void *pb_ptr(size_t offs);
+
+void pb_copy_to_shared();
 
 #endif

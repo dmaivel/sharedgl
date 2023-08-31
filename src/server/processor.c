@@ -4,24 +4,98 @@
 #include <server/context.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <server/dynarr.h>
 
-struct sgl_connection {
-    struct sgl_connection *next;
-
-    int alive;
-    struct sgl_host_context *ctx;
-} connections;
-
-static bool wait_for_commit(void *p) 
-{
-    return *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) == 1;
-}
+#define TIMEOUT_CYCLES 30000
 
 #define ADVANCE_PAST_STRING() \
     while (!(((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \
         pb++; \
     if ((((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \
         pb++;
+
+struct sgl_connection {
+    struct sgl_connection *next;
+
+    int id;
+    struct sgl_host_context *ctx;
+};
+
+static struct sgl_connection *connections = NULL;
+
+static bool match_connection(void *elem, void *data)
+{
+    struct sgl_connection *con = elem;
+    int id = (long)data;
+
+    if (con->id == id)
+        sgl_context_destroy(con->ctx);
+
+    return con->id == id;
+}
+
+static void connection_add(int id)
+{
+    struct sgl_connection *con = dynarr_alloc((void**)&connections, 0, sizeof(struct sgl_connection));
+    con->id = id;
+    con->ctx = sgl_context_create();
+}
+
+/*
+ * bool reset:
+ *  - true:     internally reset to the start of the connections list
+ *              only used when a client disconnects to ensure we dont
+ *              attempt to access a null pointer
+ *  - false:    don't do anything fancy internally, just return either
+ *              the next client id, the only client, or loop back and
+ *              return the first client id
+ *
+ * this function returns one of two possible values/ranges:
+ * = 0: no current connections exist
+ * > 0: a valid connection id
+ */
+static int connection_get(bool reset)
+{
+    static struct sgl_connection *cur = NULL;
+    if (!connections)
+        return 0;
+
+    if (reset) {
+        cur = NULL;
+        return 0;
+    }
+    
+    if (!cur) {
+        cur = connections;
+        return cur->id;
+    }
+
+    cur = cur->next;
+    if (!cur)
+        cur = connections;
+
+    return cur->id;
+}
+
+static void connection_current(int id)
+{
+    for (struct sgl_connection *con = connections; con; con = con->next)
+        if (con->id == id) {
+            sgl_set_current(con->ctx);
+            return;
+        }
+}
+
+static void connection_rem(int id)
+{
+    dynarr_free_element((void**)&connections, 0, match_connection, (void*)((long)id));
+    connection_get(true);
+}
+
+static bool wait_for_commit(void *p) 
+{
+    return *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) == 1;
+}
 
 void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **internal_cmd_ptr)
 {
@@ -49,6 +123,9 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
     *(int*)(p + SGL_OFFSET_REGISTER_MEMSIZE) = m;
     *(int*)(p + SGL_OFFSET_REGISTER_GLMAJ) = major;
     *(int*)(p + SGL_OFFSET_REGISTER_GLMIN) = minor;
+    *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
+    *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID) = 1;
+    *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
 
     void *uploaded = NULL;
     int cmd;
@@ -57,8 +134,100 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
         *internal_cmd_ptr = &cmd;
 
     while (1) {
-        while (!wait_for_commit(p))
+        int wait_for_client = connection_get(false);
+        int timeout = 0;
+        *(int*)(p + SGL_OFFSET_REGISTER_BUSY) = wait_for_client;
+        
+        /*
+         * not only wait for a commit from a specific client,
+         * but also ensure that the client we are waiting for
+         * still exists, in case it didn't notify the server
+         * of its exit
+         */
+        while (!wait_for_commit(p) && timeout < TIMEOUT_CYCLES) {
+            int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
+
+            /*
+             * a client has notified the server of its attempt
+             * to connect
+             */
+            if (creg != 0) {
+                /*
+                 * add connection to the dynamic array
+                 */
+                connection_add(creg);
+
+                /*
+                 * reset the internal get loop, this does not
+                 * return a valid client id so its return
+                 * value is to be ignored
+                 */
+                connection_get(true);
+
+                /*
+                 * get the first client id in the internal array
+                 */
+                wait_for_client = connection_get(false);
+                printf("[+] connected client %d\n", creg);
+
+                /*
+                 * prevent the same client from connecting more
+                 * than once and break from the loop
+                 */
+                *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
+                break;
+            }
+
+            /*
+             * the server may recieve a hint that a client is ready
+             * in the event that it does, we will ignore the previously
+             * selected client and allow the hinted client to execute
+             * its commands.
+             *
+             * the hinting system is implemented merely as a speed-up
+             * optimization. without it, several clients may be ready but
+             * will have to wait for other clients to finish as they wait
+             * their turn in the dynamic queue.
+             */
+            int hint = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
+            if (hint != 0) {
+                *(int*)(p + SGL_OFFSET_REGISTER_BUSY) = hint;
+                wait_for_client = hint;
+                *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
+            }
+
+            /*
+             * for sanity sake, keep track of how many cycles we have
+             * looped through in case the currently selected client
+             * no longer exists.
+             *
+             * because of the previously aforementioned hinting system,
+             * clients can only time out when there are no more clients,
+             * or in *rare* cases if all other clients also stall out.
+             */
+            if (*(int*)(p + SGL_OFFSET_REGISTER_BUSY) != 0)
+                timeout++;
             usleep(1);
+        }
+
+        /*
+         * if we do timeout, we would want to remove the zombie client
+         *
+         * this isn't fully fool-proof, as some clients may be mistaken
+         * for zombie clients if they stall out for too long processing
+         * data or all other clients stall. this can be fixed relatively
+         * easily by increasing the `TIMEOUT_CYCLES` value.
+         */
+        if (timeout >= TIMEOUT_CYCLES) {
+            connection_rem(wait_for_client);
+            printf("[!] client %d timed out, disconnected\n", wait_for_client);
+            continue;
+        }
+
+        /*
+         * set the current opengl context to the current client
+         */
+        connection_current(wait_for_client);
 
         int *pb = p + SGL_OFFSET_COMMAND_START;
         while (*pb != SGL_CMD_INVALID) {
@@ -71,16 +240,15 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
              * Internal Implementation
              */
             case SGL_CMD_CREATE_CONTEXT:
-                ctx = sgl_context_create();
-                begun = false;
-                printf("[+] created context: %p\n", ctx);
                 break;
-            case SGL_CMD_GOODBYE_WORLD:
-                if (ctx)
-                    sgl_context_destroy(ctx);
-                printf("[-] destroyed context: %p\n", ctx);
+            case SGL_CMD_GOODBYE_WORLD: {
+                int id = *pb++;
+                printf("[-] disconnected client %d\n", id);
+                connection_rem(id);
+                memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
                 // exit(1);
                 break;
+            }
             case SGL_CMD_REPORT_DIMS: {
                 int w = *pb++,
                     h = *pb++;
@@ -93,7 +261,10 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                     h = *pb++,
                     vflip = *pb++,
                     format = *pb++;
+
+                glFinish();
                 sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format, (size_t)pb - (size_t)(p + SGL_OFFSET_COMMAND_START));
+                glFinish();
                 break;
             }
             case SGL_CMD_VP_UPLOAD: {
@@ -4252,7 +4423,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
             if (!begun) {
                 int error = glGetError();
                 if (error != GL_NO_ERROR)
-                    printf("[!] opengl error: %d (0x%04x) from %s (%d)\n", error, error, cmd < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[cmd] : "????", cmd);
+                    printf("[!] client %d opengl error: %d (0x%04x) from %s (%d)\n", wait_for_client, error, error, cmd < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[cmd] : "????", cmd);
             }
         }
 

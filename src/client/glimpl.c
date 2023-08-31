@@ -81,11 +81,23 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
 static int glimpl_major = SGL_DEFAULT_MAJOR;
 static int glimpl_minor = SGL_DEFAULT_MINOR;
 
+static int client_id = 0;
+
 void glimpl_commit()
 {
     pb_push(0); /* processor will stop at zero */
+
+    /* 
+     * hint to server that we're ready 
+     */
+    if (pb_read(SGL_OFFSET_REGISTER_READY_HINT))
+        pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
+
+    while (pb_read(SGL_OFFSET_REGISTER_BUSY) != client_id);
+
+    pb_copy_to_shared();
     pb_write(SGL_OFFSET_REGISTER_COMMIT, 1);
-    while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1); /* to-do: maybe usleep? */
+    while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1);
     pb_reset();
 }
 
@@ -101,6 +113,7 @@ void glimpl_goodbye()
      */
     pb_reset();
     pb_push(SGL_CMD_GOODBYE_WORLD);
+    pb_push(client_id);
     pb_push(0);
     glimpl_commit();
 
@@ -153,6 +166,13 @@ void glimpl_init()
 
     glimpl_major = gl_version_override ? gl_version_override[0] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMAJ);
     glimpl_minor = gl_version_override ? gl_version_override[2] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMIN);
+
+    client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
+    pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
+
+    pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
+
+    // usleep(10000);
 
     pb_push(SGL_CMD_CREATE_CONTEXT);
     glimpl_commit();

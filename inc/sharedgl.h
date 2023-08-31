@@ -13,9 +13,10 @@
 
 #define SGL_OFFSET_REGISTER_COMMIT (sizeof(int) * 0)
 #define SGL_OFFSET_REGISTER_RETVAL (sizeof(int) * 1)
+#define SGL_OFFSET_REGISTER_READY_HINT (sizeof(int) * 2)
 #define SGL_OFFSET_REGISTER_BUSY (sizeof(int) * 3)
 #define SGL_OFFSET_REGISTER_CLAIM_ID (sizeof(int) * 4)
-#define SGL_OFFSET_REGISTER_REQFB (sizeof(int) * 5)
+#define SGL_OFFSET_REGISTER_CONNECT (sizeof(int) * 5)
 #define SGL_OFFSET_REGISTER_FBSTART (sizeof(int) * 6)
 #define SGL_OFFSET_REGISTER_MEMSIZE (sizeof(int) * 10)
 #define SGL_OFFSET_REGISTER_GLMAJ (sizeof(int) * 11)
