@@ -164,7 +164,8 @@ This list describes the amount of functions left from each standard to implement
     - [x] 4.6 (~4 total) 
 
 # Limitations / Issues
-- Server can only handle a single client at a time
+- Running several clients at once results in buggy frames
+- Clients will allocate the same amount of memory as the server's command buffer for their internal buffer
 - Vsync hasnt been implemented
 - Resizing is not handled
 - Inaccurate FPS in overlay (to-do: move timings from server to client)
