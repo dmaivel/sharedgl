@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <server/dynarr.h>
 
-#define TIMEOUT_CYCLES 30000
+#define TIMEOUT_CYCLES 100000
 
 #define ADVANCE_PAST_STRING() \
     while (!(((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \

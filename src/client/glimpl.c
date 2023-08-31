@@ -93,7 +93,7 @@ void glimpl_commit()
     /* 
      * hint to server that we're ready 
      */
-    if (pb_read(SGL_OFFSET_REGISTER_READY_HINT))
+    if (pb_read(SGL_OFFSET_REGISTER_READY_HINT) /* == 0*/)
         pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
 
     /*
