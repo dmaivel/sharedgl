@@ -85,7 +85,10 @@ static int client_id = 0;
 
 void glimpl_commit()
 {
-    pb_push(0); /* processor will stop at zero */
+    /*
+     * processor stops at 0
+     */
+    pb_push(0);
 
     /* 
      * hint to server that we're ready 
@@ -93,8 +96,14 @@ void glimpl_commit()
     if (pb_read(SGL_OFFSET_REGISTER_READY_HINT))
         pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
 
+    /*
+     * wait for our turn
+     */
     while (pb_read(SGL_OFFSET_REGISTER_BUSY) != client_id);
 
+    /*
+     * copy internal buffer to shared memory and commit
+     */
     pb_copy_to_shared();
     pb_write(SGL_OFFSET_REGISTER_COMMIT, 1);
     while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1);
@@ -167,13 +176,21 @@ void glimpl_init()
     glimpl_major = gl_version_override ? gl_version_override[0] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMAJ);
     glimpl_minor = gl_version_override ? gl_version_override[2] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMIN);
 
+    /*
+     * claim client id and increment the register for the
+     * next claimee to claim
+     */
     client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
     pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
 
+    /*
+     * notify the server we would like to connect
+     */
     pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
 
-    // usleep(10000);
-
+    /*
+     * commit
+     */
     pb_push(SGL_CMD_CREATE_CONTEXT);
     glimpl_commit();
 }
