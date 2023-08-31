@@ -13,6 +13,9 @@ The following libraries are required for building the server and client on linux
 - libx11
 
 ## Build
+> [!WARNING]\
+> The `master` branch is subject to constant change and updates, making it unstable despite having more recent features / fixes. If you want a potentially more stable experience, it is recommended that after cloning you use one of the tagged versions, e.g. `git checkout tags/v0.x.x`
+
 The following script builds the host and client for linux (currently only x64 is "officially" supported).
 ```bash
 git clone https://github.com/dmaivel/sharedgl.git
