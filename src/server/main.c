@@ -45,9 +45,9 @@ static void generate_virtual_machine_arguments(size_t m)
     static const char *qemu_string =
         "-object memory-backend-file,size=%ldM,share,mem-path=/dev/shm/" SGL_SHARED_MEMORY_NAME ",id=" SGL_SHARED_MEMORY_NAME "\n";
 
-    printf("[*] libvirt:\n");
+    printf("%slibvirt%s:\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_CYAN COLOR_BG_NONE), COLOR(COLOR_RESET));
     printf(libvirt_string, m);
-    printf("\n[*] qemu:\n");
+    printf("\n%sqemu%s:\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_CYAN COLOR_BG_NONE), COLOR(COLOR_RESET));
     printf(qemu_string, m);
     printf("\n");
 }
@@ -60,7 +60,7 @@ static void term_handler(int sig)
     case SIGINT:
         break;
     case SIGSEGV:
-        printf("[!] server stopped: segmentation fault (cmd: %d)", *internal_cmd_ptr);
+        printf("%sfatal%s: server stopped: segmentation fault (cmd: %s%d%s)", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), *internal_cmd_ptr, COLOR(COLOR_RESET));
         break;
     }
 
@@ -120,22 +120,22 @@ int main(int argc, char **argv)
     signal(SIGINT, term_handler);
     signal(SIGSEGV, term_handler);
 
-    printf("[*] press CTRL+C to terminate server\n\n");
-    printf("[*] reporting gl version %d.%d\n\n", major, minor);
+    printf("%sinfo%s: press %sCTRL+C%s to terminate server\n\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), COLOR(COLOR_RESET));
+    printf("%sinfo%s: reporting gl version %s%d%s.%s%d%s\n\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), major, COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), minor, COLOR(COLOR_RESET));
 
     if (print_virtual_machine_arguments)
         generate_virtual_machine_arguments(shm_size);
-    printf("[*] using %ld MiB of memory\n", shm_size);
+    printf("%sinfo%s: using %s%ld%s MiB of memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), shm_size, COLOR(COLOR_RESET));
     shm_size *= 1024 * 1024;
 
     int shm_fd = shm_open(SGL_SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRWXU);
     if (shm_fd == -1) {
-        fprintf(stderr, "[-] failed to open shared memory '%s'\n", SGL_SHARED_MEMORY_NAME);
+        printf("%serr%s: failed to open shared memory '%s'\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), SGL_SHARED_MEMORY_NAME);
         return -1;
     }
 
     if (ftruncate(shm_fd, shm_size) == -1) {
-        fprintf(stderr, "[-] failed to truncate shared memory\n");
+        printf("%serr%s: failed to truncate shared memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET));
         return -2;
     }
 
