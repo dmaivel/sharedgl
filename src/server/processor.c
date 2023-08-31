@@ -108,6 +108,11 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
     size_t framebuffer_size = width * height * 4;
     size_t fifo_size = m - SGL_OFFSET_COMMAND_START - framebuffer_size;
 
+    if ((signed)fifo_size < 0) {
+        printf("%sfatal%s: framebuffer too big! try increasing memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET));
+        return;
+    }
+
     printf("%sinfo%s: [%s0x%08lx%s - %s0x%08lx%s] [%s0x%08lx%s - %s0x%08lx%s] [%s0x%08lx%s - %s0x%08lx%s]\n", 
         COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), 
         COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), (size_t)0, COLOR(COLOR_RESET), 
