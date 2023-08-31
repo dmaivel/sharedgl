@@ -108,8 +108,16 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
     size_t framebuffer_size = width * height * 4;
     size_t fifo_size = m - SGL_OFFSET_COMMAND_START - framebuffer_size;
 
-    printf("[*] [0x%08lx - 0x%08lx] [0x%08lx - 0x%08lx] [0x%08lx - 0x%08lx]\n", (size_t)0, (size_t)SGL_OFFSET_COMMAND_START - 1, (size_t)SGL_OFFSET_COMMAND_START, SGL_OFFSET_COMMAND_START + fifo_size - 1, SGL_OFFSET_COMMAND_START + fifo_size, m);
-    printf("[*] %-26s%-26s%-26s\n\n", "registers", "fifo buffer", "framebuffer");
+    printf("%sinfo%s: [%s0x%08lx%s - %s0x%08lx%s] [%s0x%08lx%s - %s0x%08lx%s] [%s0x%08lx%s - %s0x%08lx%s]\n", 
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), 
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), (size_t)0, COLOR(COLOR_RESET), 
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), (size_t)SGL_OFFSET_COMMAND_START - 1, COLOR(COLOR_RESET),
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), (size_t)SGL_OFFSET_COMMAND_START, COLOR(COLOR_RESET), 
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), SGL_OFFSET_COMMAND_START + fifo_size - 1, COLOR(COLOR_RESET), 
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), SGL_OFFSET_COMMAND_START + fifo_size, COLOR(COLOR_RESET), 
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), m, COLOR(COLOR_RESET)
+    );
+    printf("%sinfo%s: %-26s%-26s%-26s\n\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), "registers", "fifo buffer", "framebuffer");
 
     memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
 
@@ -168,7 +176,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                  * get the first client id in the internal array
                  */
                 wait_for_client = connection_get(false);
-                printf("[+] connected client %d\n", creg);
+                printf("%sinfo%s: client %s%d%s connected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), creg, COLOR(COLOR_RESET));
 
                 /*
                  * prevent the same client from connecting more
@@ -220,7 +228,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
          */
         if (timeout >= TIMEOUT_CYCLES) {
             connection_rem(wait_for_client);
-            printf("[!] client %d timed out, disconnected\n", wait_for_client);
+            printf("%serr%s: client %s%d%s timed out, disconnected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), wait_for_client, COLOR(COLOR_RESET));
             continue;
         }
 
@@ -243,7 +251,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                 break;
             case SGL_CMD_GOODBYE_WORLD: {
                 int id = *pb++;
-                printf("[-] disconnected client %d\n", id);
+                printf("%sinfo%s: client %s%d%s disconnected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), id, COLOR(COLOR_RESET));
                 connection_rem(id);
                 memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
                 // exit(1);
@@ -4423,7 +4431,14 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
             if (!begun) {
                 int error = glGetError();
                 if (error != GL_NO_ERROR)
-                    printf("[!] client %d opengl error: %d (0x%04x) from %s (%d)\n", wait_for_client, error, error, cmd < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[cmd] : "????", cmd);
+                    printf("%sglerr%s: client %s%d%s opengl error: %s%d%s (%s0x%04x%s) from %s%s%s (%s%d%s)\n", 
+                        COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), 
+                        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), wait_for_client, COLOR(COLOR_RESET), 
+                        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), error, COLOR(COLOR_RESET), 
+                        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), error, COLOR(COLOR_RESET), 
+                        COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), cmd < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[cmd] : "????", COLOR(COLOR_RESET), 
+                        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), cmd, COLOR(COLOR_RESET)
+                    );
             }
         }
 
