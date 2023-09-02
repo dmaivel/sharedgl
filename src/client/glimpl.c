@@ -1,5 +1,6 @@
 #include <client/glimpl.h>
 #include <client/memory.h>
+#include <client/spinlock.h>
 #include <client/pb.h>
 #include <sharedgl.h>
 #include <commongl.h>
@@ -82,6 +83,7 @@ static int glimpl_major = SGL_DEFAULT_MAJOR;
 static int glimpl_minor = SGL_DEFAULT_MINOR;
 
 static int client_id = 0;
+static void *lockg;
 
 void glimpl_commit()
 {
@@ -90,16 +92,15 @@ void glimpl_commit()
      */
     pb_push(0);
 
+    /*
+     * lock
+     */
+    spin_lock(lockg);
+
     /* 
      * hint to server that we're ready 
      */
-    if (pb_read(SGL_OFFSET_REGISTER_READY_HINT) /* == 0*/)
-        pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
-
-    /*
-     * wait for our turn
-     */
-    while (pb_read(SGL_OFFSET_REGISTER_BUSY) != client_id);
+    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
 
     /*
      * copy internal buffer to shared memory and commit
@@ -108,6 +109,11 @@ void glimpl_commit()
     pb_write(SGL_OFFSET_REGISTER_COMMIT, 1);
     while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1);
     pb_reset();
+
+    /*
+     * unlock
+     */
+    spin_unlock(lockg);
 }
 
 void glimpl_goodbye()
@@ -176,18 +182,24 @@ void glimpl_init()
     glimpl_major = gl_version_override ? gl_version_override[0] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMAJ);
     glimpl_minor = gl_version_override ? gl_version_override[2] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMIN);
 
+    lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
+    spin_set(lockg);
+
     /*
      * claim client id and increment the register for the
      * next claimee to claim
      */
+    spin_lock(lockg);
     client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
+    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
     pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
 
     /*
      * notify the server we would like to connect
      */
     pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
-
+    spin_unlock(lockg);
+    
     /*
      * commit
      */

@@ -5,6 +5,8 @@ include_directories(${CMAKE_SOURCE_DIR}/inc)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -march=native")
 
+set(CMAKE_C_COMPILER "clang")
+
 IF(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gz")
