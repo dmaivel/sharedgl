@@ -139,6 +139,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
     *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
     *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID) = 1;
     *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
+    *(int*)(p + SGL_OFFSET_REGISTER_LOCK) = 0;
 
     void *uploaded = NULL;
     int cmd;
@@ -147,9 +148,8 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
         *internal_cmd_ptr = &cmd;
 
     while (1) {
-        int wait_for_client = connection_get(false);
+        int client_id = 0;
         int timeout = 0;
-        *(int*)(p + SGL_OFFSET_REGISTER_BUSY) = wait_for_client;
         
         /*
          * not only wait for a commit from a specific client,
@@ -157,7 +157,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
          * still exists, in case it didn't notify the server
          * of its exit
          */
-        while (!wait_for_commit(p) && timeout < TIMEOUT_CYCLES) {
+        while (!wait_for_commit(p)) {
             int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
 
             /*
@@ -170,17 +170,6 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                  */
                 connection_add(creg);
 
-                /*
-                 * reset the internal get loop, this does not
-                 * return a valid client id so its return
-                 * value is to be ignored
-                 */
-                connection_get(true);
-
-                /*
-                 * get the first client id in the internal array
-                 */
-                wait_for_client = connection_get(false);
                 printf("%sinfo%s: client %s%d%s connected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), creg, COLOR(COLOR_RESET));
 
                 /*
@@ -188,59 +177,22 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                  * than once and break from the loop
                  */
                 *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
-                break;
+                continue;
             }
 
             /*
-             * the server may recieve a hint that a client is ready
-             * in the event that it does, we will ignore the previously
-             * selected client and allow the hinted client to execute
-             * its commands.
-             *
-             * the hinting system is implemented merely as a speed-up
-             * optimization. without it, several clients may be ready but
-             * will have to wait for other clients to finish as they wait
-             * their turn in the dynamic queue.
+             * some sort of "sync"
              */
-            int hint = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
-            if (hint != 0) {
-                *(int*)(p + SGL_OFFSET_REGISTER_BUSY) = hint;
-                wait_for_client = hint;
-                *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
-            }
-
-            /*
-             * for sanity sake, keep track of how many cycles we have
-             * looped through in case the currently selected client
-             * no longer exists.
-             *
-             * because of the previously aforementioned hinting system,
-             * clients can only time out when there are no more clients,
-             * or in *rare* cases if all other clients also stall out.
-             */
-            if (*(int*)(p + SGL_OFFSET_REGISTER_BUSY) != 0)
-                timeout++;
             usleep(1);
         }
 
-        /*
-         * if we do timeout, we would want to remove the zombie client
-         *
-         * this isn't fully fool-proof, as some clients may be mistaken
-         * for zombie clients if they stall out for too long processing
-         * data or all other clients stall. this can be fixed relatively
-         * easily by increasing the `TIMEOUT_CYCLES` value.
-         */
-        if (timeout >= TIMEOUT_CYCLES) {
-            connection_rem(wait_for_client);
-            printf("%serr%s: client %s%d%s timed out, disconnected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), wait_for_client, COLOR(COLOR_RESET));
-            continue;
-        }
+        client_id = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
+        *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
 
         /*
          * set the current opengl context to the current client
          */
-        connection_current(wait_for_client);
+        connection_current(client_id);
 
         int *pb = p + SGL_OFFSET_COMMAND_START;
         while (*pb != SGL_CMD_INVALID) {
@@ -275,9 +227,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                     vflip = *pb++,
                     format = *pb++;
 
-                glFinish();
                 sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format, (size_t)pb - (size_t)(p + SGL_OFFSET_COMMAND_START));
-                glFinish();
                 break;
             }
             case SGL_CMD_VP_UPLOAD: {
@@ -4438,7 +4388,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                 if (error != GL_NO_ERROR)
                     printf("%sglerr%s: client %s%d%s opengl error: %s%d%s (%s0x%04x%s) from %s%s%s (%s%d%s)\n", 
                         COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), 
-                        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), wait_for_client, COLOR(COLOR_RESET), 
+                        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), client_id, COLOR(COLOR_RESET), 
                         COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), error, COLOR(COLOR_RESET), 
                         COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), error, COLOR(COLOR_RESET), 
                         COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), cmd < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[cmd] : "????", COLOR(COLOR_RESET), 
@@ -4448,6 +4398,7 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
         }
 
         /* commit done */
+        glFinish();
         *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) = 0;
     }
 }

@@ -29,7 +29,7 @@ struct glx_swap_data {
     XEvent event;
 
     XGCValues gcv;
-    GC NormalGC;
+    GC gc;
 
     bool initialized;
 };
@@ -243,7 +243,6 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         swap_data.width = attr.width;
         swap_data.height = attr.height;
         swap_data.parent = XDefaultRootWindow(dpy);
-
         swap_data.nxvisuals = 0;
         swap_data.visual_template.screen = DefaultScreen(dpy);
         swap_data.visual_list = XGetVisualInfo(dpy, VisualScreenMask, &swap_data.visual_template, &swap_data.nxvisuals);
@@ -251,9 +250,8 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         XMatchVisualInfo(dpy, XDefaultScreen(dpy), 24, TrueColor, &swap_data.vinfo);
 
         swap_data.ximage = XCreateImage(dpy, swap_data.vinfo.visual, swap_data.vinfo.depth, ZPixmap, 0, glimpl_fb_address(), swap_data.width, swap_data.height, 8, swap_data.width*4);
-    
         swap_data.gcv.graphics_exposures = 0;
-        swap_data.NormalGC = XCreateGC(dpy, swap_data.parent, GCGraphicsExposures, &swap_data.gcv);
+        swap_data.gc = XCreateGC(dpy, swap_data.parent, GCGraphicsExposures, &swap_data.gcv);
 
         glimpl_report(swap_data.width, swap_data.height);
 
@@ -264,7 +262,10 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
     glimpl_swap_buffers(swap_data.width, swap_data.height, 1, GL_BGRA);
 
     /* display */
-    XPutImage(dpy, drawable, swap_data.NormalGC, swap_data.ximage, 0, 0, 0, 0, swap_data.width, swap_data.height);
+    XPutImage(dpy, drawable, swap_data.gc, swap_data.ximage, 0, 0, 0, 0, swap_data.width, swap_data.height);
+
+    /* sync */
+    XSync(dpy, False);
 }
 
 void *glXGetProcAddress(char *s);
