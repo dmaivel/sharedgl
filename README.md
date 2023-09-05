@@ -116,7 +116,7 @@ There are two possible drivers one may use:
         6. Move the following files from `...\sharedgl\scripts\` to `...\sharedgl\build\Release\`:
             - `kcertify.bat`
             - `ksgldrv.inf`
-        7. Run `kcertify.bat` as admin (must be ran through VS command prompt)
+        7. Run `kcertify.bat` (must be ran through VS command prompt)
             - By default, this builds for Windows 10 x64 (`10_X64`). If you wish to compile for a different version or multiple versions, you must provide it through the command line like so: `kcertify.bat 10_X64,10_NI_X64`. A list of OS versions is provided on MSDN [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/inf2cat).
         8. Right click on `ksgldrv.inf` and press `Install`.
 
