@@ -49,16 +49,6 @@ ELSEIF(WIN32)
 ENDIF(UNIX)
 
 # windows driver
-#
-# makecert -r -pe -ss PrivateCertStore -n CN=ksgldrv ksgldrv.cer
-# Inf2cat.exe /driver:.\ /os:10_X64
-# Signtool sign /v /fd sha256 /s PrivateCertStore /n ksgldrv /t http://timestamp.digicert.com ksgldrv.cat
-# 
-# CertMgr.exe /add ksgldrv.cer /s /r localMachine root
-# CertMgr.exe /add ksgldrv.cer /s /r localMachine trustedpublisher
-# (not needed) signtool  verify  /v  /kp  /c  ksgldrv.cat  ksgldrv.inf
-# (not needed) signtool  verify  /v  /kp  ksgldrv.sys
-# 
 IF(WIN32)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/kernel/windows/findwdk/")
     find_package(WDK REQUIRED)
