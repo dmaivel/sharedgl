@@ -107,7 +107,7 @@ There are two possible drivers one may use:
         1. Download the latest release for windows and extract the zip file.
         2. Navigate into the extracted folder.
         3. Right click on `ksgldrv.inf` and press `Install`.
-    2. Compile from source (use cmd / powershell / Visual Studio Developer Command Prompt)
+    2. Compile from source (use Visual Studio Developer Command Prompt)
         1. Ensure you have installed the `WDK`, which can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/other-wdk-downloads).
         2. Download the source (preferably thru `git`).
         3. Navigate into the folder, create a new folder named `build`, and navigate into it (`mkdir build && cd build`).
@@ -125,7 +125,7 @@ There are two ways to install the library on windows:
     1. Download the latest release for windows and extract the zip file.
     2. Navigate into the extracted folder and run `wininstall.bat` and allow admin privledges.
     3. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
-2. Compile from source (use cmd / powershell / Visual Studio Developer Command Prompt)
+2. Compile from source (use Visual Studio Developer Command Prompt)
     1. Download the source (preferably thru `git`).
     2. Navigate into the folder, create a new folder named `build`, and navigate into it (`mkdir build && cd build`).
     3. Run `cmake ..`, which will target the system's architecture.
