@@ -5,7 +5,7 @@ EXTERN_C_START
 #define MAX_EVENTS 32
 
 #pragma align(push,4)
-typedef struct KSGLDRVDeviceRegisters
+typedef struct IVSHMEMDeviceRegisters
 {
     volatile ULONG irqMask;
     volatile ULONG irqStatus;
@@ -13,10 +13,10 @@ typedef struct KSGLDRVDeviceRegisters
     volatile ULONG doorbell;
     volatile UCHAR reserved[240];
 }
-KSGLDRVDeviceRegisters, *PKSGLDRVDeviceRegisters;
+IVSHMEMDeviceRegisters, *PIVSHMEMDeviceRegisters;
 #pragma align(pop)
 
-typedef struct KSGLDRVEventListEntry
+typedef struct IVSHMEMEventListEntry
 {
     WDFFILEOBJECT owner;
     UINT16        vector;
@@ -24,7 +24,7 @@ typedef struct KSGLDRVEventListEntry
     BOOLEAN       singleShot;
     LIST_ENTRY    ListEntry;
 }
-KSGLDRVEventListEntry, *PKSGLDRVEventListEntry;
+IVSHMEMEventListEntry, *PIVSHMEMEventListEntry;
 
 #if (NTDDI_VERSION < NTDDI_WIN8)
 typedef struct _MM_PHYSICAL_ADDRESS_LIST {
@@ -36,7 +36,7 @@ typedef struct _MM_PHYSICAL_ADDRESS_LIST {
 
 typedef struct _DEVICE_CONTEXT
 {
-    PKSGLDRVDeviceRegisters devRegisters; // the device registers (BAR0)
+    PIVSHMEMDeviceRegisters devRegisters; // the device registers (BAR0)
 
     MM_PHYSICAL_ADDRESS_LIST   shmemAddr;               // physical address of the shared memory (BAR2)
     PMDL                       shmemMDL;                // memory discriptor list of the shared memory
@@ -48,7 +48,7 @@ typedef struct _DEVICE_CONTEXT
     LONG64                     pendingISR;              // flags for ISRs pending processing
 
     KSPIN_LOCK                 eventListLock;           // spinlock for the below event list
-    KSGLDRVEventListEntry      eventBuffer[MAX_EVENTS]; // buffer of pre-allocated events
+    IVSHMEMEventListEntry      eventBuffer[MAX_EVENTS]; // buffer of pre-allocated events
     UINT16                     eventBufferUsed;         // number of events currenty in use
     LIST_ENTRY                 eventList;               // pending events to fire
 }
@@ -56,13 +56,13 @@ DEVICE_CONTEXT, *PDEVICE_CONTEXT;
 
 WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(DEVICE_CONTEXT, DeviceGetContext)
 
-NTSTATUS KSGLDRVCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit);
+NTSTATUS IVSHMEMCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit);
 
-EVT_WDF_DEVICE_PREPARE_HARDWARE KSGLDRVEvtDevicePrepareHardware;
-EVT_WDF_DEVICE_RELEASE_HARDWARE KSGLDRVEvtDeviceReleaseHardware;
-EVT_WDF_DEVICE_D0_ENTRY KSGLDRVEvtD0Entry;
-EVT_WDF_DEVICE_D0_EXIT KSGLDRVEvtD0Exit;
-EVT_WDF_INTERRUPT_ISR KSGLDRVInterruptISR;
-EVT_WDF_INTERRUPT_DPC KSGLDRVInterruptDPC;
+EVT_WDF_DEVICE_PREPARE_HARDWARE IVSHMEMEvtDevicePrepareHardware;
+EVT_WDF_DEVICE_RELEASE_HARDWARE IVSHMEMEvtDeviceReleaseHardware;
+EVT_WDF_DEVICE_D0_ENTRY IVSHMEMEvtD0Entry;
+EVT_WDF_DEVICE_D0_EXIT IVSHMEMEvtD0Exit;
+EVT_WDF_INTERRUPT_ISR IVSHMEMInterruptISR;
+EVT_WDF_INTERRUPT_DPC IVSHMEMInterruptDPC;
 
 EXTERN_C_END
