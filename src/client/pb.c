@@ -20,27 +20,27 @@
 
 #pragma comment (lib, "Setupapi.lib")
 
-DEFINE_GUID(GUID_DEVINTERFACE_IVSHMEM,
+DEFINE_GUID(GUID_DEVINTERFACE_KSGLDRV,
     0xdf576976, 0x569d, 0x4672, 0x95, 0xa0, 0xf5, 0x7e, 0x4e, 0xa0, 0xb2, 0x10);
 
-#define IVSHMEM_CACHE_NONCACHED     0
-#define IVSHMEM_CACHE_CACHED        1
-#define IVSHMEM_CACHE_WRITECOMBINED 2
+#define KSGLDRV_CACHE_NONCACHED     0
+#define KSGLDRV_CACHE_CACHED        1
+#define KSGLDRV_CACHE_WRITECOMBINED 2
 
-typedef struct IVSHMEM_MMAP_CONFIG {
+typedef struct KSGLDRV_MMAP_CONFIG {
     BYTE CacheMode;
-} IVSHMEM_MMAP_CONFIG, *PIVSHMEM_MMAP_CONFIG;
+} KSGLDRV_MMAP_CONFIG, *PKSGLDRV_MMAP_CONFIG;
 
-typedef struct IVSHMEM_MMAP {
+typedef struct KSGLDRV_MMAP {
     WORD    PeerID;
     DWORD64 Size;
     PVOID   Pointer;
     WORD    Vectors;
-} IVSHMEM_MMAP, *PIVSHMEM_MMAP;
+} KSGLDRV_MMAP, *PKSGLDRV_MMAP;
 
-#define IOCTL_IVSHMEM_REQUEST_SIZE   CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IVSHMEM_REQUEST_MMAP   CTL_CODE(FILE_DEVICE_UNKNOWN, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
-#define IOCTL_IVSHMEM_RELEASE_MMAP   CTL_CODE(FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_KSGLDRV_REQUEST_SIZE   CTL_CODE(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_KSGLDRV_REQUEST_MMAP   CTL_CODE(FILE_DEVICE_UNKNOWN, 0x802, METHOD_BUFFERED, FILE_ANY_ACCESS)
+#define IOCTL_KSGLDRV_RELEASE_MMAP   CTL_CODE(FILE_DEVICE_UNKNOWN, 0x803, METHOD_BUFFERED, FILE_ANY_ACCESS)
 
 HANDLE Handle;
 #endif
@@ -73,15 +73,15 @@ void pb_set(void)
     PSP_DEVICE_INTERFACE_DETAIL_DATA InfData;
     SP_DEVICE_INTERFACE_DATA DeviceInterfaceData;
     DWORD64 Size;
-    IVSHMEM_MMAP_CONFIG Config;
-    IVSHMEM_MMAP Map;
+    KSGLDRV_MMAP_CONFIG Config;
+    KSGLDRV_MMAP Map;
     DWORD RequestSize;
 
     DeviceInfoSet = SetupDiGetClassDevs(NULL, NULL, NULL, DIGCF_PRESENT | DIGCF_ALLCLASSES | DIGCF_DEVICEINTERFACE);
     ZeroMemory(&DeviceInterfaceData, sizeof(SP_DEVICE_INTERFACE_DATA));
     DeviceInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
 
-    if (SetupDiEnumDeviceInterfaces(DeviceInfoSet, NULL, &GUID_DEVINTERFACE_IVSHMEM, 0, &DeviceInterfaceData) == FALSE)
+    if (SetupDiEnumDeviceInterfaces(DeviceInfoSet, NULL, &GUID_DEVINTERFACE_KSGLDRV, 0, &DeviceInterfaceData) == FALSE)
         return;
 
     SetupDiGetDeviceInterfaceDetail(DeviceInfoSet, &DeviceInterfaceData, NULL, 0, &RequestSize, NULL);
@@ -102,12 +102,12 @@ void pb_set(void)
         free(InfData);
     SetupDiDestroyDeviceInfoList(DeviceInfoSet);
 
-    if (!DeviceIoControl(Handle, IOCTL_IVSHMEM_REQUEST_SIZE, NULL, 0, &Size, sizeof(UINT64), NULL, NULL))
+    if (!DeviceIoControl(Handle, IOCTL_KSGLDRV_REQUEST_SIZE, NULL, 0, &Size, sizeof(UINT64), NULL, NULL))
         return;
 
-    Config.CacheMode = IVSHMEM_CACHE_WRITECOMBINED;
-    ZeroMemory(&Map, sizeof(IVSHMEM_MMAP));
-    if (!DeviceIoControl(Handle, IOCTL_IVSHMEM_REQUEST_MMAP, &Config, sizeof(IVSHMEM_MMAP_CONFIG), &Map, sizeof(IVSHMEM_MMAP), NULL, NULL))
+    Config.CacheMode = KSGLDRV_CACHE_WRITECOMBINED;
+    ZeroMemory(&Map, sizeof(KSGLDRV_MMAP));
+    if (!DeviceIoControl(Handle, IOCTL_KSGLDRV_REQUEST_MMAP, &Config, sizeof(KSGLDRV_MMAP_CONFIG), &Map, sizeof(KSGLDRV_MMAP), NULL, NULL))
         return;
 
     ptr = Map.Pointer;
@@ -119,7 +119,7 @@ void pb_set(void)
 
 void pb_unset(void)
 {
-    DeviceIoControl(Handle, IOCTL_IVSHMEM_RELEASE_MMAP, NULL, 0, NULL, 0, NULL, NULL);
+    DeviceIoControl(Handle, IOCTL_KSGLDRV_RELEASE_MMAP, NULL, 0, NULL, 0, NULL, NULL);
     CloseHandle(Handle);
 }
 #endif

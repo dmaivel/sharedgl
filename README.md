@@ -76,10 +76,10 @@ $ ...
 
 [Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
 
-For virtual linux clients, an additional kernel module needs to be compiled. The compiled result, `sharedgl.ko`, needs to be moved into the guest, and loaded. There is an `install.sh` script within this directory which may be moved alongside the module for ease of use. It is recommended that you add `sharedgl` to your modprobe config following installation, otherwise it must be loaded manually on each boot.
+For virtual linux clients, an additional kernel module needs to be compiled (preferably in the vm) alongside moving the client into the guest or compiling it there aswell. The compiled result, `sharedgl.ko`, needs to be loaded. There is a script within this directory (`install.sh`) for ease of use. It is recommended that you add `sharedgl` to your modprobe config following installation, otherwise it must be loaded manually on each boot.
 ```bash
 # within 'sharedgl' directory
-cd kernel
+cd kernel/linux
 make
 ```
 
@@ -89,14 +89,45 @@ make
 ## Windows (in a VM)
 [Windows is only supported as a guest: Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
 
+Two things must be done for the windows installation:
+1. Install a compatible driver
+2. Install the clients
+
+There are two possible drivers one may use:
+1. VirtIO's IVSHMEM driver (no multiclient support)
+    1. Download and extract the upstream virtio win drivers, found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/).
+    2. Navigate into `...\virtio-win-upstream\Win10\amd64\`.
+    3. Right click on `ivshmem.inf` and press `Install`.
+
+> [!WARNING]\
+> If you use the included driver, test signing must be on. Enable it by running the following command in an elevated command prompt: `bcdedit.exe -set testsigning on`
+
+2. Included driver (multiclient support) (fork of VirtIO's)
+    1. Use the release (>= `0.4.0`)
+        1. Download the latest release for windows and extract the zip file.
+        2. Navigate into the extracted folder.
+        3. Right click on `ksgldrv.inf` and press `Install`.
+    2. Compile from source (use cmd / powershell / Visual Studio Developer Command Prompt)
+        1. Ensure you have installed the `WDK`, which can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/other-wdk-downloads).
+        2. Download the source (preferably thru `git`).
+        3. Navigate into the folder, create a new folder named `build`, and navigate into it (`mkdir build && cd build`).
+        4. Run `cmake ..`, which will target the system's architecture.
+        5. Build by running `cmake --build . --target ksgldrv --config Release`.
+        6. Move the following files from `...\sharedgl\scripts\` to `...\sharedgl\build\Release\`:
+            - `kcertify.bat`
+            - `ksgldrv.inf`
+        7. Run `kcertify.bat` as admin (must be ran through VS command prompt)
+            - By default, this builds for Windows 10 x64 (`10_X64`). If you wish to compile for a different version or multiple versions, you must provide it through the command line like so: `kcertify.bat 10_X64,10_NI_X64`. A list of OS versions is provided on MSDN [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/inf2cat).
+        8. Right click on `ksgldrv.inf` and press `Install`.
+
 There are two ways to install the library on windows:
-1. Use a release
+1. Use a release (>= `0.3.1`)
     1. Download the latest release for windows and extract the zip file.
     2. Navigate into the extracted folder and run `wininstall.bat` and allow admin privledges.
     3. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
 2. Compile from source (use cmd / powershell / Visual Studio Developer Command Prompt)
     1. Download the source (preferably thru `git`).
-    2. Navigate into the folder, create a new folder named `build`, and navigate into it (mkdir `build` && cd `build`).
+    2. Navigate into the folder, create a new folder named `build`, and navigate into it (`mkdir build && cd build`).
     3. Run `cmake ..`, which will target the system's architecture.
         - The steps below can be ran after building for another target.
         - To explicitly state an x64 build, run `cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..` instead.
@@ -106,13 +137,6 @@ There are two ways to install the library on windows:
     5. Upon building either the x64 binary or x86 binary or both binaries, move the install script (`...\sharedgl\scripts\wininstall.bat`) into the same folder where the built binaries reside (`...\sharedgl\build\Release\`).
     6. Run the script and allow admin privledges.
     7. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
-
-An uninstall script, `winuninstall.bat` is also provided.
-
-> [!NOTE]\
-> Previous releases' clients are named `opengl32.dll`, meaning they are not ICDs. If you use an outdated client (not recommended) from `release <= 0.3.0`, then all you need to do is drop it into the same folder as your OpenGL application.
-
-Additionally (because only virtualized Windows guests are supported), the Windows VirtIO Drivers need to be installed, which can be found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/). (Navigate to `...\virtio-win-upstream\Win10\amd64\`, right click on `ivshmem.inf`, and press `Install`).
 
 # Virtual machines
 Before you start up your virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Use the `-v` command line argument when starting the server and place the output in its respective location, depending on whether you use libvirt or qemu. Scroll down for driver information.

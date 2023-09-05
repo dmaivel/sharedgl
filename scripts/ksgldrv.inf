@@ -1,0 +1,105 @@
+;/*++
+;
+;Copyright (c) 2017-2021 Red Hat Inc.
+;Copyright (c) 2023 dmaivel
+;
+;Module Name:
+;    KSGLDRV.inf
+;
+;Abstract:
+;
+;Installation Notes:
+;    Using Devcon: Type "devcon install ksgldrv.inf PCI\VEN_1AF4&DEV_1110&SUBSYS_11001AF4&REV_01" to install
+;
+;--*/
+
+[Version]
+Signature="$WINDOWS NT$"
+Class=System
+ClassGuid={4d36e97d-e325-11ce-bfc1-08002be10318}
+Provider=%VENDOR%
+CatalogFile=KSGLDRV.cat
+DriverVer = 09/04/2023,100.10.100.10001
+PnpLockDown=1
+
+[DestinationDirs]
+DefaultDestDir = 12
+KSGLDRV_Device_CoInstaller_CopyFiles = 11
+
+; ================= Class section =====================
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+KSGLDRV.sys  = 1,,
+;
+
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%VENDOR%=Standard,NTamd64.10.0
+
+[Standard.NTamd64.10.0]
+%KSGLDRV.DeviceDesc%=KSGLDRV_Device, PCI\VEN_1AF4&DEV_1110&SUBSYS_11001AF4&REV_01, PCI\VEN_1AF4&DEV_1110
+
+[KSGLDRV_Device.NT]
+CopyFiles=Drivers_Dir
+
+[KSGLDRV_Device.NT.Interfaces]
+AddInterface={df576976-569d-4672-95a0-f57e4ea0b210}
+
+[KSGLDRV_Device.NT.HW]
+AddReg = KSGLDRV_AddReg
+
+[KSGLDRV_AddReg]
+HKR,Interrupt Management,,0x00000010
+HKR,Interrupt Management\MessageSignaledInterruptProperties,,0x00000010
+HKR,Interrupt Management\MessageSignaledInterruptProperties,MSISupported,0x00010001,1
+
+[Drivers_Dir]
+KSGLDRV.sys
+
+;-------------- Service installation
+[KSGLDRV_Device.NT.Services]
+AddService = KSGLDRV,%SPSVCINST_ASSOCSERVICE%, KSGLDRV_Service_Inst
+
+; -------------- KSGLDRV driver install sections
+[KSGLDRV_Service_Inst]
+DisplayName    = %KSGLDRV.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\ksgldrv.sys
+
+;
+;--- KSGLDRV_Device Coinstaller installation ------
+;
+
+[KSGLDRV_Device.NT.CoInstallers]
+AddReg=KSGLDRV_Device_CoInstaller_AddReg
+CopyFiles=KSGLDRV_Device_CoInstaller_CopyFiles
+
+[KSGLDRV_Device_CoInstaller_AddReg]
+;
+
+
+[KSGLDRV_Device_CoInstaller_CopyFiles]
+;
+
+
+[KSGLDRV_Device.NT.Wdf]
+KmdfService = KSGLDRV, KSGLDRV_wdfsect
+
+[KSGLDRV_wdfsect]
+KmdfLibraryVersion = 1.15
+
+[Strings]
+SPSVCINST_ASSOCSERVICE= 0x00000002
+VENDOR = "dmaivel"
+DiskName = "SharedGL Installation Disk"
+KSGLDRV.DeviceDesc = "SharedGL Device"
+KSGLDRV.SVCDESC = "Ksgldrv Service"

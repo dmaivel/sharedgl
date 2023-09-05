@@ -48,9 +48,21 @@ ELSEIF(WIN32)
     ENDIF()
 ENDIF(UNIX)
 
-# sgldxumd
-IF(WIN32 AND PLSSGLDXUMD)
-    add_library(sharedgl-dxumd SHARED ${GLOBBED_DXUMD_SOURCES})
-    set_target_properties(sharedgl-dxumd PROPERTIES OUTPUT_NAME "sgldxumd")
-    target_include_directories(sharedgl-dxumd PUBLIC "C:\\Program Files\ (x86)\\Windows\ Kits\\10\\Include\\10.0.19041.0\\um" "C:\\Program Files\ (x86)\\Windows\ Kits\\10\\Include\\10.0.19041.0\\shared")
-ENDIF(WIN32 AND PLSSGLDXUMD)
+# windows driver
+#
+# makecert -r -pe -ss PrivateCertStore -n CN=ksgldrv ksgldrv.cer
+# Inf2cat.exe /driver:.\ /os:10_X64
+# Signtool sign /v /fd sha256 /s PrivateCertStore /n ksgldrv /t http://timestamp.digicert.com ksgldrv.cat
+# 
+# CertMgr.exe /add ksgldrv.cer /s /r localMachine root
+# CertMgr.exe /add ksgldrv.cer /s /r localMachine trustedpublisher
+# (not needed) signtool  verify  /v  /kp  /c  ksgldrv.cat  ksgldrv.inf
+# (not needed) signtool  verify  /v  /kp  ksgldrv.sys
+# 
+IF(WIN32)
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/kernel/windows/findwdk/")
+    find_package(WDK REQUIRED)
+
+    file(GLOB GLOBBED_KERNEL_SOURCES CONFIGURE_DEPENDS "kernel/windows/*.c")
+    wdk_add_driver(ksgldrv KMDF 1.15 ${GLOBBED_KERNEL_SOURCES})
+ENDIF(WIN32)
