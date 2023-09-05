@@ -102,4 +102,4 @@ SPSVCINST_ASSOCSERVICE= 0x00000002
 VENDOR = "dmaivel"
 DiskName = "SharedGL Installation Disk"
 KSGLDRV.DeviceDesc = "SharedGL Device"
-KSGLDRV.SVCDESC = "Ksgldrv Service"
+KSGLDRV.SVCDESC = "SharedGL Service"
