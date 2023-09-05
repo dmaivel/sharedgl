@@ -1,12 +1,12 @@
 #include "driver.h"
 
 #ifdef ALLOC_PRAGMA
-#pragma alloc_text (PAGE, KSGLDRVCreateDevice)
-#pragma alloc_text (PAGE, KSGLDRVEvtDevicePrepareHardware)
-#pragma alloc_text (PAGE, KSGLDRVEvtD0Exit)
+#pragma alloc_text (PAGE, IVSHMEMCreateDevice)
+#pragma alloc_text (PAGE, IVSHMEMEvtDevicePrepareHardware)
+#pragma alloc_text (PAGE, IVSHMEMEvtD0Exit)
 #endif
 
-NTSTATUS KSGLDRVCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
+NTSTATUS IVSHMEMCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
 {
     WDF_OBJECT_ATTRIBUTES deviceAttributes;
     PDEVICE_CONTEXT deviceContext;
@@ -20,14 +20,14 @@ NTSTATUS KSGLDRVCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
 
     WDF_PNPPOWER_EVENT_CALLBACKS pnpPowerCallbacks;
     WDF_PNPPOWER_EVENT_CALLBACKS_INIT(&pnpPowerCallbacks);
-    pnpPowerCallbacks.EvtDevicePrepareHardware = KSGLDRVEvtDevicePrepareHardware;
-    pnpPowerCallbacks.EvtDeviceReleaseHardware = KSGLDRVEvtDeviceReleaseHardware;
-    pnpPowerCallbacks.EvtDeviceD0Entry         = KSGLDRVEvtD0Entry;
-    pnpPowerCallbacks.EvtDeviceD0Exit          = KSGLDRVEvtD0Exit;
+    pnpPowerCallbacks.EvtDevicePrepareHardware = IVSHMEMEvtDevicePrepareHardware;
+    pnpPowerCallbacks.EvtDeviceReleaseHardware = IVSHMEMEvtDeviceReleaseHardware;
+    pnpPowerCallbacks.EvtDeviceD0Entry         = IVSHMEMEvtD0Entry;
+    pnpPowerCallbacks.EvtDeviceD0Exit          = IVSHMEMEvtD0Exit;
     WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
 
     WDF_FILEOBJECT_CONFIG fileConfig;
-    WDF_FILEOBJECT_CONFIG_INIT(&fileConfig, NULL, NULL, KSGLDRVEvtDeviceFileCleanup);
+    WDF_FILEOBJECT_CONFIG_INIT(&fileConfig, NULL, NULL, IVSHMEMEvtDeviceFileCleanup);
     WdfDeviceInitSetFileObjectConfig(DeviceInit, &fileConfig, WDF_NO_OBJECT_ATTRIBUTES);
 
     status = WdfDeviceCreate(&DeviceInit, &deviceAttributes, &device);
@@ -43,7 +43,7 @@ NTSTATUS KSGLDRVCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
     KeInitializeSpinLock(&deviceContext->eventListLock);
     InitializeListHead(&deviceContext->eventList);
 
-    status = WdfDeviceCreateDeviceInterface(device, &GUID_DEVINTERFACE_KSGLDRV, NULL);
+    status = WdfDeviceCreateDeviceInterface(device, &GUID_DEVINTERFACE_IVSHMEM, NULL);
 
     if (!NT_SUCCESS(status))
     {
@@ -51,17 +51,17 @@ NTSTATUS KSGLDRVCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit)
         return status;
     }
 
-    status = KSGLDRVQueueInitialize(device);
+    status = IVSHMEMQueueInitialize(device);
     if (!NT_SUCCESS(status))
     {
-        DEBUG_ERROR("%s", "KSGLDRVQueueInitialize failed");
+        DEBUG_ERROR("%s", "IVSHMEMQueueInitialize failed");
         return status;
     }
 
     return status;
 }
 
-PVOID KSGLDRVMmMapIoSpace(
+PVOID IVSHMEMMmMapIoSpace(
     _In_ PHYSICAL_ADDRESS PhysicalAddress,
     _In_ SIZE_T NumberOfBytes
     )
@@ -92,7 +92,7 @@ PVOID KSGLDRVMmMapIoSpace(
 }
 
 
-NTSTATUS KSGLDRVEvtDevicePrepareHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIST ResourcesRaw, _In_ WDFCMRESLIST ResourcesTranslated)
+NTSTATUS IVSHMEMEvtDevicePrepareHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIST ResourcesRaw, _In_ WDFCMRESLIST ResourcesTranslated)
 {
     PAGED_CODE();
     DEBUG_INFO("%s", __FUNCTION__);
@@ -122,7 +122,7 @@ NTSTATUS KSGLDRVEvtDevicePrepareHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
 
       if (deviceContext->interruptCount > 0)
       {
-          deviceContext->interrupts = (WDFINTERRUPT*)ExAllocatePoolUninitialized(KSGLDRV_NONPAGED_POOL,
+          deviceContext->interrupts = (WDFINTERRUPT*)ExAllocatePoolUninitialized(IVSHMEM_NONPAGED_POOL,
               sizeof(WDFINTERRUPT) * deviceContext->interruptCount, 'sQRI');
 
           if (!deviceContext->interrupts)
@@ -147,15 +147,15 @@ NTSTATUS KSGLDRVEvtDevicePrepareHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
             // control registers
             if (memIndex == 0)
             {
-                if (descriptor->u.Memory.Length != sizeof(KSGLDRVDeviceRegisters))
+                if (descriptor->u.Memory.Length != sizeof(IVSHMEMDeviceRegisters))
                 {
                     DEBUG_ERROR("Resource size was %u long when %u was expected",
-                        descriptor->u.Memory.Length, sizeof(KSGLDRVDeviceRegisters));
+                        descriptor->u.Memory.Length, sizeof(IVSHMEMDeviceRegisters));
                     result = STATUS_DEVICE_HARDWARE_ERROR;
                     break;
                 }
 
-                deviceContext->devRegisters = (PKSGLDRVDeviceRegisters)KSGLDRVMmMapIoSpace(
+                deviceContext->devRegisters = (PIVSHMEMDeviceRegisters)IVSHMEMMmMapIoSpace(
                     descriptor->u.Memory.Start,
                     descriptor->u.Memory.Length);
 
@@ -208,8 +208,8 @@ NTSTATUS KSGLDRVEvtDevicePrepareHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
         {
             WDF_INTERRUPT_CONFIG irqConfig;
             WDF_INTERRUPT_CONFIG_INIT(&irqConfig,
-                KSGLDRVInterruptISR,
-                KSGLDRVInterruptDPC);
+                IVSHMEMInterruptISR,
+                IVSHMEMInterruptDPC);
 #if (NTDDI_VERSION >= NTDDI_WIN8)
             irqConfig.InterruptTranslated = descriptor;
             irqConfig.InterruptRaw = WdfCmResourceListGetDescriptor(ResourcesRaw, i);
@@ -247,7 +247,7 @@ NTSTATUS KSGLDRVEvtDevicePrepareHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
     return result;
 }
 
-NTSTATUS KSGLDRVEvtDeviceReleaseHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIST ResourcesTranslated)
+NTSTATUS IVSHMEMEvtDeviceReleaseHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIST ResourcesTranslated)
 {
     UNREFERENCED_PARAMETER(ResourcesTranslated);
     DEBUG_INFO("%s", __FUNCTION__);
@@ -257,7 +257,7 @@ NTSTATUS KSGLDRVEvtDeviceReleaseHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
 
     if (deviceContext->devRegisters)
     {
-        MmUnmapIoSpace(deviceContext->devRegisters, sizeof(PKSGLDRVDeviceRegisters));
+        MmUnmapIoSpace(deviceContext->devRegisters, sizeof(PIVSHMEMDeviceRegisters));
     }
 
     if (deviceContext->shmemMap)
@@ -289,7 +289,7 @@ NTSTATUS KSGLDRVEvtDeviceReleaseHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
     while (entry != &deviceContext->eventList)
     {
         _Analysis_assume_(entry != NULL);
-        PKSGLDRVEventListEntry event = CONTAINING_RECORD(entry, KSGLDRVEventListEntry, ListEntry);
+        PIVSHMEMEventListEntry event = CONTAINING_RECORD(entry, IVSHMEMEventListEntry, ListEntry);
         if (event->event)
         {
             ObDereferenceObject(event->event);
@@ -307,7 +307,7 @@ NTSTATUS KSGLDRVEvtDeviceReleaseHardware(_In_ WDFDEVICE Device, _In_ WDFCMRESLIS
     return STATUS_SUCCESS;
 }
 
-NTSTATUS KSGLDRVEvtD0Entry(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE PreviousState)
+NTSTATUS IVSHMEMEvtD0Entry(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE PreviousState)
 {
     UNREFERENCED_PARAMETER(Device);
     UNREFERENCED_PARAMETER(PreviousState);
@@ -315,7 +315,7 @@ NTSTATUS KSGLDRVEvtD0Entry(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE Pr
     return STATUS_SUCCESS;
 }
 
-NTSTATUS KSGLDRVEvtD0Exit(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE PreviousState)
+NTSTATUS IVSHMEMEvtD0Exit(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE PreviousState)
 {
     UNREFERENCED_PARAMETER(Device);
     UNREFERENCED_PARAMETER(PreviousState);
@@ -324,7 +324,7 @@ NTSTATUS KSGLDRVEvtD0Exit(_In_ WDFDEVICE Device, _In_ WDF_POWER_DEVICE_STATE Pre
     return STATUS_SUCCESS;
 }
 
-BOOLEAN KSGLDRVInterruptISR(_In_ WDFINTERRUPT Interrupt, _In_ ULONG MessageID)
+BOOLEAN IVSHMEMInterruptISR(_In_ WDFINTERRUPT Interrupt, _In_ ULONG MessageID)
 {
     WDFDEVICE device;
     PDEVICE_CONTEXT deviceContext;
@@ -342,7 +342,7 @@ BOOLEAN KSGLDRVInterruptISR(_In_ WDFINTERRUPT Interrupt, _In_ ULONG MessageID)
     return TRUE;
 }
 
-void KSGLDRVInterruptDPC(_In_ WDFINTERRUPT Interrupt, _In_ WDFOBJECT AssociatedObject)
+void IVSHMEMInterruptDPC(_In_ WDFINTERRUPT Interrupt, _In_ WDFOBJECT AssociatedObject)
 {
     UNREFERENCED_PARAMETER(AssociatedObject);
 
@@ -361,7 +361,7 @@ void KSGLDRVInterruptDPC(_In_ WDFINTERRUPT Interrupt, _In_ WDFOBJECT AssociatedO
     PLIST_ENTRY entry = deviceContext->eventList.Flink;
     while (entry != &deviceContext->eventList)
     {
-        PKSGLDRVEventListEntry event = CONTAINING_RECORD(entry, KSGLDRVEventListEntry, ListEntry);
+        PIVSHMEMEventListEntry event = CONTAINING_RECORD(entry, IVSHMEMEventListEntry, ListEntry);
         PLIST_ENTRY next = entry->Flink;
         if (pending & ((LONG64)1 << event->vector))
         {

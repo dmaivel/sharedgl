@@ -1,19 +1,19 @@
 #include "driver.h"
 
 #ifdef ALLOC_PRAGMA
-#pragma alloc_text (PAGE, KSGLDRVQueueInitialize)
+#pragma alloc_text (PAGE, IVSHMEMQueueInitialize)
 #endif
 
 #ifdef _WIN64
 // 32bit struct for when a 32bit application sends IOCTL codes
-typedef struct KSGLDRV_MMAP32
+typedef struct IVSHMEM_MMAP32
 {
-    KSGLDRV_PEERID peerID;  // our peer id
-    KSGLDRV_SIZE   size;    // the size of the memory region
+    IVSHMEM_PEERID peerID;  // our peer id
+    IVSHMEM_SIZE   size;    // the size of the memory region
     UINT32         ptr;     // pointer to the memory region
     UINT16         vectors; // the number of vectors available
 }
-KSGLDRV_MMAP32, *PKSGLDRV_MMAP32;
+IVSHMEM_MMAP32, *PIVSHMEM_MMAP32;
 #endif
 
 // Forwards
@@ -60,7 +60,7 @@ static NTSTATUS ioctl_register_event(
     size_t              * BytesReturned
 );
 
-NTSTATUS KSGLDRVQueueInitialize(_In_ WDFDEVICE Device)
+NTSTATUS IVSHMEMQueueInitialize(_In_ WDFDEVICE Device)
 {
     WDFQUEUE queue;
     NTSTATUS status;
@@ -69,15 +69,15 @@ NTSTATUS KSGLDRVQueueInitialize(_In_ WDFDEVICE Device)
     PAGED_CODE();
 
     WDF_IO_QUEUE_CONFIG_INIT_DEFAULT_QUEUE(&queueConfig, WdfIoQueueDispatchSequential);
-    queueConfig.EvtIoDeviceControl = KSGLDRVEvtIoDeviceControl;
-    queueConfig.EvtIoStop          = KSGLDRVEvtIoStop;
+    queueConfig.EvtIoDeviceControl = IVSHMEMEvtIoDeviceControl;
+    queueConfig.EvtIoStop          = IVSHMEMEvtIoStop;
 
     status = WdfIoQueueCreate(Device, &queueConfig, WDF_NO_OBJECT_ATTRIBUTES, &queue);
     return status;
 }
 
 VOID
-KSGLDRVEvtIoDeviceControl(
+IVSHMEMEvtIoDeviceControl(
     _In_ WDFQUEUE Queue,
     _In_ WDFREQUEST Request,
     _In_ size_t OutputBufferLength,
@@ -100,29 +100,29 @@ KSGLDRVEvtIoDeviceControl(
     NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
     switch (IoControlCode)
     {
-        case IOCTL_KSGLDRV_REQUEST_PEERID:
+        case IOCTL_IVSHMEM_REQUEST_PEERID:
             status = ioctl_request_peerid(deviceContext, OutputBufferLength, Request, &bytesReturned);
             break;
   
-        case IOCTL_KSGLDRV_REQUEST_SIZE:
+        case IOCTL_IVSHMEM_REQUEST_SIZE:
             status = ioctl_request_size(deviceContext, OutputBufferLength, Request, &bytesReturned);
             break;
 
-        case IOCTL_KSGLDRV_REQUEST_MMAP:
+        case IOCTL_IVSHMEM_REQUEST_MMAP:
             status = ioctl_request_mmap(deviceContext, InputBufferLength, OutputBufferLength, Request, &bytesReturned, FALSE);
             break;
-        case IOCTL_KSGLDRV_REQUEST_KMAP:
+        case IOCTL_IVSHMEM_REQUEST_KMAP:
             status = ioctl_request_mmap(deviceContext, InputBufferLength, OutputBufferLength, Request, &bytesReturned, TRUE);
             break;
-        case IOCTL_KSGLDRV_RELEASE_MMAP:
+        case IOCTL_IVSHMEM_RELEASE_MMAP:
             status = ioctl_release_mmap(deviceContext, Request, &bytesReturned);
             break;
 
-        case IOCTL_KSGLDRV_RING_DOORBELL:
+        case IOCTL_IVSHMEM_RING_DOORBELL:
             status = ioctl_ring_doorbell(deviceContext, InputBufferLength, Request, &bytesReturned);
             break;
 
-        case IOCTL_KSGLDRV_REGISTER_EVENT:
+        case IOCTL_IVSHMEM_REGISTER_EVENT:
             status = ioctl_register_event(deviceContext, InputBufferLength, Request, &bytesReturned);
             break;
     }
@@ -131,7 +131,7 @@ KSGLDRVEvtIoDeviceControl(
 }
 
 VOID
-KSGLDRVEvtIoStop(
+IVSHMEMEvtIoStop(
     _In_ WDFQUEUE Queue,
     _In_ WDFREQUEST Request,
     _In_ ULONG ActionFlags
@@ -143,7 +143,7 @@ KSGLDRVEvtIoStop(
     return;
 }
 
-VOID KSGLDRVEvtDeviceFileCleanup(_In_ WDFFILEOBJECT FileObject)
+VOID IVSHMEMEvtDeviceFileCleanup(_In_ WDFFILEOBJECT FileObject)
 {
     PDEVICE_CONTEXT deviceContext = DeviceGetContext(WdfFileObjectGetDevice(FileObject));
 
@@ -154,7 +154,7 @@ VOID KSGLDRVEvtDeviceFileCleanup(_In_ WDFFILEOBJECT FileObject)
     while (entry != &deviceContext->eventList)
     {
         _Analysis_assume_(entry != NULL);
-        PKSGLDRVEventListEntry event = CONTAINING_RECORD(entry, KSGLDRVEventListEntry, ListEntry);
+        PIVSHMEMEventListEntry event = CONTAINING_RECORD(entry, IVSHMEMEventListEntry, ListEntry);
         if (event->owner != FileObject)
         {
             entry = entry->Flink;
@@ -190,21 +190,21 @@ static NTSTATUS ioctl_request_peerid(
     size_t              * BytesReturned
 )
 {
-    if (OutputBufferLength != sizeof(KSGLDRV_PEERID))
+    if (OutputBufferLength != sizeof(IVSHMEM_PEERID))
     {
-        DEBUG_ERROR("IOCTL_KSGLDRV_REQUEST_PEERID: Invalid size, expected %u but got %u", sizeof(KSGLDRV_PEERID), OutputBufferLength);
+        DEBUG_ERROR("IOCTL_IVSHMEM_REQUEST_PEERID: Invalid size, expected %u but got %u", sizeof(IVSHMEM_PEERID), OutputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
     }
   
-    KSGLDRV_PEERID *out = NULL;
+    IVSHMEM_PEERID *out = NULL;
     if (!NT_SUCCESS(WdfRequestRetrieveOutputBuffer(Request, OutputBufferLength, (PVOID *)&out, NULL)))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REQUEST_PEERID: Failed to retrieve the output buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_PEERID: Failed to retrieve the output buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
   
-    *out           = (KSGLDRV_PEERID)DeviceContext->devRegisters->ivProvision;
-    *BytesReturned = sizeof(KSGLDRV_PEERID);
+    *out           = (IVSHMEM_PEERID)DeviceContext->devRegisters->ivProvision;
+    *BytesReturned = sizeof(IVSHMEM_PEERID);
     return STATUS_SUCCESS;
 }
 
@@ -215,21 +215,21 @@ static NTSTATUS ioctl_request_size(
     size_t              * BytesReturned
 )
 {
-    if (OutputBufferLength != sizeof(KSGLDRV_SIZE))
+    if (OutputBufferLength != sizeof(IVSHMEM_SIZE))
     {
-        DEBUG_ERROR("IOCTL_KSGLDRV_REQUEST_SIZE: Invalid size, expected %u but got %u", sizeof(KSGLDRV_SIZE), OutputBufferLength);
+        DEBUG_ERROR("IOCTL_IVSHMEM_REQUEST_SIZE: Invalid size, expected %u but got %u", sizeof(IVSHMEM_SIZE), OutputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
     }
   
-    KSGLDRV_SIZE *out = NULL;
+    IVSHMEM_SIZE *out = NULL;
     if (!NT_SUCCESS(WdfRequestRetrieveOutputBuffer(Request, OutputBufferLength, (PVOID *)&out, NULL)))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REQUEST_SIZE: Failed to retrieve the output buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_SIZE: Failed to retrieve the output buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
   
     *out           = DeviceContext->shmemAddr.NumberOfBytes;
-    *BytesReturned = sizeof(KSGLDRV_SIZE);
+    *BytesReturned = sizeof(IVSHMEM_SIZE);
     return STATUS_SUCCESS;
 }
 
@@ -246,48 +246,48 @@ static NTSTATUS ioctl_request_mmap(
     // if (DeviceContext->shmemMap)
     //    return STATUS_DEVICE_ALREADY_ATTACHED;
   
-    if (InputBufferLength != sizeof(KSGLDRV_MMAP_CONFIG))
+    if (InputBufferLength != sizeof(IVSHMEM_MMAP_CONFIG))
     {
-        DEBUG_ERROR("IOCTL_KSGLDRV_MMAP: Invalid input size, expected %u but got %u", sizeof(KSGLDRV_MMAP_CONFIG), InputBufferLength);
+        DEBUG_ERROR("IOCTL_IVSHMEM_MMAP: Invalid input size, expected %u but got %u", sizeof(IVSHMEM_MMAP_CONFIG), InputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
     }
   
-    PKSGLDRV_MMAP_CONFIG in;
+    PIVSHMEM_MMAP_CONFIG in;
     if (!NT_SUCCESS(WdfRequestRetrieveInputBuffer(Request, InputBufferLength, (PVOID)&in, NULL)))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_MMAP: Failed to retrieve the input buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_MMAP: Failed to retrieve the input buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
   
     MEMORY_CACHING_TYPE cacheType;
     switch (in->cacheMode)
     {
-        case KSGLDRV_CACHE_NONCACHED    : cacheType = MmNonCached    ; break;
-        case KSGLDRV_CACHE_CACHED       : cacheType = MmCached       ; break;
-        case KSGLDRV_CACHE_WRITECOMBINED: cacheType = MmWriteCombined; break;
+        case IVSHMEM_CACHE_NONCACHED    : cacheType = MmNonCached    ; break;
+        case IVSHMEM_CACHE_CACHED       : cacheType = MmCached       ; break;
+        case IVSHMEM_CACHE_WRITECOMBINED: cacheType = MmWriteCombined; break;
         default:
-          DEBUG_ERROR("IOCTL_KSGLDRV_MMAP: Invalid cache mode: %u", in->cacheMode);
+          DEBUG_ERROR("IOCTL_IVSHMEM_MMAP: Invalid cache mode: %u", in->cacheMode);
           return STATUS_INVALID_PARAMETER;
     }
   
   #ifdef _WIN64
     PIRP  irp = WdfRequestWdmGetIrp(Request);
     const BOOLEAN is32Bit = IoIs32bitProcess(irp);
-    const size_t  bufferLen = is32Bit ? sizeof(KSGLDRV_MMAP32) : sizeof(KSGLDRV_MMAP);
+    const size_t  bufferLen = is32Bit ? sizeof(IVSHMEM_MMAP32) : sizeof(IVSHMEM_MMAP);
   #else
-    const size_t  bufferLen = sizeof(KSGLDRV_MMAP);
+    const size_t  bufferLen = sizeof(IVSHMEM_MMAP);
   #endif
     PVOID buffer;
   
     if (OutputBufferLength != bufferLen)
     {
-        DEBUG_ERROR("IOCTL_KSGLDRV_REQUEST_MMAP: Invalid size, expected %u but got %u", bufferLen, OutputBufferLength);
+        DEBUG_ERROR("IOCTL_IVSHMEM_REQUEST_MMAP: Invalid size, expected %u but got %u", bufferLen, OutputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
     }
   
     if (!NT_SUCCESS(WdfRequestRetrieveOutputBuffer(Request, bufferLen, (PVOID *)&buffer, NULL)))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REQUEST_MMAP: Failed to retrieve the output buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: Failed to retrieve the output buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
   
@@ -304,13 +304,13 @@ static NTSTATUS ioctl_request_mmap(
     }
     __except (EXCEPTION_EXECUTE_HANDLER)
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REQUEST_MMAP: Exception trying to map pages");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: Exception trying to map pages");
         return STATUS_DRIVER_INTERNAL_ERROR;
     }
   
     if (!DeviceContext->shmemMap)
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REQUEST_MMAP: shmemMap is NULL");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REQUEST_MMAP: shmemMap is NULL");
         return STATUS_DRIVER_INTERNAL_ERROR;
     }
   
@@ -318,7 +318,7 @@ static NTSTATUS ioctl_request_mmap(
   #ifdef _WIN64
     if (is32Bit)
     {
-        PKSGLDRV_MMAP32 out = (PKSGLDRV_MMAP32)buffer;
+        PIVSHMEM_MMAP32 out = (PIVSHMEM_MMAP32)buffer;
         out->peerID  = (UINT16)DeviceContext->devRegisters->ivProvision;
         out->size    = (UINT64)DeviceContext->shmemAddr.NumberOfBytes;
         out->ptr     = PtrToUint(DeviceContext->shmemMap);
@@ -327,7 +327,7 @@ static NTSTATUS ioctl_request_mmap(
     else
   #endif
     {
-        PKSGLDRV_MMAP out = (PKSGLDRV_MMAP)buffer;
+        PIVSHMEM_MMAP out = (PIVSHMEM_MMAP)buffer;
         out->peerID  = (UINT16)DeviceContext->devRegisters->ivProvision;
         out->size    = (UINT64)DeviceContext->shmemAddr.NumberOfBytes;
         out->ptr     = DeviceContext->shmemMap;
@@ -347,14 +347,14 @@ static NTSTATUS ioctl_release_mmap(
     // ensure the mapping exists
     if (!DeviceContext->shmemMap)
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_RELEASE_MMAP: not mapped");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RELEASE_MMAP: not mapped");
         return STATUS_INVALID_DEVICE_REQUEST;
     }
   
     // ensure someone else other then the owner doesn't attempt to release the mapping
     if (DeviceContext->owner != WdfRequestGetFileObject(Request))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_RELEASE_MMAP: Invalid owner");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RELEASE_MMAP: Invalid owner");
         return STATUS_INVALID_HANDLE;
     }
   
@@ -375,20 +375,20 @@ static NTSTATUS ioctl_ring_doorbell(
     // ensure someone else other then the owner doesn't attempt to trigger IRQs
     if (DeviceContext->owner != WdfRequestGetFileObject(Request))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_RING_DOORBELL: Invalid owner");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RING_DOORBELL: Invalid owner");
         return STATUS_INVALID_HANDLE;
     }
   
-    if (InputBufferLength != sizeof(KSGLDRV_RING))
+    if (InputBufferLength != sizeof(IVSHMEM_RING))
     {
-        DEBUG_ERROR("IOCTL_KSGLDRV_RING_DOORBELL: Invalid size, expected %u but got %u", sizeof(KSGLDRV_RING), InputBufferLength);
+        DEBUG_ERROR("IOCTL_IVSHMEM_RING_DOORBELL: Invalid size, expected %u but got %u", sizeof(IVSHMEM_RING), InputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
     }
   
-    PKSGLDRV_RING in;
+    PIVSHMEM_RING in;
     if (!NT_SUCCESS(WdfRequestRetrieveInputBuffer(Request, InputBufferLength, (PVOID)&in, NULL)))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_RING_DOORBELL: Failed to retrieve the input buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_RING_DOORBELL: Failed to retrieve the input buffer");
         return STATUS_INVALID_USER_BUFFER;   
     }
   
@@ -410,27 +410,27 @@ static NTSTATUS ioctl_register_event(
     // ensure someone else other then the owner isn't attempting to register events
     if (DeviceContext->owner != WdfRequestGetFileObject(Request))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REGISTER_EVENT: Invalid owner");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Invalid owner");
         return STATUS_INVALID_HANDLE;
     }
   
-    if (InputBufferLength != sizeof(KSGLDRV_EVENT))
+    if (InputBufferLength != sizeof(IVSHMEM_EVENT))
     {
-        DEBUG_ERROR("IOCTL_KSGLDRV_REGISTER_EVENT: Invalid size, expected %u but got %u", sizeof(PKSGLDRV_EVENT), InputBufferLength);
+        DEBUG_ERROR("IOCTL_IVSHMEM_REGISTER_EVENT: Invalid size, expected %u but got %u", sizeof(PIVSHMEM_EVENT), InputBufferLength);
         return STATUS_INVALID_BUFFER_SIZE;
     }
   
     // early non locked quick check to see if we are out of event space
     if (DeviceContext->eventBufferUsed == MAX_EVENTS)
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REGISTER_EVENT: Event buffer full");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Event buffer full");
         return STATUS_INSUFFICIENT_RESOURCES;
     }
   
-    PKSGLDRV_EVENT in;
+    PIVSHMEM_EVENT in;
     if (!NT_SUCCESS(WdfRequestRetrieveInputBuffer(Request, InputBufferLength, (PVOID)&in, NULL)))
     {
-        DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REGISTER_EVENT: Failed to retrieve the input buffer");
+        DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Failed to retrieve the input buffer");
         return STATUS_INVALID_USER_BUFFER;
     }
   
@@ -459,7 +459,7 @@ static NTSTATUS ioctl_register_event(
         {
             KeReleaseSpinLock(&DeviceContext->eventListLock, oldIRQL);
       
-            DEBUG_ERROR("%s", "IOCTL_KSGLDRV_REGISTER_EVENT: Event buffer full");
+            DEBUG_ERROR("%s", "IOCTL_IVSHMEM_REGISTER_EVENT: Event buffer full");
             ObDereferenceObject(hObject);
             return STATUS_INSUFFICIENT_RESOURCES;      
         }
@@ -468,7 +468,7 @@ static NTSTATUS ioctl_register_event(
         BOOLEAN done = FALSE;
         for (UINT16 i = 0; i < MAX_EVENTS; ++i)
         {
-            PKSGLDRVEventListEntry event = &DeviceContext->eventBuffer[i];
+            PIVSHMEMEventListEntry event = &DeviceContext->eventBuffer[i];
             if (event->event != NULL)
                 continue;
       
@@ -487,7 +487,7 @@ static NTSTATUS ioctl_register_event(
         if (!done)
         {
             DEBUG_ERROR(
-              "IOCTL_KSGLDRV_REGISTER_EVENT: deviceContext->eventBufferUsed (%u) < MAX_EVENTS (%u) but no slots found!",
+              "IOCTL_IVSHMEM_REGISTER_EVENT: deviceContext->eventBufferUsed (%u) < MAX_EVENTS (%u) but no slots found!",
               DeviceContext->eventBufferUsed, MAX_EVENTS);
             KeBugCheckEx(CRITICAL_STRUCTURE_CORRUPTION, 0, 0, 0, 0x1C);
         }
