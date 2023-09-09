@@ -23,7 +23,7 @@ void spin_lock(int *lock)
     while (!__sync_bool_compare_and_swap(lock, 0, 1))
         _mm_pause();
 #else
-    while (!InterlockedCompareExchange(lock, 1, 0))
+    while (InterlockedCompareExchange(lock, 1, 0))
         _mm_pause();
 #endif
 }
