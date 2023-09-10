@@ -1,9 +1,25 @@
-# SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)  <img style="float: right;" src="https://github.com/dmaivel/sharedgl/assets/38770072/7ad42df9-d10c-413a-9ef4-7682c06dc679" alt=icon width="192" height="192">
+<img align="right" width="22%" src="https://github.com/dmaivel/sharedgl/assets/38770072/7ad42df9-d10c-413a-9ef4-7682c06dc679">
+
+# SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
 SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for accelerated graphics within QEMU/KVM guests. SGL is designed to be compatible with Windows and Linux, allowing for 3D acceleration without the need for GPU passthrough.
 
-> [!IMPORTANT]\
-> The client is supported on both Windows and Linux, however the server, `sglrenderer`, is currently only supported on Linux. The primary target of this project is Windows (guests), where there is little 3D acceleration support, as GPU passthrough was previously the only option for reasonable graphics processing. If you encounter bugs/crashes, scroll down for troubleshooting tips. To see which OpenGL standards are supported, scroll down to the support section.
+<details>
+<summary>Click to reveal: Table of contents</summary>
+
+1. [Getting started](#getting-started)
+2. [Usage](#usage)
+   - [Environment variables](#environment-variables)
+   - [Linux](#linux)
+      - [Linux in a VM](#linux-in-a-vm)
+   - [Windows in a VM](#windows-in-a-vm)
+3. [Virtual machines](#virtual-machines)
+4. [Supported GL versions](#supported-gl-versions)
+5. [Limitations / Issues](#limitations--issues)
+6. [Troubleshooting](#troubleshooting)
+7. [Showcase](#showcase)
+
+</details>
 
 # Getting started
 
@@ -12,11 +28,7 @@ The following libraries are required for building the server and client on linux
 - SDL2
 - libx11
 
-## Build
-> [!WARNING]\
-> The `master` branch is subject to constant change and updates, making it unstable despite having more recent features / fixes. If you want a potentially more stable experience, it is recommended that after cloning you use one of the tagged versions, e.g. `git checkout tags/v0.x.x`
-
-The following script builds the host and client for linux (currently only x64 is "officially" supported).
+The following script builds: `sglrenderer` and `libGL` for Linux:
 ```bash
 git clone https://github.com/dmaivel/sharedgl.git
 cd sharedgl
@@ -26,18 +38,15 @@ cmake ..
 cmake --build . --config Release
 ```
 
-The following script compiles the windows client (this must be done on windows, through the `Visual Studio Developer Command Prompt / Powershell`). For more information regarding the build process for Windows, including building for x86, scroll down.
-```bash
-git clone https://github.com/dmaivel/sharedgl.git
-cd sharedgl
-mkdir build
-cd build
-cmake ..
+If on Windows (Visual Studio required), you must specify that you only want to build the library, `sharedglXX.dll`:
+```
 cmake --build . --target sharedgl-core --config Release
 ```
 
+For additional build instructions for Windows, visit the [Windows section](#windows-in-a-vm).
+
 # Usage
-Regardless of the where the client is being ran, the server must be started before starting any clients. Note that the server can only be ran on linux.
+The server must be started on the host before running any clients. Note that the server can only be ran on Linux.
 
 ```bash
 usage: sglrenderer [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]
@@ -76,7 +85,7 @@ $ ...
 
 [Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
 
-For virtual linux clients, an additional kernel module needs to be compiled (preferably in the vm) alongside moving the client into the guest or compiling it there aswell. The compiled result, `sharedgl.ko`, needs to be loaded. There is a script within this directory (`install.sh`) for ease of use. It is recommended that you add `sharedgl` to your modprobe config following installation, otherwise it must be loaded manually on each boot.
+For virtual linux clients, an additional kernel module needs to be compiled (preferably in the vm). The compiled result, `sharedgl.ko`, needs to be loaded. There is a script within this directory (`install.sh`) for ease of use. It is recommended that you add `sharedgl` to your modprobe config following installation, otherwise it must be loaded manually on each boot.
 ```bash
 # within 'sharedgl' directory
 cd kernel/linux
@@ -100,10 +109,10 @@ There are two possible drivers one may use:
     3. Right click on `ivshmem.inf` and press `Install`.
 
 > [!WARNING]\
-> If you use the included driver, test signing must be on. Enable it by running the following command in an elevated command prompt: `bcdedit.exe -set testsigning on`
+> If you use the included driver, test signing must be on. Enable it by running the following command in an elevated command prompt: `bcdedit.exe -set testsigning on` and restart.
 
-2. Included driver (multiclient support) (fork of VirtIO's)
-    1. Use the release (>= `0.4.0`)
+2. Included driver (multiclient support)
+    1. Use the release (>= `0.4.0`) **(Windows 10 only)**
         1. Download the latest release for windows and extract the zip file.
         2. Navigate into the extracted folder.
         3. Right click on `ksgldrv.inf` and press `Install`.
@@ -199,20 +208,20 @@ This list describes the amount of functions left from each standard to implement
 You may encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`. Although the code base is buggy, these are some tips to try to further attempts to get an application to work:
 - Change the GL version (i.e `-g 2.0`)
 - Allocate more memory (i.e `-m 256`)
-
+---
 Application shows a blank window in the virtual machine?
 - Make sure the shared memory device passes through all the memory (check the size)
-
+---
 Application doesn't run in the virtual machine? (Process exists but stalls)
 - Make sure the server is running
     - If you start the server and it still won't run, shut down the VM, run `sudo ./sglrenderer -x`, start the server, start the VM
 - Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for linux)
-
+---
 Server reports, `err: failed to open shared memory 'sharedgl_shared_memory'`
 - This (usually) happens when the shared memory file is created before the server runs, meaning the file was created with different privileges. You may either:
     - Run the server as `sudo`
     - Shutdown the VM, run `sudo rm /dev/shm/sharedgl_shared_memory`, start the server, then start the VM
-
+---
 Client outputs, `glimpl_init: failed to find memory` to the terminal
 - This occurs in VMs when you do not pass a shared memory device, which is required for the clients to see the shared memory
 
