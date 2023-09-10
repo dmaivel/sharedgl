@@ -39,7 +39,7 @@ static int dev_open(struct inode *inode, struct file *file)
 
     file->private_data = pchar;
     return 0;
-};
+}
 
 int dev_mmap(struct file *file, struct vm_area_struct *vma)
 {
