@@ -118,16 +118,23 @@ There are two possible drivers one may use:
         3. Right click on `ksgldrv.inf` and press `Install`.
     2. Compile from source (use Visual Studio Developer Command Prompt)
         1. Ensure you have installed the `WDK`, which can be found [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/other-wdk-downloads).
-        2. Download the source (preferably thru `git`).
-        3. Navigate into the folder, create a new folder named `build`, and navigate into it (`mkdir build && cd build`).
-        4. Run `cmake ..`, which will target the system's architecture.
-        5. Build by running `cmake --build . --target ksgldrv --config Release`.
-        6. Move the following files from `...\sharedgl\scripts\` to `...\sharedgl\build\Release\`:
-            - `kcertify.bat`
-            - `ksgldrv.inf`
-        7. Run `kcertify.bat` (must be ran through VS command prompt)
-            - By default, this builds for Windows 10 x64 (`10_X64`). If you wish to compile for a different version or multiple versions, you must provide it through the command line like so: `kcertify.bat 10_X64,10_NI_X64`. A list of OS versions is provided on MSDN [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/inf2cat).
-        8. Right click on `ksgldrv.inf` and press `Install`.
+        2. ```bat
+           :: git clone https://github.com/dmaivel/sharedgl.git
+           :: cd sharedgl
+           mkdir build
+           cd build
+           cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..
+           cmake --build . --target ksgldrv --config Release
+           cd ..
+           xcopy .\scripts\kcertify.bat .\build\Release\kcertify.bat
+           xcopy .\scripts\ksgldrv.inf .\build\Release\ksgldrv.inf
+           cd build\Release
+           call kcertify.bat 10_X64
+
+           :: requires admin privs, you may right click on the file and press install instead
+           pnputil -i -a ksgldrv.inf
+           ```
+        3. By default, this builds for Windows 10 x64 (`10_X64`). If you wish to compile for a different version or multiple versions, you must provide it through the command line like so: `kcertify.bat 10_X64,10_NI_X64`. A list of OS versions is provided on MSDN [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/inf2cat).
 
 There are two ways to install the library on windows:
 1. Use a release (>= `0.3.1`)
@@ -135,17 +142,20 @@ There are two ways to install the library on windows:
     2. Navigate into the extracted folder and run `wininstall.bat` and allow admin privledges.
     3. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
 2. Compile from source (use Visual Studio Developer Command Prompt)
-    1. Download the source (preferably thru `git`).
-    2. Navigate into the folder, create a new folder named `build`, and navigate into it (`mkdir build && cd build`).
-    3. Run `cmake ..`, which will target the system's architecture.
-        - The steps below can be ran after building for another target.
-        - To explicitly state an x64 build, run `cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..` instead.
-        - To explicitly state an x86 (32-bit) build, run `cmake -DCMAKE_GENERATOR_PLATFORM=Win32 ..` instead.
-    4. Build by running `cmake --build . --target sharedgl-core --config Release`.
-        - Repeat step 3 if you want to compile for both architectures.
-    5. Upon building either the x64 binary or x86 binary or both binaries, move the install script (`...\sharedgl\scripts\wininstall.bat`) into the same folder where the built binaries reside (`...\sharedgl\build\Release\`).
-    6. Run the script and allow admin privledges.
-    7. The libraries should now be installed, meaning any application that uses OpenGL (32-bit and 64-bit) will use SharedGL.
+    1. ```bat
+       :: git clone https://github.com/dmaivel/sharedgl.git
+       :: cd sharedgl
+       mkdir build
+       cd build
+       cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..
+       cmake --build . --target sharedgl-core --config Release
+       cmake -DCMAKE_GENERATOR_PLATFORM=Win32 ..
+       cmake --build . --target sharedgl-core --config Release
+       cd ..
+       xcopy .\scripts\wininstall.bat .\build\Release\wininstall.bat
+       cd build\Release
+       call wininstall.bat
+       ```
 
 # Virtual machines
 Before you start up your virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Use the `-v` command line argument when starting the server and place the output in its respective location, depending on whether you use libvirt or qemu.
