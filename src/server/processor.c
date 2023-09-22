@@ -4382,6 +4382,33 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
                 glUniformMatrix4x3fv(location, count, transpose, uploaded);
                 break;
             }
+            case SGL_CMD_CLEARBUFFERIV: {
+                int buffer = *pb++,
+                    drawbuffer = *pb++;
+                int value[4];
+                for (int i = 0; i < (buffer == GL_COLOR ? 4 : 1); i++)
+                    value[i] = *pb++;
+                glClearBufferiv(buffer, drawbuffer, value);
+                break;
+            }
+            case SGL_CMD_CLEARBUFFERUIV: {
+                int buffer = *pb++,
+                    drawbuffer = *pb++;
+                unsigned int value[4];
+                for (int i = 0; i < (buffer == GL_COLOR ? 4 : 1); i++)
+                    value[i] = *pb++;
+                glClearBufferuiv(buffer, drawbuffer, value);
+                break;
+            }
+            case SGL_CMD_CLEARBUFFERFV: {
+                int buffer = *pb++,
+                    drawbuffer = *pb++;
+                float value[4];
+                for (int i = 0; i < (buffer == GL_COLOR ? 4 : 1); i++)
+                    value[i] = *((float*)pb++);
+                glClearBufferfv(buffer, drawbuffer, value);
+                break;
+            }
             }
             if (!begun) {
                 int error = glGetError();

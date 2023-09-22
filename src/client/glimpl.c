@@ -7148,6 +7148,42 @@ void glUniformMatrix4x3fv(GLint location, GLsizei count, GLboolean transpose, co
     pb_push(transpose);
 }
 
+void glClearBufferiv(GLenum buffer, GLint drawbuffer, const GLint* value)
+{
+    pb_push(SGL_CMD_CLEARBUFFERIV);
+    pb_push(buffer);
+    pb_push(drawbuffer);
+    
+    pb_push(value[0]);
+    pb_push(buffer == GL_COLOR ? value[1] : 0);
+    pb_push(buffer == GL_COLOR ? value[2] : 0);
+    pb_push(buffer == GL_COLOR ? value[3] : 0);
+}
+
+void glClearBufferuiv(GLenum buffer, GLint drawbuffer, const GLuint* value)
+{
+    pb_push(SGL_CMD_CLEARBUFFERUIV);
+    pb_push(buffer);
+    pb_push(drawbuffer);
+    
+    pb_push(value[0]);
+    pb_push(buffer == GL_COLOR ? value[1] : 0);
+    pb_push(buffer == GL_COLOR ? value[2] : 0);
+    pb_push(buffer == GL_COLOR ? value[3] : 0);
+}
+
+void glClearBufferfv(GLenum buffer, GLint drawbuffer, const GLfloat* value)
+{
+    pb_push(SGL_CMD_CLEARBUFFERFV);
+    pb_push(buffer);
+    pb_push(drawbuffer);
+    
+    pb_pushf(value[0]);
+    pb_pushf(buffer == GL_COLOR ? value[1] : 0);
+    pb_pushf(buffer == GL_COLOR ? value[2] : 0);
+    pb_pushf(buffer == GL_COLOR ? value[3] : 0);
+}
+
 #ifdef _WIN32
 
 static const GLCLTPROCTABLE cpt =
