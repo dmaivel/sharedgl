@@ -230,7 +230,7 @@ Application doesn't run in the virtual machine? (Process exists but stalls)
 Server reports, `err: failed to open shared memory 'sharedgl_shared_memory'`
 - This (usually) happens when the shared memory file is created before the server runs, meaning the file was created with different privileges. You may either:
     - Run the server as `sudo`
-    - Shutdown the VM, run `sudo rm /dev/shm/sharedgl_shared_memory`, start the server, then start the VM
+    - Shutdown the VM, run `sudo ./sglrenderer -x`, start the server, then start the VM
 ---
 Client outputs, `glimpl_init: failed to find memory` to the terminal
 - This occurs in VMs when you do not pass a shared memory device, which is required for the clients to see the shared memory
