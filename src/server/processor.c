@@ -579,7 +579,6 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                             h = *buf++,
                             vflip = *buf++,
                             format = *buf++;
-                        printf("w = %d, h = %d, vflip = %d, forrmat = %d\n\n", w, h, vflip, format); fflush(stdout);
 
                         connection_current(msg->header.client_id);
                         sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format, 0);
@@ -626,10 +625,12 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                             .signature = msg->header.signature
                         };
 
+                        /*
+                         * to-do: fix this, this part causes lock ups
+                         */
                         usleep(1000);
-
-                        printf("net_sendto = %ld", net_sendto(net_ctx, &header, sizeof(struct sgl_packet_header), 0));
-                        printf("net_sendto = %ld", net_sendto(net_ctx, &header, sizeof(struct sgl_packet_header), 0));
+                        net_sendto(net_ctx, &header, sizeof(struct sgl_packet_header), 0);
+                        net_sendto(net_ctx, &header, sizeof(struct sgl_packet_header), 0);
                         //printf("done framebuffer\n");
                         break;
                     }
@@ -662,7 +663,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
         int *pb = p + SGL_OFFSET_COMMAND_START;
         while (*pb != SGL_CMD_INVALID) {
             cmd = *pb;
-            printf("[+] command: %s (%d)\n", *pb < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[*pb] : "????", *pb); fflush(stdout);
+            // printf("[+] command: %s (%d)\n", *pb < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[*pb] : "????", *pb); fflush(stdout);
             // if (*pb >= SGL_CMD_MAX)
             //    exit(1);
             switch (*pb++) {

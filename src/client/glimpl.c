@@ -167,7 +167,6 @@ void glimpl_commit()
         /* 
          * get internal pointer & used size 
          */
-        printf("glimpl_commit: start\n");
         void *ptr = pb_iptr(0);
         size_t size = pb_size();
         
@@ -253,7 +252,6 @@ void glimpl_commit()
         memcpy(fake_register_space, packet_space + sizeof(struct sgl_packet_header), 256 + 8);
 
         pb_reset();
-        printf("glimpl_commit: end\n");
     }
 }
 

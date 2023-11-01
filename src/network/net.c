@@ -111,7 +111,6 @@ char *net_init_server(struct net_context **ctx, int port)
 
 char *net_init_client(struct net_context **ctx, char *hostname, int port)
 {
-    printf("host name: %s\nport: %d\n", hostname, port);
     *ctx = malloc(sizeof(struct net_context));
     struct net_context *nctx = *ctx;
 
@@ -142,10 +141,10 @@ long net_recvfrom(struct net_context *ctx, void *__restrict __buf, size_t __n, i
     struct sgl_packet_header *hdr = __buf;
     
     int res = recvfrom(ctx->socket, __buf, __n, __flags, (struct sockaddr *) &ctx->client, &(socklen_t){ sizeof(ctx->client) });
-    if (res != -1)
-        printf("recv { .client_id = %d | is_for_server = %hhu | type = %hu | size = %-6hu | index = %-6hu | expected_blocks = %-6hu | signature = %08X }, %ld)\n", 
-            hdr->client_id, hdr->is_for_server, hdr->type, hdr->size, hdr->index, hdr->expected_blocks, hdr->signature, __n);
-    fflush(stdout);
+    // if (res != -1)
+    //     printf("recv { .client_id = %d | is_for_server = %hhu | type = %hu | size = %-6hu | index = %-6hu | expected_blocks = %-6hu | signature = %08X }, %ld)\n", 
+    //         hdr->client_id, hdr->is_for_server, hdr->type, hdr->size, hdr->index, hdr->expected_blocks, hdr->signature, __n);
+    // fflush(stdout);
 
     return res;
 }
@@ -153,9 +152,9 @@ long net_recvfrom(struct net_context *ctx, void *__restrict __buf, size_t __n, i
 long net_sendto(struct net_context *ctx, const void *__buf, size_t __n, int __flags)
 {
     const struct sgl_packet_header *hdr = __buf;
-    printf("send { .client_id = %d | is_for_server = %hhu | type = %hu | size = %-6hu | index = %-6hu | expected_blocks = %-6hu | signature = %08X }, %ld)\n", 
-            hdr->client_id, hdr->is_for_server, hdr->type, hdr->size, hdr->index, hdr->expected_blocks, hdr->signature, __n);
-    fflush(stdout);
+    // printf("send { .client_id = %d | is_for_server = %hhu | type = %hu | size = %-6hu | index = %-6hu | expected_blocks = %-6hu | signature = %08X }, %ld)\n", 
+    //         hdr->client_id, hdr->is_for_server, hdr->type, hdr->size, hdr->index, hdr->expected_blocks, hdr->signature, __n);
+    // fflush(stdout);
 
     if (ctx->is_server)
         return sendto(ctx->socket, __buf, __n, __flags, (struct sockaddr *) &ctx->client, sizeof(ctx->client));
