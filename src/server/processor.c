@@ -1,12 +1,28 @@
+#include "network/packet.h"
 #define SHAREDGL_HOST
 #define SGL_STRING_TABLE
+
 #include <sharedgl.h>
 #include <server/context.h>
+#include <server/dynarr.h>
+#include <server/processor.h>
+
+/*
+ * has nothing to do with the client; we just need the spinlock
+ * for the network based operations
+ */
+#include <client/spinlock.h>
+
+#include <network/net.h>
+
 #include <stdbool.h>
 #include <unistd.h>
-#include <server/dynarr.h>
+#include <pthread.h>
 
-#define TIMEOUT_CYCLES 100000
+/*
+ * this is for detecting packet losses
+ */
+#define RECOVER_AFTER_N_MISSES 3
 
 #define ADVANCE_PAST_STRING() \
     while (!(((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \
@@ -23,6 +39,37 @@ struct sgl_connection {
 
 static struct sgl_connection *connections = NULL;
 
+struct sgl_data_block {
+    struct sgl_data_block *next;
+
+    int index;
+    size_t size;
+    void *data;
+};
+
+struct sgl_incoming_server_msg {
+    struct sgl_incoming_server_msg *next;
+
+    struct sgl_packet_header header;
+
+    struct sgl_data_block *data_blocks;
+    short recieved_blocks;
+    size_t recieved_size;
+
+    /*
+     * restream data if lost
+     */
+    int alive_for;
+
+    void *processed_data;
+    bool is_ready_to_be_processed;
+};
+
+static unsigned char global_packet_space[SGL_PACKET_MAX_SIZE];
+
+struct sgl_incoming_server_msg *server_msg_queue;
+int msg_queue_lock = 0;
+
 static bool match_connection(void *elem, void *data)
 {
     struct sgl_connection *con = elem;
@@ -32,6 +79,11 @@ static bool match_connection(void *elem, void *data)
         sgl_context_destroy(con->ctx);
 
     return con->id == id;
+}
+
+static bool match_equal(void *elem, void *data)
+{
+    return elem == data;
 }
 
 static void connection_add(int id)
@@ -97,16 +149,244 @@ static bool wait_for_commit(void *p)
     return *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) == 1;
 }
 
-void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **internal_cmd_ptr)
+/*
+ * to-do: move the proceeding functions into `net_processor.c` or something
+ *
+ * can't do this right now because `sgl_cmd_processor_start` needs
+ * to access the dynamic array to see what streamed commands it can
+ * finally process
+ */
+void *sgl_cmd_net_recv_processor_thread(void *net_context)
+{
+    struct net_context *net = net_context;
+    struct sgl_packet_header current_header = { 0 };
+
+    void *packet_space = malloc(SGL_PACKET_MAX_SIZE);
+
+    while (1) {
+        /*
+         * extract header from packet
+         */
+        long res = net_recvfrom(net, packet_space, SGL_PACKET_MAX_SIZE, 0);
+        memcpy(&current_header, packet_space, sizeof(struct sgl_packet_header));
+
+        /*
+         * lock the queue as we will be reading and writing to it
+         */
+        spin_lock(&msg_queue_lock);
+
+        /*
+         * if no data, try recovering
+         */
+        if (res == -1)
+            goto recovery_operations;
+
+        /*
+         * update alive for tick count
+         */
+        for (struct sgl_incoming_server_msg *msg = server_msg_queue; msg; msg = msg->next)
+            msg->alive_for++;
+
+        /*
+         * get matching block if this packet is continuing another block
+         *
+         * requirements for a match:
+         *   - signature is the same
+         *   - client id is the same
+         */
+        struct sgl_incoming_server_msg *matching_msg = NULL;
+        for (struct sgl_incoming_server_msg *msg = server_msg_queue; msg; msg = msg->next) {
+            if (msg->header.signature == current_header.signature && msg->header.client_id == current_header.client_id) {
+                matching_msg = msg;
+                break;
+            }
+        }
+        
+        /*
+         * if this isn't a continuing/continous block, we dont have to do much
+         */
+        if (matching_msg == NULL && current_header.expected_blocks == 0) {
+            struct sgl_incoming_server_msg *msg = dynarr_alloc((void**)&server_msg_queue, 0, sizeof(struct sgl_incoming_server_msg));
+
+            /*
+             * copy the header, indicate that the data does not need to be processed
+             */
+            msg->header = current_header;
+            msg->is_ready_to_be_processed = true;
+            msg->recieved_size = msg->header.size;
+            msg->data_blocks = NULL;
+
+            /*
+             * if there is data to be processed, plz copy
+             */
+            if (msg->header.size) {
+                msg->processed_data = malloc(msg->header.size);
+                memcpy(msg->processed_data, packet_space + sizeof(struct sgl_packet_header), msg->header.size);
+            }
+
+            /*
+             * to-do: get rid of this goto
+             */
+            goto recovery_operations;
+        }
+
+        /*
+         * otherwise, we must either start the root block 
+         * or continue processing into the root block
+         */
+
+        /*
+         * an index of -1 indicates that the packet was just a header
+         * 
+         * note: there is no sanity check, but `matching_msg` should be NULL
+         *       for this first if statement
+         */
+        if (current_header.index == -1) {
+            struct sgl_incoming_server_msg *msg = dynarr_alloc((void**)&server_msg_queue, 0, sizeof(struct sgl_incoming_server_msg));
+
+            /*
+             * copy the header, indicate that the data does not need to be processed
+             * at this time as we await incoming data blocks
+             */
+            msg->header = current_header;
+            msg->is_ready_to_be_processed = false;
+            msg->recieved_size = 0;
+            msg->data_blocks = NULL;
+            msg->recieved_blocks = 0;
+        }
+        /*
+         * an index >= 0 indicates an actual block of data
+         */
+        else {
+            matching_msg->recieved_blocks++;
+            matching_msg->recieved_size += current_header.size;
+            
+            struct sgl_data_block *data_block = dynarr_alloc((void**)&matching_msg->data_blocks, 0, sizeof(struct sgl_data_block));
+            data_block->index = current_header.index;
+            data_block->size = current_header.size;
+            
+            data_block->data = malloc(data_block->size);
+            memcpy(data_block->data, packet_space + sizeof(struct sgl_packet_header), data_block->size);
+
+            /*
+             * check if this stream of data is ready
+             */
+            if (matching_msg->recieved_blocks == matching_msg->header.expected_blocks) {
+                matching_msg->is_ready_to_be_processed = true;
+
+                /*
+                 * "flatten" the data into one continous buffer
+                 */
+                matching_msg->processed_data = malloc(matching_msg->header.size);
+                size_t offset = 0;
+                for (int i = 0; i < matching_msg->header.expected_blocks; i++) {
+                    /*
+                     * search for index "i"
+                     * write data block into buffer
+                     */
+                    struct sgl_data_block *data_block = NULL;
+                    for (struct sgl_data_block *block = matching_msg->data_blocks; block; block = block->next) {
+                        if (block->index == i) {
+                            memcpy(
+                                matching_msg->processed_data + offset,
+                                block->data,
+                                block->size
+                            );
+
+                            free(block->data);
+
+                            offset += block->size;
+                            break;
+                        }
+                    }
+                }
+
+                /*
+                 * free all the linked data
+                 */
+                dynarr_free((void**)&matching_msg->data_blocks, 0);
+            }
+        }
+
+recovery_operations:
+        /*
+         * broadcast recovery messages if needed
+         */
+        for (struct sgl_incoming_server_msg *msg = server_msg_queue; msg; msg = msg->next) {
+            if (msg->alive_for > msg->recieved_blocks + RECOVER_AFTER_N_MISSES && !msg->is_ready_to_be_processed) {
+                /*
+                 * determine which blocks we already recieved to figure out which ones
+                 * we need to request for
+                 */
+                bool *do_we_have_this_packet = calloc(msg->header.expected_blocks, sizeof(bool));
+                for (struct sgl_data_block *block = msg->data_blocks; block; block = block->next)
+                    do_we_have_this_packet[block->index] = true;
+
+                /*
+                 * request header
+                 */
+                struct sgl_packet_header send_header = {
+                    .client_id = msg->header.client_id,
+                    .is_for_server = false,
+                    .type = SGL_PACKET_TYPE_REQUEST_RECOVERY,
+                    .size = msg->header.size,
+                    .index = -1, /* determine later */
+                    .expected_blocks = msg->header.expected_blocks,
+                    .signature = msg->header.signature
+                };
+
+                /*
+                 * loop through and send requests for missing packets
+                 */
+                int total_missing = 0;
+                for (int i = 0; i < msg->header.expected_blocks; i++) {
+                    if (do_we_have_this_packet[i])
+                        continue;
+                    
+                    send_header.index = i;
+                    net_sendto(net, &send_header, sizeof(struct sgl_packet_header), 0);
+                    total_missing++;
+                }
+
+                /*
+                 * soft reset alive_for so we don't end up spamming the clients
+                 */
+                msg->alive_for -= total_missing;
+            }
+        }
+
+        /*
+         * remember to unlock
+         */
+        spin_unlock(&msg_queue_lock);
+    }
+
+    /*
+     * we're not reaching this point
+     */
+    return NULL;
+}
+
+void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 {
     int width, height;
     sgl_get_max_resolution(&width, &height);
 
-    /*
-     * calculate limits
-     */
     size_t framebuffer_size = width * height * 4;
-    size_t fifo_size = m - SGL_OFFSET_COMMAND_START - framebuffer_size;
+    size_t fifo_size = args.memory_size - SGL_OFFSET_COMMAND_START - framebuffer_size;
+
+    void *p = args.base_address;
+    int reported_width = -1;
+    int reported_height = -1;
+
+    struct sgl_host_context *ctx;
+    bool begun = false;
+
+    void *uploaded = NULL;
+    int cmd;
+
+    struct net_context *net_ctx = NULL;
+    struct sgl_packet_header fifo_request_header = { 0 };
 
     if ((signed)fifo_size < 0) {
         printf("%sfatal%s: framebuffer too big! try increasing memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET));
@@ -120,74 +400,259 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
         COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), (size_t)SGL_OFFSET_COMMAND_START, COLOR(COLOR_RESET), 
         COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), SGL_OFFSET_COMMAND_START + fifo_size - 1, COLOR(COLOR_RESET), 
         COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), SGL_OFFSET_COMMAND_START + fifo_size, COLOR(COLOR_RESET), 
-        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), m, COLOR(COLOR_RESET)
+        COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), args.memory_size, COLOR(COLOR_RESET)
     );
     printf("%sinfo%s: %-26s%-26s%-26s\n\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), "registers", "fifo buffer", "framebuffer");
 
     memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
 
-    int reported_width = -1;
-    int reported_height = -1;
-
-    struct sgl_host_context *ctx;
-    bool begun = false;
-
     *(int*)(p + SGL_OFFSET_REGISTER_FBSTART) = SGL_OFFSET_COMMAND_START + fifo_size;
-    *(int*)(p + SGL_OFFSET_REGISTER_MEMSIZE) = m;
-    *(int*)(p + SGL_OFFSET_REGISTER_GLMAJ) = major;
-    *(int*)(p + SGL_OFFSET_REGISTER_GLMIN) = minor;
+    *(int*)(p + SGL_OFFSET_REGISTER_MEMSIZE) = args.memory_size;
+    *(int*)(p + SGL_OFFSET_REGISTER_GLMAJ) = args.gl_major;
+    *(int*)(p + SGL_OFFSET_REGISTER_GLMIN) = args.gl_minor;
     *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
     *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID) = 1;
     *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
     *(int*)(p + SGL_OFFSET_REGISTER_LOCK) = 0;
 
-    void *uploaded = NULL;
-    int cmd;
+    if (args.internal_cmd_ptr)
+        *args.internal_cmd_ptr = &cmd;
 
-    if (internal_cmd_ptr)
-        *internal_cmd_ptr = &cmd;
+    pthread_t net_thread;
+    if (args.network_over_shared) {
+        char *res = net_init_server(&net_ctx, args.port);
+        if (res != NULL) {
+            printf("%sfatal%s: could not initialize server (%s)\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), res);
+            return;
+        }
+
+        pthread_create(&net_thread, NULL, sgl_cmd_net_recv_processor_thread, net_ctx);
+
+        printf("%sinfo%s: running server on %s%s%s:%s%d%s\n\n", 
+            COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), 
+            COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), net_get_ip(), COLOR(COLOR_RESET), 
+            COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), args.port, COLOR(COLOR_RESET));
+    }
 
     while (1) {
         int client_id = 0;
         int timeout = 0;
         
         /*
-         * not only wait for a commit from a specific client,
-         * but also ensure that the client we are waiting for
-         * still exists, in case it didn't notify the server
-         * of its exit
+         * shared memory connection handler
          */
-        while (!wait_for_commit(p)) {
-            int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
-
+        if (!args.network_over_shared) {
             /*
-             * a client has notified the server of its attempt
-             * to connect
+             * not only wait for a commit from a specific client,
+             * but also ensure that the client we are waiting for
+             * still exists, in case it didn't notify the server
+             * of its exit
              */
-            if (creg != 0) {
-                /*
-                 * add connection to the dynamic array
-                 */
-                connection_add(creg);
-
-                printf("%sinfo%s: client %s%d%s connected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), creg, COLOR(COLOR_RESET));
+            while (!wait_for_commit(p)) {
+                int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
 
                 /*
-                 * prevent the same client from connecting more
-                 * than once and break from the loop
+                 * a client has notified the server of its attempt
+                 * to connect
                  */
-                *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
-                continue;
+                if (creg != 0) {
+                    /*
+                    * add connection to the dynamic array
+                    */
+                    connection_add(creg);
+
+                    printf("%sinfo%s: client %s%d%s connected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), creg, COLOR(COLOR_RESET));
+
+                    /*
+                     * prevent the same client from connecting more
+                     * than once and break from the loop
+                     */
+                    *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
+                    continue;
+                }
+
+                /*
+                 * some sort of "sync"
+                 */
+                usleep(1);
             }
 
-            /*
-             * some sort of "sync"
-             */
-            usleep(1);
+            client_id = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
+            *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
         }
+        /*
+         * network-based connection handler and packet translation
+         */
+        else {
+            bool ready_to_render = false;
+            while (!ready_to_render) {
+                /*
+                 * we need mutex to access the queue because we're trying to read
+                 * the queue as the thread is also reading/writing to it
+                 */
+                spin_lock(&msg_queue_lock);
 
-        client_id = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
-        *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
+                /*
+                 * inspect contents of message queue, find completed messages
+                 */
+                for (struct sgl_incoming_server_msg *msg = server_msg_queue; msg;) {
+                    /*
+                     * skip:
+                     *   - incomplete messages
+                     *   - messages not for us
+                     */
+                    if (!msg->is_ready_to_be_processed || !msg->header.is_for_server) {
+                        msg = msg->next;
+                        continue;
+                    }
+                    
+                    /*
+                     * parse message type
+                     */
+                    switch (msg->header.type) {
+                    /*
+                     * when a client connects, we want to send the same connect packet back,
+                     * instead containing the actual client_id
+                     */
+                    case SGL_PACKET_TYPE_CONNECT:
+                        connection_add(*(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID));
+
+                        msg->header.client_id = *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID);
+                        msg->header.is_for_server = false;
+
+                        memcpy(global_packet_space, &msg->header, sizeof(struct sgl_packet_header));
+                        memcpy(global_packet_space + sizeof(struct sgl_packet_header), &framebuffer_size, sizeof(framebuffer_size));
+                        memcpy(global_packet_space + sizeof(struct sgl_packet_header) + sizeof(framebuffer_size), &fifo_size, sizeof(fifo_size));
+
+                        printf("%sinfo%s: client %s%d%s connected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), msg->header.client_id, COLOR(COLOR_RESET));
+
+                        net_sendto(net_ctx, global_packet_space, sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size), 0);
+                        *((int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID)) += 1;
+                        break;
+
+                    /*
+                     * determine opengl version that the server wishes to report
+                     */
+                    case SGL_PACKET_TYPE_WHAT_IS_OPENGL:
+                        msg->header.size = 2;
+                        msg->header.is_for_server = false;
+
+                        /*
+                         * copy header, major, & minor
+                         */
+                        memcpy(global_packet_space, &msg->header, sizeof(struct sgl_packet_header));
+                        memcpy(global_packet_space + 1, (char*)(p + SGL_OFFSET_REGISTER_GLMAJ), 1);
+                        memcpy(global_packet_space + 2, (char*)(p + SGL_OFFSET_REGISTER_GLMIN), 1);
+
+                        net_sendto(net_ctx, global_packet_space, sizeof(struct sgl_packet_header) + 2, 0);
+                        break;
+
+                    /*
+                     * fifo has been uploaded
+                     * we don't actually send a response here. we send a response upon completion, as explained
+                     * towards the bottom of the file
+                     *
+                     * in case thats too much scrolling:
+                     * we need to send retval at the end of execution to ensure that the client that requested
+                     * this exact fifo buffer will get the exact retval returned from said execution, since packets
+                     * may be out of order
+                     */
+                    case SGL_PACKET_TYPE_FIFO_UPLOAD:
+                        memcpy(&fifo_request_header, &msg->header, sizeof(struct sgl_packet_header));
+                        memcpy(p + SGL_OFFSET_COMMAND_START, msg->processed_data, msg->recieved_size);
+                        ready_to_render = true;
+                        client_id = msg->header.client_id;
+                        break;
+
+                    /*
+                     * stream the framebuffer over using big packets
+                     * we may lose these packets in transit, but we dont care
+                     *
+                     * unlike when the client has to send the server something, we don't expect
+                     * the client to recieve everything, so we don't send an "expeect all this" header
+                     *
+                     * warning: SGL_PACKET_TYPE_FRAMEBUFFER_DONE may be sent out-of-order, so expect additional packet loss
+                     */
+                    case SGL_PACKET_TYPE_FRAMEBUFFER_FAST_BUT_LOSS: {
+                        int *buf = msg->processed_data;
+                        int w = *buf++,
+                            h = *buf++,
+                            vflip = *buf++,
+                            format = *buf++;
+                        printf("w = %d, h = %d, vflip = %d, forrmat = %d\n\n", w, h, vflip, format); fflush(stdout);
+
+                        connection_current(msg->header.client_id);
+                        sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format, 0);
+
+                        /*
+                         * to-do: swap out 4 for detecting size of format
+                         */
+                        const size_t size = w * h * 4;
+                        size_t left_over = size;
+                        size_t offset = 0;
+
+                        /*
+                         * stream framebuffer in max sized chunks, adjusting at the end when left over becomes smaller than the max
+                         */
+                        for (int i = 0; i < size / SGL_PACKET_MAX_BLOCK_SIZE + (size % SGL_PACKET_MAX_BLOCK_SIZE != 0); i++) {
+                            size_t packet_size = left_over > SGL_PACKET_MAX_BLOCK_SIZE ? SGL_PACKET_MAX_BLOCK_SIZE : left_over;
+                            left_over -= SGL_PACKET_MAX_BLOCK_SIZE;
+
+                            struct sgl_packet_header header = {
+                                .client_id = msg->header.client_id,
+                                .is_for_server = false,
+                                .type = SGL_PACKET_TYPE_FRAMEBUFFER_FAST_BUT_LOSS,
+                                .size = packet_size,
+                                .index = i,
+                                .expected_blocks = -1, /* lossy api doesn't need to report expected blocks, right ?? */
+                                .signature = msg->header.signature
+                            };
+
+                            memcpy(global_packet_space, &header, sizeof(struct sgl_packet_header));
+                            memcpy(global_packet_space + sizeof(struct sgl_packet_header), p + SGL_OFFSET_COMMAND_START + fifo_size + offset, packet_size);
+
+                            net_sendto(net_ctx, global_packet_space, sizeof(struct sgl_packet_header) + packet_size, 0);
+
+                            offset += packet_size;
+                        }
+
+                        struct sgl_packet_header header = {
+                            .client_id = msg->header.client_id,
+                            .is_for_server = false,
+                            .type = SGL_PACKET_TYPE_FRAMEBUFFER_DONE,
+                            .size = 0,
+                            .index = 0,
+                            .expected_blocks = -1,
+                            .signature = msg->header.signature
+                        };
+
+                        usleep(1000);
+
+                        printf("net_sendto = %ld", net_sendto(net_ctx, &header, sizeof(struct sgl_packet_header), 0));
+                        printf("net_sendto = %ld", net_sendto(net_ctx, &header, sizeof(struct sgl_packet_header), 0));
+                        //printf("done framebuffer\n");
+                        break;
+                    }
+
+                    default:
+                        printf("(out_of_branch_err) unhandled packet type (%d)\n", msg->header.type);
+                        break;
+                    }
+
+                    /*
+                     * remove processed message
+                     */
+                    struct sgl_incoming_server_msg *next_msg = msg->next;
+                    dynarr_free_element((void**)&server_msg_queue, 0, match_equal, msg);
+                    msg = next_msg;
+                }
+
+                /*
+                * mandatory unlock
+                */
+                spin_unlock(&msg_queue_lock);
+            }
+        }
 
         /*
          * set the current opengl context to the current client
@@ -197,8 +662,8 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
         int *pb = p + SGL_OFFSET_COMMAND_START;
         while (*pb != SGL_CMD_INVALID) {
             cmd = *pb;
-            // printf("[+] command: %s (%d)\n", *pb < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[*pb] : "????", *pb); fflush(stdout);
-            //if (*pb >= SGL_CMD_MAX)
+            printf("[+] command: %s (%d)\n", *pb < SGL_CMD_MAX ? SGL_CMD_STRING_TABLE[*pb] : "????", *pb); fflush(stdout);
+            // if (*pb >= SGL_CMD_MAX)
             //    exit(1);
             switch (*pb++) {
             /*
@@ -4424,8 +4889,33 @@ void sgl_cmd_processor_start(size_t m, void *p, int major, int minor, int **inte
             }
         }
 
-        /* commit done */
+        /* 
+         * commit done 
+         */
         glFinish();
         *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) = 0;
+
+        /*
+         * for networking only: we need to send retval back to client upon completion
+         * BECAUSE another fifo may be uploaded and executed before the og client can get its retval,
+         * overwriting whatever value was there before :[
+         */
+        if (net_ctx != NULL) {
+            char *scratch_buffer = malloc(sizeof(struct sgl_packet_header) + 8 + 256);
+
+            fifo_request_header.size = 8 + 256;
+            fifo_request_header.is_for_server = false;
+
+            /*
+             * copy header, retval, & retval_v into packet
+             */
+            memcpy(scratch_buffer, &fifo_request_header, sizeof(struct sgl_packet_header));
+            memcpy(scratch_buffer + sizeof(struct sgl_packet_header), (uint64_t*)(p + SGL_OFFSET_REGISTER_RETVAL), 8);
+            memcpy(scratch_buffer + sizeof(struct sgl_packet_header) + 8, (uint64_t*)(p + SGL_OFFSET_REGISTER_RETVAL_V), 256);
+
+            net_sendto(net_ctx, scratch_buffer, sizeof(struct sgl_packet_header) + 8 + 256, 0);
+
+            free(scratch_buffer);
+        }
     }
 }

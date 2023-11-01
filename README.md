@@ -2,7 +2,7 @@
 
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
-SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing for accelerated graphics within QEMU/KVM guests. SGL is designed to be compatible with Windows and Linux, allowing for 3D acceleration without the need for GPU passthrough. For future plans, click [here](https://github.com/users/dmaivel/projects/2) for the roadmap.
+SharedGL (SGL) is an OpenGL implementation built upon shared memory (and optional networking), allowing for accelerated graphics within QEMU/KVM guests and across devices. SGL is designed to be compatible with Windows and Linux, allowing for 3D acceleration without the need for GPU passthrough. For future plans, click [here](https://github.com/users/dmaivel/projects/2) for the roadmap.
 
 <details>
 <summary>Click to reveal: Table of contents</summary>
@@ -13,11 +13,12 @@ SharedGL (SGL) is an OpenGL implementation built upon shared memory, allowing fo
    - [Linux](#linux)
       - [Linux in a VM](#linux-in-a-vm)
    - [Windows in a VM](#windows-in-a-vm)
-3. [Virtual machines](#virtual-machines)
-4. [Supported GL versions](#supported-gl-versions)
-5. [Limitations / Issues](#limitations--issues)
-6. [Troubleshooting](#troubleshooting)
-7. [Showcase](#showcase)
+3. [Networking](#networking)
+4. [Virtual machines](#virtual-machines)
+5. [Supported GL versions](#supported-gl-versions)
+6. [Limitations / Issues](#limitations--issues)
+7. [Troubleshooting](#troubleshooting)
+8. [Showcase](#showcase)
 
 </details>
 
@@ -49,16 +50,18 @@ For additional build instructions for Windows, visit the [Windows section](#wind
 The server must be started on the host before running any clients. Note that the server can only be ran on Linux.
 
 ```bash
-usage: sglrenderer [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]
-
+usage: sglrenderer [-h] [-v] [-o] [-n] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE] [-p PORT]
+    
 options:
     -h                 display help information
     -v                 display virtual machine arguments
     -o                 enables fps overlay on clients (shows server side fps)
+    -n                 enable networking instead of shared memory
     -x                 remove shared memory file
     -g [MAJOR.MINOR]   report specific opengl version (default: 2.1)
     -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)
     -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)
+    -p [PORT]          if networking is enabled, specify which port to use (default: 3000)
 ```
 
 ### Environment variables
@@ -67,6 +70,11 @@ When running clients, a user may specify one or more of the following environmen
 GL_VERSION_OVERRIDE=X.X
 GLX_VERSION_OVERRIDE=X.X
 GLSL_VERSION_OVERRIDE=X.X
+```
+
+If networking on the server is enabled (using `-n`), the client must be aware of the address and port (both of which are outputted by the server):
+```
+SGL_NET_OVER_SHARED=HOST_ADDRESS:PORT
 ```
 
 ## Linux
@@ -102,6 +110,8 @@ Two things must be done for the windows installation:
 1. Install a compatible driver
 2. Install the clients
 
+### Kernel driver
+
 There are two possible drivers one may use:
 1. VirtIO's IVSHMEM driver (no multiclient support)
     1. Download and extract the upstream virtio win drivers, found [here](https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/upstream-virtio/).
@@ -136,6 +146,8 @@ There are two possible drivers one may use:
            ```
         3. By default, this builds for Windows 10 x64 (`10_X64`). If you wish to compile for a different version or multiple versions, you must provide it through the command line like so: `kcertify.bat 10_X64,10_NI_X64`. A list of OS versions is provided on MSDN [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/inf2cat).
 
+### Library / ICD
+
 There are two ways to install the library on windows:
 1. Use a release (>= `0.3.1`)
     1. Download the latest release for windows and extract the zip file.
@@ -156,6 +168,15 @@ There are two ways to install the library on windows:
        cd build\Release
        call wininstall.bat
        ```
+
+# Networking
+> [!WARNING]\
+> The network protocol is currently in active early development and is prone to bugs.
+
+Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. The user still needs to install the ICD for either Linux or Windows (depending on the guest), however the kernel drivers/module **do not** need be compiled/installed. All the user needs to do is:
+  - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
+  - Ensure the client libraries are installed
+  - Ensure that the enviornment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists (`ADDRESS` being the host's IP address)
 
 # Virtual machines
 Before you start up your virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Use the `-v` command line argument when starting the server and place the output in its respective location, depending on whether you use libvirt or qemu.
@@ -213,6 +234,7 @@ This list describes the amount of functions left from each standard to implement
 - Resizing is not handled
 - Inaccurate FPS in overlay (to-do: move timings from server to client)
 - GLFW cant request OpenGL profiles
+- Networking causes lock-ups (within server and client)
 
 # Troubleshooting
 You may encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`. Although the code base is buggy, these are some tips to try to further attempts to get an application to work:

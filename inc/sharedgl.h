@@ -66,6 +66,9 @@
 
 #define SGL_SHARED_MEMORY_NAME "sharedgl_shared_memory"
 
+/*
+ * commands, pretty much 1:1 mapping for opengl
+ */
 enum {
     SGL_CMD_INVALID,
     SGL_CMD_FLIP,
