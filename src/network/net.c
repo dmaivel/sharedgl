@@ -6,9 +6,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <time.h>
-#include <unistd.h>
 
 #ifndef _WIN32
+#include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -18,6 +18,7 @@
 #include <Ws2tcpip.h>
 
 #pragma comment(lib, "Ws2_32.lib")
+static WSADATA wsaData;
 #endif
 
 /*

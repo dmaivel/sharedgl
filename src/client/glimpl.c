@@ -208,7 +208,7 @@ void glimpl_commit()
             header.size = packet_size;
 
             memcpy(packet_space, &header, sizeof(header));
-            memcpy(packet_space + sizeof(header), ptr + offset, packet_size);
+            memcpy((char*)packet_space + sizeof(header), (char*)ptr + offset, packet_size);
 
             net_sendto(net_ctx, packet_space, sizeof(struct sgl_packet_header) + packet_size, 0);
 
@@ -240,7 +240,7 @@ void glimpl_commit()
             case SGL_PACKET_TYPE_REQUEST_RECOVERY:
                 temporary_header->type = SGL_PACKET_TYPE_FIFO_UPLOAD;
                 size = temporary_header->index + 1 == blocks ? min_size : SGL_PACKET_MAX_BLOCK_SIZE;
-                memcpy(packet_space + sizeof(struct sgl_packet_header), ptr + (temporary_header->index * SGL_PACKET_MAX_BLOCK_SIZE), size);
+                memcpy((char*)packet_space + sizeof(struct sgl_packet_header), (char*)ptr + (temporary_header->index * SGL_PACKET_MAX_BLOCK_SIZE), size);
                 net_sendto(net_ctx, packet_space, sizeof(struct sgl_packet_header) + size, 0);
                 break;
             }
