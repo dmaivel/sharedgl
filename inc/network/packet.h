@@ -45,7 +45,16 @@ enum {
     SGL_PACKET_TYPE_REQUEST_RECOVERY,
 };
 
-struct __attribute__((packed)) sgl_packet_header {
+#ifndef _WIN32
+#define PACKED __attribute__((packed))
+#else
+#define PACKED
+#endif
+
+#ifdef _WIN32
+__pragma( pack(push, 1) )
+#endif
+struct PACKED sgl_packet_header {
     short client_id;
     bool is_for_server;
     char type;
@@ -54,5 +63,8 @@ struct __attribute__((packed)) sgl_packet_header {
     unsigned short expected_blocks;
     int signature;
 };
+#ifdef _WIN32
+__pragma( pack(pop))
+#endif
 
 #endif
