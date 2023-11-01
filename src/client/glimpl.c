@@ -1,11 +1,13 @@
-#include "network/net.h"
-#include "network/packet.h"
 #include <client/glimpl.h>
 #include <client/memory.h>
 #include <client/spinlock.h>
 #include <client/pb.h>
+
 #include <sharedgl.h>
 #include <commongl.h>
+
+#include <network/net.h>
+#include <network/packet.h>
 
 #include <stdio.h>
 #include <stdlib.h>
