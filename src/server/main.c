@@ -143,8 +143,13 @@ int main(int argc, char **argv)
     printf("%sinfo%s: press %sCTRL+C%s to terminate server\n\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), COLOR(COLOR_RESET));
     printf("%sinfo%s: reporting gl version %s%d%s.%s%d%s\n\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), major, COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), minor, COLOR(COLOR_RESET));
 
-    if (print_virtual_machine_arguments)
-        generate_virtual_machine_arguments(shm_size);
+    if (print_virtual_machine_arguments) {
+        if (!network_over_shared)
+            generate_virtual_machine_arguments(shm_size);
+        else
+            printf("%sinfo%s: command line argument '-v' ignored as networking is enabled\n\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET));
+    }
+
     printf("%sinfo%s: using %s%ld%s MiB of memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), shm_size, COLOR(COLOR_RESET));
 
     /*
