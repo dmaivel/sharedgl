@@ -235,6 +235,7 @@ void glXWaitX(void)
 void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 {
     static struct glx_swap_data swap_data = { 0 };
+    static char *fbb = NULL;
 
     if (swap_data.initialized == false) {
         XWindowAttributes attr;
@@ -249,6 +250,7 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 
         XMatchVisualInfo(dpy, XDefaultScreen(dpy), 24, TrueColor, &swap_data.vinfo);
 
+        fbb = glimpl_fb_address();
         swap_data.ximage = XCreateImage(dpy, swap_data.vinfo.visual, swap_data.vinfo.depth, ZPixmap, 0, glimpl_fb_address(), swap_data.width, swap_data.height, 8, swap_data.width*4);
         swap_data.gcv.graphics_exposures = 0;
         swap_data.gc = XCreateGC(dpy, swap_data.parent, GCGraphicsExposures, &swap_data.gcv);

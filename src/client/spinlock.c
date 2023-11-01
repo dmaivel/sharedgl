@@ -5,18 +5,6 @@
 #include <windows.h>
 #endif
 
-static int *keep_this_lock_pls;
-
-void spin_set(int *lock)
-{
-    keep_this_lock_pls = lock;
-}
-
-int *spin_get()
-{
-    return keep_this_lock_pls;
-}
-
 void spin_lock(int *lock)
 {
 #ifndef _WIN32

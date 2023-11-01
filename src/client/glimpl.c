@@ -1,3 +1,5 @@
+#include "network/net.h"
+#include "network/packet.h"
 #include <client/glimpl.h>
 #include <client/memory.h>
 #include <client/spinlock.h>
@@ -79,11 +81,56 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
     "GL_EXT_texture_filter_anisotropic"
 };
 
+static struct net_context *net_ctx = NULL;
+static int *fake_register_space = NULL;
+static int *fake_framebuffer = NULL;
+static unsigned char packet_space[SGL_PACKET_MAX_SIZE];
+
 static int glimpl_major = SGL_DEFAULT_MAJOR;
 static int glimpl_minor = SGL_DEFAULT_MINOR;
 
 static int client_id = 0;
 static void *lockg;
+
+static int pb_read_hook(int offset)
+{
+    if (offset == SGL_OFFSET_REGISTER_RETVAL)
+        return fake_register_space[0];
+    return fake_register_space[offset];
+}
+
+static int64_t pb_read64_hook(int offset)
+{
+    if (offset == SGL_OFFSET_REGISTER_RETVAL)
+        return *(int64_t*)&fake_register_space[0];
+    return *(int64_t*)&fake_register_space[offset];
+}
+
+static void *pb_ptr_hook(size_t offset)
+{
+    switch (offset) {
+    case SGL_OFFSET_REGISTER_RETVAL:
+        return &fake_register_space[0];
+    case SGL_OFFSET_REGISTER_RETVAL_V:
+        return &fake_register_space[2];
+    default:
+        fprintf(stderr, "pb_ptr_hook: defaulted to pb_iptr, possible undefined behavior\n");
+        return pb_iptr(offset);
+    }
+}
+
+static void filter_net_recvfrom(struct net_context *net, int type, int signature, struct sgl_packet_header *storage)
+{
+    while (1) {
+        net_recvfrom(net, packet_space, sizeof(packet_space), 0);
+
+        struct sgl_packet_header *temporary_header = (struct sgl_packet_header*)packet_space;
+        if (temporary_header->type == type && temporary_header->signature == signature) {
+            *storage = *temporary_header;
+            return;
+        }
+    }
+}
 
 void glimpl_commit()
 {
@@ -92,28 +139,122 @@ void glimpl_commit()
      */
     pb_push(0);
 
-    /*
-     * lock
-     */
-    spin_lock(lockg);
+    if (net_ctx == NULL) {
+        /*
+        * lock
+        */
+        spin_lock(lockg);
 
-    /* 
-     * hint to server that we're ready 
-     */
-    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
+        /* 
+        * hint to server that we're ready 
+        */
+        pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
 
-    /*
-     * copy internal buffer to shared memory and commit
-     */
-    pb_copy_to_shared();
-    pb_write(SGL_OFFSET_REGISTER_COMMIT, 1);
-    while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1);
-    pb_reset();
+        /*
+        * copy internal buffer to shared memory and commit
+        */
+        pb_copy_to_shared();
+        pb_write(SGL_OFFSET_REGISTER_COMMIT, 1);
+        while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1);
+        pb_reset();
 
-    /*
-     * unlock
-     */
-    spin_unlock(lockg);
+        /*
+        * unlock
+        */
+        spin_unlock(lockg);
+    }
+    else {
+        /* 
+         * get internal pointer & used size 
+         */
+        printf("glimpl_commit: start\n");
+        void *ptr = pb_iptr(0);
+        size_t size = pb_size();
+        
+        int blocks = size / SGL_PACKET_MAX_BLOCK_SIZE + (size % SGL_PACKET_MAX_BLOCK_SIZE != 0);
+        size_t min_size = 0;
+
+        /*
+         * packet
+         */
+        int signature = net_generate_signature();
+        struct sgl_packet_header header = {
+            client_id,
+            true,
+            SGL_PACKET_TYPE_FIFO_UPLOAD,
+            size,
+            -1,
+            blocks,
+            signature
+        };
+
+        /*
+         * initial notifying packet
+         */
+        net_sendto(net_ctx, &header, sizeof(header), 0);
+
+        /*
+         * send out in chunks
+         */
+        size_t left_over = size;
+        size_t offset = 0;
+        for (int i = 0; i < blocks; i++) {
+            size_t packet_size = left_over > SGL_PACKET_MAX_BLOCK_SIZE ? SGL_PACKET_MAX_BLOCK_SIZE : left_over;
+            left_over -= SGL_PACKET_MAX_BLOCK_SIZE;
+
+            if (packet_size < SGL_PACKET_MAX_BLOCK_SIZE)
+                min_size = packet_size;
+
+            header.index = i;
+            header.size = packet_size;
+
+            memcpy(packet_space, &header, sizeof(header));
+            memcpy(packet_space + sizeof(header), ptr + offset, packet_size);
+
+            net_sendto(net_ctx, packet_space, sizeof(struct sgl_packet_header) + packet_size, 0);
+
+            offset += packet_size;
+        }
+
+        /*
+         * wait for either success (in turn recieve RETVAL) or recovery messages
+         */
+        bool done = false;
+        while (!done) {
+            net_recvfrom(net_ctx, packet_space, SGL_PACKET_MAX_SIZE, 0);
+            struct sgl_packet_header *temporary_header = (struct sgl_packet_header*)packet_space;
+
+            /*
+             * check if packet is for us
+             */
+            if (temporary_header->client_id != client_id || temporary_header->signature != signature)
+                continue;
+
+            /*
+             * either finished or recover
+             */
+            size_t size = 0;
+            switch (temporary_header->type) {
+            case SGL_PACKET_TYPE_FIFO_UPLOAD:
+                done = true;
+                break;
+            case SGL_PACKET_TYPE_REQUEST_RECOVERY:
+                temporary_header->type = SGL_PACKET_TYPE_FIFO_UPLOAD;
+                size = temporary_header->index + 1 == blocks ? min_size : SGL_PACKET_MAX_BLOCK_SIZE;
+                memcpy(packet_space + sizeof(struct sgl_packet_header), ptr + (temporary_header->index * SGL_PACKET_MAX_BLOCK_SIZE), size);
+                net_sendto(net_ctx, packet_space, sizeof(struct sgl_packet_header) + size, 0);
+                break;
+            }
+        }
+        
+        /*
+         * write response into fake register space
+         */
+        memcpy(fake_register_space, packet_space + sizeof(struct sgl_packet_header), 256 + 8);
+
+        pb_reset();
+        printf("glimpl_commit: end\n");
+    }
 }
 
 void glimpl_goodbye()
@@ -147,64 +288,189 @@ void glimpl_report(int width, int height)
 
 void glimpl_swap_buffers(int width, int height, int vflip, int format)
 {
-    pb_push(SGL_CMD_REQUEST_FRAMEBUFFER);
-    pb_push(width);
-    pb_push(height);
-    pb_push(vflip);
-    pb_push(format);
-    glimpl_commit();
+    if (net_ctx == NULL) {
+        pb_push(SGL_CMD_REQUEST_FRAMEBUFFER);
+        pb_push(width);
+        pb_push(height);
+        pb_push(vflip);
+        pb_push(format);
+        glimpl_commit();
+    }
+    else {
+        glimpl_commit();
+        // return;
+
+        int signature = net_generate_signature();
+        
+        struct sgl_packet_header header = {
+            client_id,
+            true,
+            SGL_PACKET_TYPE_FRAMEBUFFER_FAST_BUT_LOSS,
+            sizeof(int) * 4,
+            0,
+            0,
+            signature
+        };
+
+        memcpy(packet_space, &header, sizeof(header));
+        memcpy(packet_space + sizeof(header) + (sizeof(int) * 0), &width, sizeof(int));
+        memcpy(packet_space + sizeof(header) + (sizeof(int) * 1), &height, sizeof(int));
+        memcpy(packet_space + sizeof(header) + (sizeof(int) * 2), &vflip, sizeof(int));
+        memcpy(packet_space + sizeof(header) + (sizeof(int) * 3), &format, sizeof(int));
+        
+        net_sendto(net_ctx, packet_space, sizeof(header) + (sizeof(int) * 4), 0);
+        
+        bool done = false;
+        size_t offset = 0;
+        int last_index = -1;
+        size_t block_size = 0;
+        //printf("start\n");
+
+        int misses = 0;
+        while (!done && misses < 10000) {
+            net_recvfrom(net_ctx, packet_space, sizeof(packet_space), NET_DONTWAIT);
+            struct sgl_packet_header *temporary_header = (struct sgl_packet_header*)packet_space;
+
+            /*
+             * check if packet is for us
+             */
+            if (temporary_header->client_id != client_id || temporary_header->signature != signature)
+                continue;
+
+            switch (temporary_header->type) {
+            case SGL_PACKET_TYPE_FRAMEBUFFER_DONE:
+                done = true;
+                break;
+            case SGL_PACKET_TYPE_FRAMEBUFFER_FAST_BUT_LOSS:
+                /* assume increments of SGL_PACKET_MAX_BLOCK_SIZE if sent in chunks */
+                memcpy((char*)fake_framebuffer + (temporary_header->index * SGL_PACKET_MAX_BLOCK_SIZE), packet_space + sizeof(struct sgl_packet_header), temporary_header->size);
+                break;
+            }
+
+            misses++;
+        }
+        //printf("end\n");
+    }
 }
 
 void *glimpl_fb_address()
 {
+    if (fake_framebuffer)
+        return fake_framebuffer;
     return pb_ptr(pb_read(SGL_OFFSET_REGISTER_FBSTART));
 }
 
 void glimpl_init()
 {
-#ifndef _WIN32
-    int fd = shm_open(SGL_SHARED_MEMORY_NAME, O_RDWR, S_IRWXU);
-    if (fd == -1)
-        fd = sgl_detect_memory("/dev/sharedgl");
-    if (fd == -1) {
-        fprintf(stderr, "glimpl_init: failed to find memory\n");
-        exit(1);
-    }
+    char *network = getenv("SGL_NET_OVER_SHARED");
 
-    pb_set(fd);
+    if (network == NULL) {
+#ifndef _WIN32
+        int fd = shm_open(SGL_SHARED_MEMORY_NAME, O_RDWR, S_IRWXU);
+        if (fd == -1)
+            fd = sgl_detect_memory("/dev/sharedgl");
+        if (fd == -1) {
+            fprintf(stderr, "glimpl_init: failed to find memory\n");
+            exit(1);
+        }
+
+        pb_set(fd);
 #else
-    pb_set();
+        pb_set();
 #endif
-    pb_reset();
+        pb_reset();
+    }
+    else {
+        /*
+         * string is formatted address:port, so we want to split it into two strings
+         */
+        for (char *c = network; *c; c++) {
+            if (*c == ':') {
+                *c = 0;
+                break;
+            }
+        }
+
+        char *res = net_init_client(&net_ctx, network, atoi(&network[strlen(network) + 1]));
+        if (res != NULL) {
+            fprintf(stderr, "glimpl_init: could not initialize client (%s)", res);
+            exit(1);
+        }
+
+        int signature = net_generate_signature();
+
+        struct sgl_packet_header header = {
+            0,
+            true,
+            SGL_PACKET_TYPE_CONNECT,
+            0,
+            0,
+            0,
+            signature
+        };
+
+        size_t framebuffer_size, fifo_size;
+
+        /*
+         * warning (to-do, fix-me, todo, fixme): sizeof(...) may change when switching to and from 32-bit
+         * architectures
+         */
+        net_sendto(net_ctx, &header, sizeof(header), 0);
+        filter_net_recvfrom(net_ctx, SGL_PACKET_TYPE_CONNECT, header.signature, &header);
+        framebuffer_size = *(size_t*)&packet_space[sizeof(struct sgl_packet_header)];
+        fifo_size = *(size_t*)&packet_space[sizeof(struct sgl_packet_header) + sizeof(framebuffer_size)];
+
+        client_id = header.client_id;
+
+        fake_register_space = malloc(SGL_OFFSET_COMMAND_START);
+        fake_framebuffer = malloc(framebuffer_size);
+
+        for (int i = 0; i < 500; i++) {
+            fake_framebuffer[i] = 0xff0000;
+        }
+
+        struct pb_net_hooks hooks = {
+            pb_read_hook,
+            pb_read64_hook,
+            NULL,
+            NULL,
+            NULL,
+            pb_ptr_hook,
+            NULL
+        };
+
+        pb_set_net(hooks, fifo_size);
+    }
 
     char *gl_version_override = getenv("GL_VERSION_OVERRIDE");
 
     glimpl_major = gl_version_override ? gl_version_override[0] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMAJ);
     glimpl_minor = gl_version_override ? gl_version_override[2] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMIN);
 
-    lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
-    spin_set(lockg);
+    if (network == NULL) {
+        lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
 
-    /*
-     * claim client id and increment the register for the
-     * next claimee to claim
-     */
-    spin_lock(lockg);
-    client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
-    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
-    pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
+        /*
+        * claim client id and increment the register for the
+        * next claimee to claim
+        */
+        spin_lock(lockg);
+        client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
+        pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
+        pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
 
-    /*
-     * notify the server we would like to connect
-     */
-    pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
-    spin_unlock(lockg);
-    
-    /*
-     * commit
-     */
-    pb_push(SGL_CMD_CREATE_CONTEXT);
-    glimpl_commit();
+        /*
+        * notify the server we would like to connect
+        */
+        pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
+        spin_unlock(lockg);
+        
+        /*
+        * commit
+        */
+        pb_push(SGL_CMD_CREATE_CONTEXT);
+        glimpl_commit();
+    }
 }
 
 static struct gl_vertex_attrib_pointer *glimpl_get_enabled_vap()

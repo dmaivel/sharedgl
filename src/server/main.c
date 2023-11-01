@@ -23,16 +23,18 @@ static size_t shm_size;
 int *internal_cmd_ptr;
 
 static const char *usage =
-    "usage: sglrenderer [-h] [-v] [-o] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE]\n"
+    "usage: sglrenderer [-h] [-v] [-o] [-n] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE] [-p PORT]\n"
     "\n"
     "options:\n"
     "    -h                 display help information\n"
     "    -v                 display virtual machine arguments\n"
     "    -o                 enables fps overlay on clients (shows server side fps)\n"
+    "    -n                 enable network server instead of using shared memory\n"
     "    -x                 remove shared memory file\n"
     "    -g [MAJOR.MINOR]   report specific opengl version (default: 2.1)\n"
     "    -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)\n"
-    "    -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)\n";
+    "    -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)\n"
+    "    -p [PORT]          if networking is enabled, specify which port to use (default: 3000)\n";
 
 static void generate_virtual_machine_arguments(size_t m)
 {
@@ -68,14 +70,25 @@ static void term_handler(int sig)
     exit(1);
 }
 
+static void arg_parser_protector(int sig)
+{
+    printf("%sfatal%s: expected second argument\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET));
+    exit(1);
+}
+
 int main(int argc, char **argv)
 {
     bool print_virtual_machine_arguments = false;
+
+    bool network_over_shared = false;
+    int port = 3000;
 
     int major = SGL_DEFAULT_MAJOR;
     int minor = SGL_DEFAULT_MINOR;
 
     shm_size = 16;
+
+    signal(SIGSEGV, arg_parser_protector);
 
     for (int i = 1; i < argc; i++) {
         switch (argv[i][1]) {
@@ -84,6 +97,9 @@ int main(int argc, char **argv)
             return 0;
         case 'v':
             print_virtual_machine_arguments = true;
+            break;
+        case 'n':
+            network_over_shared = true;
             break;
         case 'o':
             overlay_enable();
@@ -112,8 +128,12 @@ int main(int argc, char **argv)
             shm_size = atoi(argv[i + 1]);
             i++;
             break;
+        case 'p':
+            port = atoi(argv[i + 1]);
+            i++;
+            break;
         default:
-            printf("[?] unknown argument '%s'\n", argv[i]);
+            printf("%serr%s: unknown argument \"%s\"\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), argv[i]);
         }
     }
 
@@ -126,6 +146,11 @@ int main(int argc, char **argv)
     if (print_virtual_machine_arguments)
         generate_virtual_machine_arguments(shm_size);
     printf("%sinfo%s: using %s%ld%s MiB of memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), shm_size, COLOR(COLOR_RESET));
+
+    /*
+     * to-do: new memory managment where we don't create shared memory file if networking requested
+     */
+
     shm_size *= 1024 * 1024;
 
     int shm_fd = shm_open(SGL_SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRWXU);
@@ -140,5 +165,19 @@ int main(int argc, char **argv)
     }
 
     shm_ptr = mmap(0, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
-    sgl_cmd_processor_start(shm_size, shm_ptr, major, minor, &internal_cmd_ptr);
+
+    struct sgl_cmd_processor_args args = {
+        .base_address = shm_ptr,
+        .memory_size = shm_size,
+
+        .network_over_shared = network_over_shared,
+        .port = port,
+
+        .gl_major = major,
+        .gl_minor = minor,
+
+        .internal_cmd_ptr = &internal_cmd_ptr,
+    };
+
+    sgl_cmd_processor_start(args);
 }

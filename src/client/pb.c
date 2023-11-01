@@ -52,6 +52,8 @@ int *cur;
 void *in_base;
 int *in_cur;
 
+struct pb_net_hooks net_hooks = { NULL };
+
 #ifndef _WIN32
 void pb_set(int fd)
 {
@@ -124,6 +126,19 @@ void pb_unset(void)
 }
 #endif
 
+void pb_set_net(struct pb_net_hooks hooks, size_t internal_alloc_size)
+{
+    net_hooks = hooks;
+
+#ifndef _WIN32
+    in_base = mmap(NULL, internal_alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    in_cur = in_base;
+#else
+    in_base = VirtualAlloc(NULL, internal_alloc_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    in_cur = in_base;
+#endif
+}
+
 void pb_reset()
 {
     cur = base;
@@ -145,11 +160,15 @@ void pb_pushf(float c)
 
 int pb_read(int s)
 {
+    if (net_hooks._pb_read)
+        return net_hooks._pb_read(s);
     return *(int*)((size_t)ptr + s);
 }
 
 int64_t pb_read64(int s)
 {
+    if (net_hooks._pb_read64)
+        return net_hooks._pb_read64(s);
     return *(int64_t*)((size_t)ptr + s);
 }
 
@@ -172,7 +191,19 @@ void pb_memcpy(void *src, size_t length)
 
 void *pb_ptr(size_t offs)
 {
+    if (net_hooks._pb_ptr)
+        return net_hooks._pb_ptr(offs);
     return (void*)((size_t)ptr + offs);
+}
+
+void *pb_iptr(size_t offs)
+{
+    return (void*)((size_t)in_base + offs);
+}
+
+size_t pb_size()
+{
+    return (size_t)in_cur - (size_t)in_base;
 }
 
 void pb_copy_to_shared()

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(sharedgl VERSION 0.4.1 LANGUAGES C CXX)
+project(sharedgl VERSION 0.5.0 LANGUAGES C CXX)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
@@ -12,14 +12,14 @@ IF(WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gz")
 ENDIF(WIN32)
 
-file(GLOB GLOBBED_SERVER_SOURCES CONFIGURE_DEPENDS "src/server/*.c")
+file(GLOB GLOBBED_SERVER_SOURCES CONFIGURE_DEPENDS "src/server/*.c" "src/network/*.c" "src/client/spinlock.c")
 
 # client stuff
 IF(UNIX)
-    file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/*.c")
+    file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/*.c" "src/network/*.c")
     file(GLOB GLOBBED_CLIENT_P_SOURCES CONFIGURE_DEPENDS "src/client/platform/*.c")
 ELSEIF(WIN32)
-    file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/winmain.c" "src/client/pb.c" "src/client/spinlock.c" "src/client/glimpl.c")
+    file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/winmain.c" "src/client/pb.c" "src/client/spinlock.c" "src/client/glimpl.c" "src/network/*.c")
     file(GLOB GLOBBED_CLIENT_P_SOURCES CONFIGURE_DEPENDS "src/client/platform/windrv.c")
 
     file(GLOB GLOBBED_DXUMD_SOURCES CONFIGURE_DEPENDS "src/sgldxumd/*.cpp")
