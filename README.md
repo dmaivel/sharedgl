@@ -10,6 +10,7 @@ SharedGL (SGL) is an OpenGL implementation built upon shared memory (and optiona
 1. [Getting started](#getting-started)
 2. [Usage](#usage)
    - [Environment variables](#environment-variables)
+   - [Shared memory or network](#shared-memory-or-network)
    - [Linux](#linux)
       - [Linux in a VM](#linux-in-a-vm)
    - [Windows in a VM](#windows-in-a-vm)
@@ -76,6 +77,19 @@ If networking on the server is enabled (using `-n`), the client must be aware of
 ```
 SGL_NET_OVER_SHARED=HOST_ADDRESS:PORT
 ```
+
+### Shared memory or network
+
+Starting from `0.5.0`, SharedGL offers two methods of communication between a client and the host:
+
+|                                                      | Shared memory      | Network            |
+|------------------------------------------------------|--------------------|--------------------|
+| Requires additional drivers                          | :white_check_mark: | :x:                |
+| Requires additional host renderer arguments          | :x:                | :white_check_mark: |
+| Requires additional environment variables for client | :x:                | :white_check_mark: |
+| Able to run/debug clients on host                    | :white_check_mark: | :white_check_mark: |
+| Able to run clients in VMs                           | :white_check_mark: | :white_check_mark: |
+| Able to run clients over LAN                         | :x:                | :white_check_mark: |
 
 ## Linux
 For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
@@ -176,9 +190,13 @@ There are two ways to install the library on windows:
 Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. The user still needs to install the ICD for either Linux or Windows (depending on the guest), however the kernel drivers/module **do not** need be compiled/installed. All the user needs to do is:
   - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
   - Ensure the client libraries are installed
-  - Ensure that the enviornment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists (`ADDRESS` being the host's IP address)
+  - Ensure that the environment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists (`ADDRESS` being the host's IP address)
 
 # Virtual machines
+
+> [!IMPORTANT]\
+> This step is not required if you intend on only using SharedGL's network capabilities instead of the shared memory device. This means you **do not** need to compile the OS-specific kernel drivers or pass a shared memory device.
+
 Before you start up your virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Use the `-v` command line argument when starting the server and place the output in its respective location, depending on whether you use libvirt or qemu.
 
 **libvirt:**
