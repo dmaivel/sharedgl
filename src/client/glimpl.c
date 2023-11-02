@@ -326,6 +326,10 @@ void glimpl_swap_buffers(int width, int height, int vflip, int format)
         size_t block_size = 0;
         //printf("start\n");
 
+        /*
+         * to-do: redesign this part because the misses check is causing significant reduced performance
+         * this part also causes the client to lock up, so redesign needed quick
+         */
         int misses = 0;
         while (!done && misses < 10000) {
             net_recvfrom(net_ctx, packet_space, sizeof(packet_space), NET_DONTWAIT);
