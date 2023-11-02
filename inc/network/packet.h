@@ -18,11 +18,6 @@ enum {
     SGL_PACKET_TYPE_CONNECT,
 
     /*
-     * what gl we runnin?
-     */
-    SGL_PACKET_TYPE_WHAT_IS_OPENGL,
-
-    /*
      * upload fifo buffer to server
      * server tells client fifo stuff is done
      * 
