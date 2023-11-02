@@ -153,23 +153,26 @@ int main(int argc, char **argv)
     printf("%sinfo%s: using %s%ld%s MiB of memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), shm_size, COLOR(COLOR_RESET));
 
     /*
-     * to-do: new memory managment where we don't create shared memory file if networking requested
+     * allocate memory, only create a shared memory file if using shared memory
      */
-
     shm_size *= 1024 * 1024;
+    if (!network_over_shared) {
+        int shm_fd = shm_open(SGL_SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRWXU);
+        if (shm_fd == -1) {
+            printf("%serr%s: failed to open shared memory '%s'\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), SGL_SHARED_MEMORY_NAME);
+            return -1;
+        }
 
-    int shm_fd = shm_open(SGL_SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRWXU);
-    if (shm_fd == -1) {
-        printf("%serr%s: failed to open shared memory '%s'\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET), SGL_SHARED_MEMORY_NAME);
-        return -1;
+        if (ftruncate(shm_fd, shm_size) == -1) {
+            printf("%serr%s: failed to truncate shared memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET));
+            return -2;
+        }
+
+        shm_ptr = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
     }
-
-    if (ftruncate(shm_fd, shm_size) == -1) {
-        printf("%serr%s: failed to truncate shared memory\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE), COLOR(COLOR_RESET));
-        return -2;
+    else {
+        shm_ptr = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
     }
-
-    shm_ptr = mmap(0, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
 
     struct sgl_cmd_processor_args args = {
         .base_address = shm_ptr,
