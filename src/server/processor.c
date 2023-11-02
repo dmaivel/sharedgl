@@ -522,28 +522,13 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                         memcpy(global_packet_space, &msg->header, sizeof(struct sgl_packet_header));
                         memcpy(global_packet_space + sizeof(struct sgl_packet_header), &framebuffer_size, sizeof(framebuffer_size));
                         memcpy(global_packet_space + sizeof(struct sgl_packet_header) + sizeof(framebuffer_size), &fifo_size, sizeof(fifo_size));
+                        memcpy(global_packet_space + sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size), &args.gl_major, sizeof(args.gl_major));
+                        memcpy(global_packet_space + sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size) + sizeof(args.gl_major), &args.gl_minor, sizeof(args.gl_minor));
 
                         printf("%sinfo%s: client %s%d%s connected\n", COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE), COLOR(COLOR_RESET), COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE), msg->header.client_id, COLOR(COLOR_RESET));
 
-                        net_sendto(net_ctx, global_packet_space, sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size), 0);
+                        net_sendto(net_ctx, global_packet_space, sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size) + sizeof(args.gl_major) + sizeof(args.gl_minor), 0);
                         *((int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID)) += 1;
-                        break;
-
-                    /*
-                     * determine opengl version that the server wishes to report
-                     */
-                    case SGL_PACKET_TYPE_WHAT_IS_OPENGL:
-                        msg->header.size = 2;
-                        msg->header.is_for_server = false;
-
-                        /*
-                         * copy header, major, & minor
-                         */
-                        memcpy(global_packet_space, &msg->header, sizeof(struct sgl_packet_header));
-                        memcpy(global_packet_space + 1, (char*)(p + SGL_OFFSET_REGISTER_GLMAJ), 1);
-                        memcpy(global_packet_space + 2, (char*)(p + SGL_OFFSET_REGISTER_GLMIN), 1);
-
-                        net_sendto(net_ctx, global_packet_space, sizeof(struct sgl_packet_header) + 2, 0);
                         break;
 
                     /*

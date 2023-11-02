@@ -96,9 +96,16 @@ static void *lockg;
 
 static int pb_read_hook(int offset)
 {
-    if (offset == SGL_OFFSET_REGISTER_RETVAL)
+    switch (offset) {
+    case SGL_OFFSET_REGISTER_RETVAL:
         return fake_register_space[0];
-    return fake_register_space[offset];
+    case SGL_OFFSET_REGISTER_GLMAJ:
+        return glimpl_major;
+    case SGL_OFFSET_REGISTER_GLMIN:
+        return glimpl_minor;
+    default:
+        return fake_register_space[offset];
+    }
 }
 
 static int64_t pb_read64_hook(int offset)
@@ -423,6 +430,8 @@ void glimpl_init()
         filter_net_recvfrom(net_ctx, SGL_PACKET_TYPE_CONNECT, header.signature, &header);
         framebuffer_size = *(size_t*)&packet_space[sizeof(struct sgl_packet_header)];
         fifo_size = *(size_t*)&packet_space[sizeof(struct sgl_packet_header) + sizeof(framebuffer_size)];
+        glimpl_major = *(int*)&packet_space[sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size)];
+        glimpl_minor = *(int*)&packet_space[sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size) + sizeof(glimpl_major)];
 
         client_id = header.client_id;
 
