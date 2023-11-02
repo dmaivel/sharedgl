@@ -438,10 +438,6 @@ void glimpl_init()
         fake_register_space = malloc(SGL_OFFSET_COMMAND_START);
         fake_framebuffer = malloc(framebuffer_size);
 
-        for (int i = 0; i < 500; i++) {
-            fake_framebuffer[i] = 0xff0000;
-        }
-
         struct pb_net_hooks hooks = {
             pb_read_hook,
             pb_read64_hook,
