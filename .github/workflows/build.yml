@@ -35,10 +35,6 @@ jobs:
             c_compiler: clang
           - os: ubuntu-latest
             c_compiler: cl
-            arch: x64
-          - os: ubuntu-latest
-            c_compiler: cl
-            arch: Win32
 
     steps:
     - uses: actions/checkout@v3
