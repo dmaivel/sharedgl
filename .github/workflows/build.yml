@@ -42,10 +42,9 @@ jobs:
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     - name: Install dependenices
-      run: >
-        if [[ ${{ matrix.os }} == "ubuntu-latest" ]]; then
-          sudo apt-get install -y libepoxy-dev libsdl2-dev libx11-dev
-        fi
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get install -y libepoxy-dev libsdl2-dev libx11-dev
 
     # removed -DCMAKE_GENERATOR_PLATFORM=${{ matrix.arch }}
     - name: Configure CMake
