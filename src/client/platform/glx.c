@@ -169,9 +169,6 @@ XVisualInfo *glXGetVisualFromFBConfig(Display *dpy, GLXFBConfig config)
     return vinfo;
 }
 
-/*
- * to-do: to do.
- */
 GLXContext glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list)
 {
     return glXCreateContext(NULL, NULL, 0, 0);
@@ -250,13 +247,18 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 
         XMatchVisualInfo(dpy, XDefaultScreen(dpy), 24, TrueColor, &swap_data.vinfo);
 
+        /*
+         * create an ximage whose pointer points to our framebuffer
+         */
         fbb = glimpl_fb_address();
         swap_data.ximage = XCreateImage(dpy, swap_data.vinfo.visual, swap_data.vinfo.depth, ZPixmap, 0, glimpl_fb_address(), swap_data.width, swap_data.height, 8, swap_data.width*4);
         swap_data.gcv.graphics_exposures = 0;
         swap_data.gc = XCreateGC(dpy, swap_data.parent, GCGraphicsExposures, &swap_data.gcv);
 
+        /*
+         * report current window dimensions, initialization done
+         */
         glimpl_report(swap_data.width, swap_data.height);
-
         swap_data.initialized = true;
     }
 
@@ -280,7 +282,7 @@ void* glXGetProcAddressARB(char* s)
         return NULL;
     }
 
-    /* to-do: use above str? */
+    /* to-do: use stripped str? */
     return dlsym(NULL, s);
 }
 
