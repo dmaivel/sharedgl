@@ -379,7 +379,7 @@ void glimpl_init()
 #ifndef _WIN32
         int fd = shm_open(SGL_SHARED_MEMORY_NAME, O_RDWR, S_IRWXU);
         if (fd == -1)
-            fd = sgl_detect_memory("/dev/sharedgl");
+            fd = sgl_detect_device_memory("/dev/sharedgl");
         if (fd == -1) {
             fprintf(stderr, "glimpl_init: failed to find memory\n");
             exit(1);

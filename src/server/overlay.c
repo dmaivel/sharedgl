@@ -1030,7 +1030,7 @@ static const unsigned char IBM[4096] =
     0x00, 0x00, 0x00, 0x00
 };
 
-static void overlay_draw_char(int *display, int width, char c, int x, int y, unsigned int fg, unsigned int bg) 
+static void overlay_draw_char(int *display, int width, char c, int x, int y, unsigned int fg) 
 {
     int mask[8] = { 1, 2, 4, 8, 16, 32, 64, 128 };
     const unsigned char *gylph = IBM + (int)c * 16;
@@ -1039,6 +1039,9 @@ static void overlay_draw_char(int *display, int width, char c, int x, int y, uns
 
     for (int cy = 0; cy < 16; cy++)
         for (int cx = 0; cx < 8; cx++) {
+            /*
+             * darken pixels
+             */
             color = (unsigned char*)&display[(y + cy) * width + (x + (7 - cx))];
             color[0] = color[0] * 120 / 255;
             color[1] = color[1] * 120 / 255;
@@ -1050,7 +1053,7 @@ static void overlay_draw_char(int *display, int width, char c, int x, int y, uns
         }
 }
 
-static void overlay_draw_text(int *display, int width, char *text, int x, int y, unsigned int fg, unsigned int bg) 
+static void overlay_draw_text(int *display, int width, char *text, int x, int y, unsigned int fg) 
 {
     char* c = text;
     for (int i = x; *c; i += 8)
@@ -1060,8 +1063,7 @@ static void overlay_draw_text(int *display, int width, char *text, int x, int y,
             *c++,
             i,
             y,
-            fg,
-            bg
+            fg
         );
 }
 
@@ -1104,9 +1106,9 @@ void overlay_stage2(struct overlay_context *ctx, int *frame, int width, size_t m
         sprintf(str, "FPS: %ld", ctx->fps);
         sprintf(mem, "MEM: %.2f %s", usage, is_mb ? "MB" : "KB");
 
-        overlay_draw_text(frame, width, "SharedGL Renderer", 0, 0, 0xffffff, 0x0000000);
-        overlay_draw_text(frame, width, mem, 0, 16, 0xffffff, 0x0000000);
-        overlay_draw_text(frame, width, str, 0, 32, 0xffffff, 0x0000000);
+        overlay_draw_text(frame, width, "SharedGL Renderer", 0, 0, 0xffffff);
+        overlay_draw_text(frame, width, mem, 0, 16, 0xffffff);
+        overlay_draw_text(frame, width, str, 0, 32, 0xffffff);
     }
 
     ctx->current_ticks = clock();

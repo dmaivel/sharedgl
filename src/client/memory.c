@@ -1,3 +1,7 @@
+/*
+ * this pertains to memory detection within Linux VMs
+ */
+
 #include <client/memory.h>
 
 #include <dlfcn.h>
@@ -8,7 +12,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 
-int sgl_detect_memory(const char *path)
+int sgl_detect_device_memory(const char *path)
 {
     DIR *directory = opendir(path);
     if (directory == NULL)
@@ -21,7 +25,7 @@ int sgl_detect_memory(const char *path)
 
         if (entry->d_type == DT_DIR) {
             if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-                int fd = sgl_detect_memory(full_name);
+                int fd = sgl_detect_device_memory(full_name);
                 if (fd != -1)
                     return fd;
             }
