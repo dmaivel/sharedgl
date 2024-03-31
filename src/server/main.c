@@ -1,8 +1,10 @@
 #define SHAREDGL_HOST
+
 #include <sharedgl.h>
 #include <server/processor.h>
 #include <server/overlay.h>
 #include <server/context.h>
+#include <sgldebug.h>
 
 #include <unistd.h>
 #include <dirent.h>
@@ -47,9 +49,9 @@ static void generate_virtual_machine_arguments(size_t m)
     static const char *qemu_string =
         "-object memory-backend-file,size=%ldM,share,mem-path=/dev/shm/" SGL_SHARED_MEMORY_NAME ",id=" SGL_SHARED_MEMORY_NAME "\n";
 
-    printf("%slibvirt%s:\n", COLOR_UNIQ, COLOR(COLOR_RESET));
+    printf("%slibvirt%s:\n", COLOR_UNIQ, COLOR_RESET);
     printf(libvirt_string, m);
-    printf("\n%sqemu%s:\n", COLOR_UNIQ, COLOR(COLOR_RESET));
+    printf("\n%sqemu%s:\n", COLOR_UNIQ, COLOR_RESET);
     printf(qemu_string, m);
     printf("\n");
 }
@@ -57,12 +59,16 @@ static void generate_virtual_machine_arguments(size_t m)
 static void term_handler(int sig)
 {
     munmap(shm_ptr, shm_size);
+    int icmd = *internal_cmd_ptr;
 
     switch (sig) {
     case SIGINT:
         break;
     case SIGSEGV:
-        printf("%sfatal%s: server stopped: segmentation fault (cmd: %s%d%s)", COLOR_ERRO, COLOR(COLOR_RESET), COLOR_NUMB, *internal_cmd_ptr, COLOR(COLOR_RESET));
+        printf("%sfatal%s: server stopped: segmentation fault on %s%s%s (%s%d%s)", 
+            COLOR_ERRO, COLOR_RESET, 
+            COLOR_INFO, sgl_cmd2str(icmd), COLOR_RESET,
+            COLOR_NUMB, icmd, COLOR_RESET);
         break;
     }
 
@@ -72,7 +78,7 @@ static void term_handler(int sig)
 
 static void arg_parser_protector(int sig)
 {
-    printf("%sfatal%s: expected second argument\n", COLOR_ERRO, COLOR(COLOR_RESET));
+    printf("%sfatal%s: expected second argument\n", COLOR_ERRO, COLOR_RESET);
     exit(1);
 }
 
@@ -133,24 +139,24 @@ int main(int argc, char **argv)
             i++;
             break;
         default:
-            printf("%serr%s: unknown argument \"%s\"\n", COLOR_ERRO, COLOR(COLOR_RESET), argv[i]);
+            printf("%serr%s: unknown argument \"%s\"\n", COLOR_ERRO, COLOR_RESET, argv[i]);
         }
     }
 
     signal(SIGINT, term_handler);
     signal(SIGSEGV, term_handler);
 
-    printf("%sinfo%s: press %sCTRL+C%s to terminate server\n\n", COLOR_INFO, COLOR(COLOR_RESET), COLOR_NUMB, COLOR(COLOR_RESET));
-    printf("%sinfo%s: reporting gl version %s%d%s.%s%d%s\n\n", COLOR_INFO, COLOR(COLOR_RESET), COLOR_NUMB, major, COLOR(COLOR_RESET), COLOR_NUMB, minor, COLOR(COLOR_RESET));
+    printf("%sinfo%s: press %sCTRL+C%s to terminate server\n\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, COLOR_RESET);
+    printf("%sinfo%s: reporting gl version %s%d%s.%s%d%s\n\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, major, COLOR_RESET, COLOR_NUMB, minor, COLOR_RESET);
 
     if (print_virtual_machine_arguments) {
         if (!network_over_shared)
             generate_virtual_machine_arguments(shm_size);
         else
-            printf("%sinfo%s: command line argument '-v' ignored as networking is enabled\n\n", COLOR_INFO, COLOR(COLOR_RESET));
+            printf("%sinfo%s: command line argument '-v' ignored as networking is enabled\n\n", COLOR_INFO, COLOR_RESET);
     }
 
-    printf("%sinfo%s: using %s%ld%s MiB of memory\n", COLOR_INFO, COLOR(COLOR_RESET), COLOR_NUMB, shm_size, COLOR(COLOR_RESET));
+    printf("%sinfo%s: using %s%ld%s MiB of memory\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, shm_size, COLOR_RESET);
 
     /*
      * allocate memory, only create a shared memory file if using shared memory
@@ -159,12 +165,12 @@ int main(int argc, char **argv)
     if (!network_over_shared) {
         int shm_fd = shm_open(SGL_SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRWXU);
         if (shm_fd == -1) {
-            printf("%serr%s: failed to open shared memory '%s'\n", COLOR_ERRO, COLOR(COLOR_RESET), SGL_SHARED_MEMORY_NAME);
+            printf("%serr%s: failed to open shared memory '%s'\n", COLOR_ERRO, COLOR_RESET, SGL_SHARED_MEMORY_NAME);
             return -1;
         }
 
         if (ftruncate(shm_fd, shm_size) == -1) {
-            printf("%serr%s: failed to truncate shared memory\n", COLOR_ERRO, COLOR(COLOR_RESET));
+            printf("%serr%s: failed to truncate shared memory\n", COLOR_ERRO, COLOR_RESET);
             return -2;
         }
 
