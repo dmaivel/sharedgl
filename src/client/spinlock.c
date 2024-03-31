@@ -1,5 +1,10 @@
 #include <client/spinlock.h>
+#if defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86)
 #include <emmintrin.h>
+#else
+// #warning Non-x86 platform detected, assuming ARM.
+#define _mm_pause() asm volatile("yield");
+#endif
 
 #ifdef _WIN32
 #include <windows.h>
