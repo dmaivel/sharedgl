@@ -34,6 +34,84 @@ struct glx_swap_data {
     bool initialized;
 };
 
+struct glx_fb_config {
+    int render_type,
+        drawable_type,
+        double_buffer,
+        red_size,
+        green_size,
+        blue_size,
+        alpha_size,
+        stencil_size,
+        depth_size,
+        accum_red_size,
+        accum_green_size,
+        accum_blue_size,
+        accum_alpha_size,
+        accum_stencil_size,
+        renderable,
+        visual_type;
+        // to-do: add more like stereo
+};
+
+int glx_fb_config_valid;
+
+static struct glx_fb_config fb_configs[300] = { 0 };
+
+int fb_valid_color_sizes[] = {
+    0, 1, 8, 16, 24, 32
+};
+
+int fb_valid_render_types[] = {
+    GLX_RGBA_BIT, GLX_COLOR_INDEX_BIT
+};
+
+int fb_valid_doublebuffer_types[] = {
+    False, True
+};
+
+int fb_valid_drawable_types[] = {
+    GLX_WINDOW_BIT
+};
+
+int fb_valid_visual_types[] = {
+    GLX_TRUE_COLOR, GLX_DIRECT_COLOR, GLX_PSEUDO_COLOR, GLX_STATIC_COLOR, GLX_GRAY_SCALE, GLX_STATIC_GRAY
+};
+
+#define ARR_SIZE(x) (sizeof(x) / sizeof(*x))
+static void glx_generate_fb_configs()
+{
+    int idx = 0;
+    for (int a = 0; a < ARR_SIZE(fb_valid_color_sizes); a++) {
+        for (int b = 0; b < ARR_SIZE(fb_valid_render_types); b++) {
+            for (int c = 0; c < ARR_SIZE(fb_valid_doublebuffer_types); c++) {
+                for (int d = 0; d < ARR_SIZE(fb_valid_drawable_types); d++) {
+                    for (int e = 0; e < ARR_SIZE(fb_valid_doublebuffer_types); e++) { // renderable
+                        for (int f = 0; f < ARR_SIZE(fb_valid_visual_types); f++) {
+                            fb_configs[idx].red_size = fb_valid_color_sizes[a];
+                            fb_configs[idx].green_size = fb_valid_color_sizes[a];
+                            fb_configs[idx].blue_size = fb_valid_color_sizes[a];
+                            fb_configs[idx].alpha_size = fb_valid_color_sizes[a];
+                            fb_configs[idx].stencil_size = -1; // fb_valid_color_sizes[a];
+                            fb_configs[idx].depth_size = fb_valid_color_sizes[a];
+
+                            fb_configs[idx].render_type = fb_valid_render_types[b];
+                            fb_configs[idx].double_buffer = fb_valid_doublebuffer_types[c];
+                            fb_configs[idx].drawable_type = fb_valid_drawable_types[d];
+
+                            fb_configs[idx].renderable = fb_valid_doublebuffer_types[e];
+                            fb_configs[idx].visual_type = fb_valid_visual_types[f];
+
+                            idx++;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+#undef ARR_SIZE
+
 static const char *glximpl_name_to_string(int name)
 {
     switch (name) {
@@ -126,33 +204,64 @@ Bool glXMakeCurrent(Display *dpy, GLXDrawable drawable, GLXContext ctx)
 
 int glXGetFBConfigAttrib(Display *dpy, GLXFBConfig config, int attribute, int *value)
 {
+    int index = (int)(size_t)config;
+    struct glx_fb_config fb_config = fb_configs[index];
+
     switch (attribute) {
+    case GLX_FBCONFIG_ID:
+        *value = index;
+        break;
     case GLX_RENDER_TYPE:
-        *value |= GLX_RGBA_BIT;
+        *value |= fb_config.render_type; // GLX_RGBA_BIT;
         break;
-    case GLX_DRAWABLE_TYPE:
-        *value |= GLX_WINDOW_BIT;
+    case GLX_VISUAL_ID:
+        *value = XDefaultVisual(dpy, 0)->visualid; // fb_config.visual_type;
         break;
-    case GLX_DOUBLEBUFFER:
+    case GLX_BUFFER_SIZE:
         *value = 1;
         break;
+    case GLX_SAMPLES:
+        *value = 0;
+        break;
+    case GLX_DRAWABLE_TYPE:
+        *value |= fb_config.drawable_type; // GLX_WINDOW_BIT;
+        break;
+    case GLX_DOUBLEBUFFER:
+        *value = fb_config.double_buffer;
+        break;
     case GLX_RED_SIZE:
+        *value = fb_config.red_size;
+        break;
     case GLX_GREEN_SIZE:
+        *value = fb_config.green_size;
+        break;
     case GLX_BLUE_SIZE:
+        *value = fb_config.blue_size;
+        break;
     case GLX_ALPHA_SIZE:
+        *value = fb_config.alpha_size;
+        break;
     case GLX_STENCIL_SIZE:
+        *value = fb_config.stencil_size;
+        break;
     case GLX_ACCUM_RED_SIZE:
+        *value = fb_config.accum_red_size;
+        break;
     case GLX_ACCUM_GREEN_SIZE:
+        *value = fb_config.accum_green_size;
+        break;
     case GLX_ACCUM_BLUE_SIZE:
+        *value = fb_config.accum_blue_size;
+        break;
     case GLX_ACCUM_ALPHA_SIZE:
-        *value = 8;
+        *value = fb_config.accum_alpha_size; // 8;
         break;
     case GLX_DEPTH_SIZE:
-        *value = 24;
+        *value = fb_config.depth_size; // 24;
         break;
     }
 
-    return 1;
+    return Success;
 }
 
 GLXFBConfig *glXGetFBConfigs(Display *dpy, int screen, int *nelements)
@@ -181,7 +290,15 @@ int glXGetConfig(Display *dpy, XVisualInfo *visual, int attrib, int *value)
 
 GLXFBConfig *glXChooseFBConfig(Display *dpy, int screen, const int *attrib_list, int *nitems)
 {
-    return malloc(sizeof(GLXFBConfig));
+    // make list into indexes so it's easier to access in glXGetFBConfigAttrib
+    int n_configs = sizeof(fb_configs) / sizeof(*fb_configs);
+    GLXFBConfig *list = malloc(sizeof(void*) * n_configs);
+    for (int i = 0; i < n_configs; i++)
+        list[i] = ((GLXFBConfig)(size_t)i);
+
+    *nitems = n_configs;
+
+    return list;
 }
 
 Bool glXIsDirect(Display *dpy, GLXContext ctx)
@@ -272,7 +389,6 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
     XSync(dpy, False);
 }
 
-void *glXGetProcAddress(char *s);
 void* glXGetProcAddressARB(char* s) 
 {
     char str[64];
@@ -299,4 +415,6 @@ void glximpl_init()
         glx_major = glx_version_override[0] - '0';
         glx_minor = glx_version_override[2] - '0';
     }
+
+    glx_generate_fb_configs();
 }
