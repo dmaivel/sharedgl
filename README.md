@@ -246,13 +246,13 @@ This list describes the amount of functions left from each standard to implement
     - [x] 4.6 (~4 total) 
 
 # Limitations / Issues
-- Running several clients at once results in buggy frames
-- Clients will allocate the same amount of memory as the server's command buffer for their internal buffer
-- Vsync hasnt been implemented
-- Resizing is not handled
-- Inaccurate FPS in overlay (to-do: move timings from server to client)
-- GLFW cant request OpenGL profiles
-- Networking causes lock-ups (within server and client)
+- Frame glitches possible when running multiple clients
+- Clients may reserve too much memory according to server's allocated memory
+- No Vsync
+- Resizing is possible, no proper implementation
+- Some GLFW applications cant request OpenGL profiles
+- Networking is experimental, applications will halt after some time
+- New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run
 
 # Troubleshooting
 You may encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`. Although the code base is buggy, these are some tips to try to further attempts to get an application to work:
