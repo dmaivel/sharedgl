@@ -232,8 +232,8 @@ This list describes the amount of functions left from each standard to implement
     - [x] 2.0 (~93 total) 
     - [x] 2.1 (~6 total) 
 - [ ] OpenGL 3
-    - [ ] 3.0 (~23 remaining) (~84 total) 
-    - [ ] 3.1 (~7 remaining) (~15 total) 
+    - [x] 3.0 (~84 total) 
+    - [x] 3.1 (~15 total) 
     - [ ] 3.2 (~14 remaining) (~19 total) 
     - [ ] 3.3 (~29 remaining) (~58 total) 
 - [ ] OpenGL 4

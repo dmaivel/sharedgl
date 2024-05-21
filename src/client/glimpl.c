@@ -20,6 +20,50 @@
 
 #define GLIMPL_MAX_OBJECTS 256
 
+// used by glGet*v
+#define GL_GET_MEMCPY_RETVAL_EX(name, data, type) \
+    switch (name) { \
+    case GL_MODELVIEW_MATRIX: \
+    case GL_PROJECTION_MATRIX: \
+    case GL_TEXTURE_MATRIX: \
+        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 16); \
+        break; \
+    case GL_ACCUM_CLEAR_VALUE: \
+    case GL_COLOR_CLEAR_VALUE: \
+    case GL_COLOR_WRITEMASK: \
+    case GL_CURRENT_COLOR: \
+    case GL_CURRENT_RASTER_COLOR: \
+    case GL_CURRENT_RASTER_POSITION: \
+    case GL_CURRENT_RASTER_TEXTURE_COORDS: \
+    case GL_CURRENT_TEXTURE_COORDS: \
+    case GL_FOG_COLOR: \
+    case GL_LIGHT_MODEL_AMBIENT: \
+    case GL_MAP2_GRID_DOMAIN: \
+    case GL_SCISSOR_BOX: \
+    case GL_TEXTURE_ENV_COLOR: \
+    case GL_VIEWPORT: \
+        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 4); \
+        break; \
+    case GL_CURRENT_NORMAL: \
+        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 3); \
+        break; \
+    case GL_DEPTH_RANGE: \
+    case GL_LINE_WIDTH_RANGE: \
+    case GL_MAP1_GRID_DOMAIN: \
+    case GL_MAP2_GRID_SEGMENTS: \
+    case GL_MAX_VIEWPORT_DIMS: \
+    case GL_POINT_SIZE_RANGE: \
+    case GL_POLYGON_MODE: \
+        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 2); \
+        break; \
+    default: \
+        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 1); \
+        break; \
+    }
+
+#define GL_GET_MEMCPY_RETVAL(data, type) \
+    GL_GET_MEMCPY_RETVAL_EX(pname, data, type)
+
 struct gl_vertex_attrib_pointer {
     int index;
     int size;
@@ -540,7 +584,7 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
         break;
     }
     default:
-        printf("glimpl_upload_texture: unknown format: %x\n", format);
+        fprintf(stderr, "glimpl_upload_texture: unknown format: %x\n", format);
         break;
     }
 }
@@ -1223,46 +1267,6 @@ GLint glGetAttribLocation(GLuint program, const GLchar* name)
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
-#define GL_GET_MEMCPY_RETVAL(data, type) \
-    switch (pname) { \
-    case GL_MODELVIEW_MATRIX: \
-    case GL_PROJECTION_MATRIX: \
-    case GL_TEXTURE_MATRIX: \
-        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 16); \
-        break; \
-    case GL_ACCUM_CLEAR_VALUE: \
-    case GL_COLOR_CLEAR_VALUE: \
-    case GL_COLOR_WRITEMASK: \
-    case GL_CURRENT_COLOR: \
-    case GL_CURRENT_RASTER_COLOR: \
-    case GL_CURRENT_RASTER_POSITION: \
-    case GL_CURRENT_RASTER_TEXTURE_COORDS: \
-    case GL_CURRENT_TEXTURE_COORDS: \
-    case GL_FOG_COLOR: \
-    case GL_LIGHT_MODEL_AMBIENT: \
-    case GL_MAP2_GRID_DOMAIN: \
-    case GL_SCISSOR_BOX: \
-    case GL_TEXTURE_ENV_COLOR: \
-    case GL_VIEWPORT: \
-        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 4); \
-        break; \
-    case GL_CURRENT_NORMAL: \
-        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 3); \
-        break; \
-    case GL_DEPTH_RANGE: \
-    case GL_LINE_WIDTH_RANGE: \
-    case GL_MAP1_GRID_DOMAIN: \
-    case GL_MAP2_GRID_SEGMENTS: \
-    case GL_MAX_VIEWPORT_DIMS: \
-    case GL_POINT_SIZE_RANGE: \
-    case GL_POLYGON_MODE: \
-        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 2); \
-        break; \
-    default: \
-        memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 1); \
-        break; \
-    }
-
 void glGetFloatv(GLenum pname, GLfloat* data)
 {
     pb_push(SGL_CMD_GETFLOATV);
@@ -1310,8 +1314,6 @@ void glGetDoublev(GLenum pname, GLdouble* data)
     glimpl_commit();
     GL_GET_MEMCPY_RETVAL(data, double);
 }
-
-#undef GL_GET_MEMCPY_RETVAL
 
 void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void* pixels)
 {
@@ -7457,6 +7459,283 @@ void glClearBufferfv(GLenum buffer, GLint drawbuffer, const GLfloat* value)
     pb_pushf(buffer == GL_COLOR ? value[1] : 0);
     pb_pushf(buffer == GL_COLOR ? value[2] : 0);
     pb_pushf(buffer == GL_COLOR ? value[3] : 0);
+}
+
+void glGetBooleani_v(GLenum target, GLuint index, GLboolean* data)
+{
+    pb_push(SGL_CMD_GETBOOLEANI_V);
+    pb_push(target);
+    pb_push(index);
+    glimpl_commit();
+    GL_GET_MEMCPY_RETVAL_EX(target, data, GLboolean);
+}
+
+void glGetIntegeri_v(GLenum target, GLuint index, GLint* data)
+{
+    pb_push(SGL_CMD_GETINTEGERI_V);
+    pb_push(target);
+    pb_push(index);
+    glimpl_commit();
+    GL_GET_MEMCPY_RETVAL_EX(target, data, GLint);
+}
+
+void glTransformFeedbackVaryings(GLuint program, GLsizei count, const GLchar* const*varyings, GLenum bufferMode)
+{
+    glimpl_commit();
+
+    for (int i = 0; i < count; i++) {
+        pb_push(SGL_CMD_TRANSFORMFEEDBACKVARYINGS);
+        pb_push(program);
+        // pb_push(1);
+        push_string(varyings[i]);
+        pb_push(bufferMode);
+    }
+
+    glimpl_commit();
+}
+
+void glGetTransformFeedbackVarying(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLsizei* size, GLenum* type, GLchar* name)
+{
+    pb_push(SGL_CMD_GETTRANSFORMFEEDBACKVARYING);
+    pb_push(program);
+    pb_push(index);
+    pb_push(bufSize);
+    glimpl_commit();
+
+    // hope that data fits in SGL_OFFSET_REGISTER_RETVAL_V
+    // could lead to corrupting the push buffer, unless garbage
+    // is overwritten with enough data before commit
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(size, (void*)(ptr + sizeof(*length)), sizeof(*size));
+    memcpy(type, (void*)(ptr + sizeof(*length) + sizeof(*size)), sizeof(*type));
+    memcpy(name, (void*)(ptr + sizeof(*length) + sizeof(*size) + sizeof(*type)), length_notptr);
+}
+
+void glGetVertexAttribIiv(GLuint index, GLenum pname, GLint* params)
+{
+    // lazy, probably wrong
+    // applies to functions below aswell
+    glGetVertexAttribiv(index, pname, params);
+}
+
+void glGetVertexAttribIuiv(GLuint index, GLenum pname, GLuint* params)
+{
+    glGetVertexAttribiv(index, pname, (GLint*)params);
+}
+
+void glVertexAttribI4bv(GLuint index, const GLbyte* v)
+{
+    glVertexAttrib4bv(index, v);
+}
+
+void glVertexAttribI4sv(GLuint index, const GLshort* v)
+{
+    glVertexAttrib4sv(index, v);
+}
+
+void glVertexAttribI4ubv(GLuint index, const GLubyte* v)
+{
+    glVertexAttrib4ubv(index, v);
+}
+
+void glVertexAttribI4usv(GLuint index, const GLushort* v)
+{
+    glVertexAttrib4usv(index, v);
+}
+
+void glGetUniformuiv(GLuint program, GLint location, GLuint* params)
+{
+    glGetUniformiv(program, location, (GLint*)params);
+}
+
+GLint glGetFragDataLocation(GLuint program, const GLchar* name)
+{
+    pb_push(SGL_CMD_GETFRAGDATALOCATION);
+    pb_push(program);
+    push_string(name);
+
+    glimpl_commit();
+    return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glTexParameterIiv(GLenum target, GLenum pname, const GLint* params)
+{
+    glTexParameteriv(target, pname, params);
+}
+
+void glTexParameterIuiv(GLenum target, GLenum pname, const GLuint* params)
+{
+    glTexParameteriv(target, pname, (const GLint*)params);
+}
+
+void glGetTexParameterIiv(GLenum target, GLenum pname, GLint* params)
+{
+    glGetTexParameteriv(target, pname, params);
+}
+
+void glGetTexParameterIuiv(GLenum target, GLenum pname, GLuint* params)
+{
+    glGetTexParameteriv(target, pname, (GLint*)params);
+}
+
+void glDeleteRenderbuffers(GLsizei n, const GLuint* renderbuffers)
+{
+    // to-do: should glDelete* end w/ commit?
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETERENDERBUFFERS);
+        // pb_push(1);
+        pb_push(renderbuffers[i]);
+    }
+}
+
+void glGenRenderbuffers(GLsizei n, GLuint* renderbuffers)
+{
+    GLuint *p = renderbuffers;
+    
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENRENDERBUFFERS);
+        // pb_push(1);
+
+        glimpl_commit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetRenderbufferParameteriv(GLenum target, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETRENDERBUFFERPARAMETERIV);
+    pb_push(target);
+    pb_push(pname);
+    glimpl_commit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
+}
+
+void glDeleteFramebuffers(GLsizei n, const GLuint* framebuffers)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETEFRAMEBUFFERS);
+        // pb_push(1);
+        pb_push(framebuffers[i]);
+    }
+}
+
+void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETFRAMEBUFFERATTACHMENTPARAMETERIV);
+    pb_push(target);
+    pb_push(attachment);
+    pb_push(pname);
+    glimpl_commit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
+}
+
+void* glMapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)
+{
+    // stub
+    return NULL;
+}
+
+void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount)
+{
+    // to-do: implement
+    fprintf(stderr, "glDrawElementsInstanced: not implemented, fallback to glDrawElements");
+    glDrawElements(mode, count, type, indices);
+}
+
+void glGetUniformIndices(GLuint program, GLsizei uniformCount, const GLchar* const*uniformNames, GLuint* uniformIndices)
+{
+    GLuint *p = uniformIndices;
+    
+    for (int i = 0; i < uniformCount; i++) {
+        pb_push(SGL_CMD_GETUNIFORMINDICES);
+        pb_push(program);
+        // pb_push(1);
+        push_string(uniformNames[i]);
+
+        glimpl_commit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetActiveUniformsiv(GLuint program, GLsizei uniformCount, const GLuint* uniformIndices, GLenum pname, GLint* params)
+{
+    GLint *p = params;
+    
+    for (int i = 0; i < uniformCount; i++) {
+        pb_push(SGL_CMD_GETACTIVEUNIFORMSIV);
+        pb_push(program);
+        // pb_push(1);
+        pb_push(uniformIndices[i]);
+        pb_push(pname);
+
+        glimpl_commit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetActiveUniformName(GLuint program, GLuint uniformIndex, GLsizei bufSize, GLsizei* length, GLchar* uniformName)
+{
+    pb_push(SGL_CMD_GETACTIVEUNIFORMNAME);
+    pb_push(program);
+    pb_push(uniformIndex);
+    pb_push(bufSize);
+
+    glimpl_commit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(uniformName, (void*)(ptr + sizeof(*length)), length_notptr);
+}
+
+GLuint glGetUniformBlockIndex(GLuint program, const GLchar* uniformBlockName)
+{
+    pb_push(SGL_CMD_GETUNIFORMBLOCKINDEX);
+    pb_push(program);
+    push_string(uniformBlockName);
+
+    glimpl_commit();
+    return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetActiveUniformBlockiv(GLuint program, GLuint uniformBlockIndex, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETACTIVEUNIFORMBLOCKIV);
+    pb_push(program);
+    pb_push(uniformBlockIndex);
+    pb_push(pname);
+
+    glimpl_commit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetActiveUniformBlockName(GLuint program, GLuint uniformBlockIndex, GLsizei bufSize, GLsizei* length, GLchar* uniformBlockName)
+{
+    pb_push(SGL_CMD_GETACTIVEUNIFORMBLOCKNAME);
+    pb_push(program);
+    pb_push(uniformBlockIndex);
+    pb_push(bufSize);
+
+    glimpl_commit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(uniformBlockName, (void*)(ptr + sizeof(*length)), length_notptr);
 }
 
 #ifdef _WIN32

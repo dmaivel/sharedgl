@@ -66,7 +66,7 @@
 #define SGL_OFFSET_REGISTER_RETVAL_V (sizeof(int) * 13)
 #define SGL_OFFSET_COMMAND_START 0x1000
 
-#define SGL_DEFAULT_MAJOR 2
+#define SGL_DEFAULT_MAJOR 3
 #define SGL_DEFAULT_MINOR 1
 
 #define SGL_SHARED_MEMORY_NAME "sharedgl_shared_memory"

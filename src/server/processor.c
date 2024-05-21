@@ -4859,6 +4859,123 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 glClearBufferfv(buffer, drawbuffer, value);
                 break;
             }
+            case SGL_CMD_GETBOOLEANI_V: {
+                unsigned char v[16];
+                int target = *pb++,
+                    index = *pb++;
+                glGetBooleani_v(target, index, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(unsigned char) * 16);
+                break;
+            }
+            case SGL_CMD_GETINTEGERI_V: {
+                int v[16];
+                int target = *pb++,
+                    index = *pb++;
+                glGetIntegeri_v(target, index, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(int) * 16);
+                break;
+            }
+            case SGL_CMD_TRANSFORMFEEDBACKVARYINGS: {
+                int program = *pb++,
+                    count = *pb++;
+                char *string = (char*)pb;
+                ADVANCE_PAST_STRING();
+                int bufferMode = *pb++;
+                glTransformFeedbackVaryings(program, count, (const char* const*)&string, bufferMode);
+                break;
+            }
+            case SGL_CMD_GETTRANSFORMFEEDBACKVARYING: {
+                int program = *pb++,
+                    index = *pb++,
+                    bufSize = *pb++;
+                glGetTransformFeedbackVarying(program, index, bufSize, 
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei),
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)  + sizeof(GLsizei),
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)  + sizeof(GLsizei)+ sizeof(GLenum)
+                );
+                break;
+            }
+            case SGL_CMD_GETFRAGDATALOCATION: {
+                int program = *pb++;
+                char *string = (char*)pb;
+                ADVANCE_PAST_STRING();
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetFragDataLocation(program, string);
+                break;
+            }
+            case SGL_CMD_DELETERENDERBUFFERS: {
+                glDeleteRenderbuffers(1, (GLuint*)pb++);
+                break;
+            }
+            case SGL_CMD_GENRENDERBUFFERS: {
+                glGenRenderbuffers(1, (GLuint*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETRENDERBUFFERPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetRenderbufferParameteriv(target, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
+                break;
+            }
+            case SGL_CMD_DELETEFRAMEBUFFERS: {
+                glDeleteRenderbuffers(1, (GLuint*)p++);
+                break;
+            }
+            case SGL_CMD_GETFRAMEBUFFERATTACHMENTPARAMETERIV: {
+                int target = *pb++,
+                    attachment = *pb++,
+                    pname = *pb++;
+                glGetFramebufferAttachmentParameteriv(target, attachment, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
+                break;
+            }
+            case SGL_CMD_GETUNIFORMINDICES: {
+                int program = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+                glGetUniformIndices(program, 1, (const GLchar** const)&name, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETACTIVEUNIFORMSIV: {
+                int program = *pb++,
+                    index = *pb++,
+                    pname = *pb++;
+                glGetActiveUniformsiv(program, 1, (unsigned int*)&index, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETACTIVEUNIFORMNAME: {
+                int program = *pb++,
+                    uniformIndex = *pb++,
+                    bufSize = *pb++;
+                glGetActiveUniformName(program, uniformIndex, bufSize,
+                    (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V),
+                    (char*)(p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei))
+                );
+                break;
+            }
+            case SGL_CMD_GETUNIFORMBLOCKINDEX: {
+                int program = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetUniformBlockIndex(program, name);
+                break;
+            }
+            case SGL_CMD_GETACTIVEUNIFORMBLOCKIV: {
+                int program = *pb++,
+                    index = *pb++,
+                    pname = *pb++;
+                glGetActiveUniformBlockiv(program, index, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETACTIVEUNIFORMBLOCKNAME: {
+                int program = *pb++,
+                    uniformBlockIndex = *pb++,
+                    bufSize = *pb++;
+                glGetActiveUniformBlockName(program, uniformBlockIndex, bufSize,
+                    (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V),
+                    (char*)(p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei))
+                );
+                break;
+            }
             }
             if (!begun) {
                 int error = glGetError();
