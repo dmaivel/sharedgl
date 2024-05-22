@@ -2,7 +2,7 @@
 
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
-SharedGL is an OpenGL implementation built for streaming OpenGL commands over shared memory and networks, allowing for accelerated graphics within QEMU/KVM guests and across devices over LAN. The project is designed to be compatible with Windows and Linux, allowing for 3D acceleration without the need for GPU passthrough or a GPU present. For future plans, click [here](https://github.com/users/dmaivel/projects/2) for the roadmap.
+SharedGL is an OpenGL implementation that enables 3D acceleration for Windows and Linux guests within QEMU by streaming OpenGL commands over shared memory *(and networks)*. For future plans, click [here](https://github.com/users/dmaivel/projects/2) for the roadmap.
 
 <details>
 <summary>Click to reveal: Table of contents</summary>
@@ -45,7 +45,7 @@ If on Windows (Visual Studio required), you must specify that you only want to b
 cmake --build . --target sharedgl-core --config Release
 ```
 
-For additional build instructions for Windows, visit the [Windows section](#windows-in-a-vm).
+For detailed build instructions for Windows, visit the [Windows section](#windows-in-a-vm).
 
 # Usage
 The server must be started on the host before running any clients. Note that the server can only be ran on Linux.
@@ -80,7 +80,7 @@ SGL_NET_OVER_SHARED=HOST_ADDRESS:PORT
 
 ### Shared memory or network
 
-Starting from `0.5.0`, SharedGL offers two methods of communication between a client and the host:
+Starting from `0.5.0`, SharedGL offers the ability to use sockets instead of shared memory for streaming:
 
 |                                                      | Shared memory      | Network            |
 |------------------------------------------------------|--------------------|--------------------|
@@ -100,14 +100,16 @@ $ glxgears
 $ ...
 ```
 
-> [!NOTE]\
-> The client library for linux is not exclusive to virtual machines, meaning you can run it on your host for debugging.
+Some applications may require adding the library to the `LD_PRELOAD` environment variable aswell, which is done the same way as shown above.
+
+Note that the Linux library does not need to be used in a virtual machine, allowing users to debug the library entirely on the host.
 
 ### Linux in a VM
 
 [Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
 
-For virtual linux clients, an additional kernel module needs to be compiled (preferably in the vm). The compiled result, `sharedgl.ko`, needs to be loaded. There is a script within this directory (`install.sh`) for ease of use. It is recommended that you add `sharedgl` to your modprobe config following installation, otherwise it must be loaded manually on each boot.
+For virtual linux clients, an additional kernel module needs to be compiled in the virtual machine, resulting in a binary `sharedgl.ko` which needs to be loaded. Loading/installing can be done by running the provided script (`./kernel/linux/install.sh`), following compilation. If the module doesn't load on boot, it is recommended that you add `sharedgl` to your modprobe config.
+
 ```bash
 # within 'sharedgl' directory
 cd kernel/linux
@@ -118,6 +120,7 @@ make
 > If you move the client library to the guest from the host instead of compiling it in the guest, you may encounter the `SIGILL` exception in the virtual machine as the build compiles with the native (host) architecture. To fix, either change your cpu model to `host-model`/`host-passthrough` or comment out the `-march=native` line in the cmake script (will most likely reduce performance).
 
 ## Windows (in a VM)
+
 [Windows is only supported as a guest: Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
 
 Two things must be done for the windows installation:
@@ -187,17 +190,21 @@ There are two ways to install the library on windows:
 > [!WARNING]\
 > The network protocol is currently in active early development and is prone to bugs.
 
-Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. The user still needs to install the ICD for either Linux or Windows (depending on the guest), however the kernel drivers/module **do not** need be compiled/installed. All the user needs to do is:
+Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively **(NOT RECOMMENDED)**, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
   - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
   - Ensure the client libraries are installed
-  - Ensure that the environment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists (`ADDRESS` being the host's IP address)
+  - Ensure that the environment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists in the guest (`ADDRESS` being the host's IP address)
 
 # Virtual machines
 
-> [!IMPORTANT]\
-> This step is not required if you intend on only using SharedGL's network capabilities instead of the shared memory device. This means you **do not** need to compile the OS-specific kernel drivers or pass a shared memory device.
+> [!NOTE]\
+> If the networking feature is used exclusively **(NOT RECOMMENDED)**, this step can be skipped.
 
-Before you start up your virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Use the `-v` command line argument when starting the server and place the output in its respective location, depending on whether you use libvirt or qemu.
+Before starting the virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Before starting the virtual machine, start the server using `-v`, which will start the server and print the necessary configurations:
+
+```bash
+$ ./sglrenderer -v
+```
 
 **libvirt:**
 ```xml
@@ -278,28 +285,28 @@ Client outputs, `glimpl_init: failed to find memory` to the terminal
 # Showcase
 
 <details>
-<summary>Click to reveal: Running minetest in a windows virtual machine</summary>
+<summary>Click to reveal: Running minetest in a windows virtual machine (old)</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/26c6216d-72f7-45b4-9c4f-1734de0d1c6d
 
 </details>
 
 <details>
-<summary>Click to reveal: Running glxgears in a windows virtual machine (outdated)</summary>
+<summary>Click to reveal: Running glxgears in a windows virtual machine (old)</summary>
     
 https://github.com/dmaivel/sharedgl/assets/38770072/a774db97-807e-46b9-a453-fa2ee3f4ea84
 
 </details>
 
 <details>
-<summary>Click to reveal: Running glxgears in a linux virtual machine (outdated)</summary>
+<summary>Click to reveal: Running glxgears in a linux virtual machine (old)</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/0d46bf46-5693-4842-a81f-2f186c396e26
 
 </details>
 
 <details>
-<summary>Click to reveal: Running a compute shader in a linux virtual machine (outdated)</summary>
+<summary>Click to reveal: Running a compute shader in a linux virtual machine (old)</summary>
     
 https://github.com/dmaivel/sharedgl/assets/38770072/ded179b8-23dc-491d-ba34-4108e014f296
 
