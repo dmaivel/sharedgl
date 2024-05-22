@@ -2,7 +2,7 @@
 
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
-SharedGL is an OpenGL implementation that enables 3D acceleration for Windows and Linux guests within QEMU by streaming OpenGL commands over shared memory *(and networks)*. For future plans, click [here](https://github.com/users/dmaivel/projects/2) for the roadmap.
+SharedGL is an OpenGL implementation that enables 3D acceleration for Windows and Linux guests within QEMU by streaming OpenGL commands over shared memory *(and networks, for devices over LAN)*. For future plans, click [here](https://github.com/users/dmaivel/projects/2) for the roadmap.
 
 <details>
 <summary>Click to reveal: Table of contents</summary>
