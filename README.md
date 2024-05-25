@@ -78,18 +78,9 @@ If networking on the server is enabled (using `-n`), the client must be aware of
 SGL_NET_OVER_SHARED=HOST_ADDRESS:PORT
 ```
 
-### Shared memory or network
+### Network
 
-Starting from `0.5.0`, SharedGL offers the ability to use sockets instead of shared memory for streaming:
-
-|                                                      | Shared memory      | Network            |
-|------------------------------------------------------|--------------------|--------------------|
-| Requires additional drivers                          | :white_check_mark: | :x:                |
-| Requires additional host renderer arguments          | :x:                | :white_check_mark: |
-| Requires additional environment variables for client | :x:                | :white_check_mark: |
-| Able to run/debug clients on host                    | :white_check_mark: | :white_check_mark: |
-| Able to run clients in VMs                           | :white_check_mark: | :white_check_mark: |
-| Able to run clients over LAN                         | :x:                | :white_check_mark: |
+Starting from version `0.5.0`, network capabilities are offered. If you wish to accelerate graphics over another machine or do not wish to install any kernel drivers, use the network feature.
 
 ## Linux
 For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.

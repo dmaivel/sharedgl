@@ -851,11 +851,13 @@ void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage
 {
     glimpl_commit();
 
-    pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(size / sizeof(int)); /* could be very bad mistake */
-    int *idata = (int*)data;
-    for (int i = 0; i < size / sizeof(int); i++)
-        pb_push(idata[i]);
+    if (data != NULL) {
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(size / sizeof(int)); /* could be very bad mistake */
+        int *idata = (int*)data;
+        for (int i = 0; i < size / sizeof(int); i++)
+            pb_push(idata[i]);
+    }
     
     pb_push(SGL_CMD_BUFFERDATA);
     pb_push(target);
