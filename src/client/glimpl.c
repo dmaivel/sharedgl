@@ -1229,7 +1229,7 @@ const GLubyte *glGetString(GLenum name)
             }
             else {
                 glsl_vr[0] = '1';
-                glsl_vr[2] = '5';
+                glsl_vr[2] = '4';
             }
         }
     }
