@@ -214,8 +214,8 @@ static struct pci_device_id pci_ids[] = {
 static struct pci_driver pchar_driver = {
     .name        = "sharedgl",
     .id_table    = pci_ids,
-    .probe        = pci_probe,
-    .remove     = pci_remove,
+    .probe       = pci_probe,
+    .remove      = pci_remove,
 };
 
 static char *pci_char_devnode(const struct device *dev, umode_t *mode)

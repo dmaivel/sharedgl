@@ -178,10 +178,8 @@ There are two ways to install the library on windows:
        ```
 
 # Networking
-> [!WARNING]\
-> The network protocol is currently in active early development and is prone to bugs.
 
-Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively **(NOT RECOMMENDED)**, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
+Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
   - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
   - Ensure the client libraries are installed
   - Ensure that the environment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists in the guest (`ADDRESS` being the host's IP address)
@@ -189,7 +187,7 @@ Starting from `0.5.0`, SharedGL offers a networking feature that may be used in 
 # Virtual machines
 
 > [!NOTE]\
-> If the networking feature is used exclusively **(NOT RECOMMENDED)**, this step can be skipped.
+> If the networking feature is used exclusively, this step can be skipped.
 
 Before starting the virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Before starting the virtual machine, start the server using `-v`, which will start the server and print the necessary configurations:
 
@@ -249,8 +247,8 @@ This list describes the amount of functions left from each standard to implement
 - No Vsync
 - Resizing is possible, no proper implementation
 - Some GLFW applications cant request OpenGL profiles
-- Networking is experimental, applications will halt after some time
 - New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run
+  - Some applications may require an explicit `libGLX`, so run `ln -s libGL.so.1 libGLX.so.0` in `build` to make a symlink.
 
 # Troubleshooting
 You may encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`. Although the code base is buggy, these are some tips to try to further attempts to get an application to work:

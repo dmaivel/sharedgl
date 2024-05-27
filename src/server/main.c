@@ -70,6 +70,10 @@ static void term_handler(int sig)
             COLOR_INFO, sgl_cmd2str(icmd), COLOR_RESET,
             COLOR_NUMB, icmd, COLOR_RESET);
         break;
+    case SIGPIPE:
+        printf("%sfatal%s: socket unexpectedly closed", 
+            COLOR_ERRO, COLOR_RESET);
+        break;
     }
 
     puts("");
@@ -145,6 +149,7 @@ int main(int argc, char **argv)
 
     signal(SIGINT, term_handler);
     signal(SIGSEGV, term_handler);
+    signal(SIGPIPE, SIG_IGN);
 
     printf("%sinfo%s: press %sCTRL+C%s to terminate server\n\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, COLOR_RESET);
     printf("%sinfo%s: reporting gl version %s%d%s.%s%d%s\n\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, major, COLOR_RESET, COLOR_NUMB, minor, COLOR_RESET);

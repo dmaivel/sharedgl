@@ -130,7 +130,6 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
 static struct net_context *net_ctx = NULL;
 static int *fake_register_space = NULL;
 static int *fake_framebuffer = NULL;
-static unsigned char packet_space[SGL_PACKET_MAX_SIZE];
 
 static int glimpl_major = SGL_DEFAULT_MAJOR;
 static int glimpl_minor = SGL_DEFAULT_MINOR;
@@ -172,18 +171,11 @@ static void *pb_ptr_hook(size_t offset)
     }
 }
 
-static void filter_net_recvfrom(struct net_context *net, int type, int signature, struct sgl_packet_header *storage)
-{
-    while (1) {
-        net_recvfrom(net, packet_space, sizeof(packet_space), 0);
-
-        struct sgl_packet_header *temporary_header = (struct sgl_packet_header*)packet_space;
-        if (temporary_header->type == type && temporary_header->signature == signature) {
-            *storage = *temporary_header;
-            return;
-        }
-    }
-}
+/*
+ * temporary solution to commit stalling out at `recv` when
+ * committing the goodbye message
+ */
+bool expecting_retval = true;
 
 void glimpl_commit()
 {
@@ -191,7 +183,7 @@ void glimpl_commit()
      * processor stops at 0
      */
     pb_push(0);
-
+// printf("COMMIT START\n");
     if (net_ctx == NULL) {
         /*
         * lock
@@ -223,93 +215,53 @@ void glimpl_commit()
         void *ptr = pb_iptr(0);
         size_t size = pb_size();
         
-        int blocks = size / SGL_PACKET_MAX_BLOCK_SIZE + (size % SGL_PACKET_MAX_BLOCK_SIZE != 0);
+        int blocks = size / SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE + (size % SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE != 0);
         size_t min_size = 0;
 
         /*
          * packet
          */
-        int signature = net_generate_signature();
-        struct sgl_packet_header header = {
-            client_id,
-            true,
-            SGL_PACKET_TYPE_FIFO_UPLOAD,
-            size,
-            -1,
-            blocks,
-            signature
-        };
-
-        /*
-         * initial notifying packet
-         */
-        net_sendto(net_ctx, &header, sizeof(header), 0);
-
-        /*
-         * send out in chunks
-         */
-        size_t left_over = size;
-        size_t offset = 0;
+retry:;
+        size_t count = size / 4;
         for (int i = 0; i < blocks; i++) {
-            size_t packet_size = left_over > SGL_PACKET_MAX_BLOCK_SIZE ? SGL_PACKET_MAX_BLOCK_SIZE : left_over;
-            left_over -= SGL_PACKET_MAX_BLOCK_SIZE;
+            size_t packet_count = count > SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT ? SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT : count;
 
-            if (packet_size < SGL_PACKET_MAX_BLOCK_SIZE)
-                min_size = packet_size;
+            struct sgl_packet_fifo_upload packet = {
+                /* client_id = */       client_id,
+                /* expected_chunks = */ blocks,
+                /* index = */           i,
+                /* count = */           packet_count,
+                /* commands = */        { 0 }
+            };
 
-            header.index = i;
-            header.size = packet_size;
+            memcpy(packet.commands, (char*)ptr + (i * SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE), packet_count * sizeof(uint32_t));
+            net_send_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
 
-            memcpy(packet_space, &header, sizeof(header));
-            memcpy((char*)packet_space + sizeof(header), (char*)ptr + offset, packet_size);
-
-            net_sendto(net_ctx, packet_space, sizeof(struct sgl_packet_header) + packet_size, 0);
-
-            offset += packet_size;
+            count -= SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT;
         }
 
         /*
-         * wait for either success (in turn recieve RETVAL) or recovery messages
+         * get retval registers
          */
-        bool done = false;
-        while (!done) {
-            net_recvfrom(net_ctx, packet_space, SGL_PACKET_MAX_SIZE, 0);
-            struct sgl_packet_header *temporary_header = (struct sgl_packet_header*)packet_space;
+        struct sgl_packet_retval packet;
+        if (expecting_retval)
+            if (!net_recv_tcp_timeout(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet), 500))
+                goto retry;
 
-            /*
-             * check if packet is for us
-             */
-            if (temporary_header->client_id != client_id || temporary_header->signature != signature)
-                continue;
-
-            /*
-             * either finished or recover
-             */
-            size_t size = 0;
-            switch (temporary_header->type) {
-            case SGL_PACKET_TYPE_FIFO_UPLOAD:
-                done = true;
-                break;
-            case SGL_PACKET_TYPE_REQUEST_RECOVERY:
-                temporary_header->type = SGL_PACKET_TYPE_FIFO_UPLOAD;
-                size = temporary_header->index + 1 == blocks ? min_size : SGL_PACKET_MAX_BLOCK_SIZE;
-                memcpy((char*)packet_space + sizeof(struct sgl_packet_header), (char*)ptr + (temporary_header->index * SGL_PACKET_MAX_BLOCK_SIZE), size);
-                net_sendto(net_ctx, packet_space, sizeof(struct sgl_packet_header) + size, 0);
-                break;
-            }
-        }
-        
         /*
          * write response into fake register space
          */
-        memcpy(fake_register_space, packet_space + sizeof(struct sgl_packet_header), 256 + 8);
+        memcpy(fake_register_space, &packet, 256 + 8); 
 
         pb_reset();
     }
+    // printf("COMMIT END\n");
 }
 
 void glimpl_goodbye()
 {
+    expecting_retval = false;
+
     /*
      * probably not a good idea to commit
      * all commands before sending our
@@ -323,6 +275,9 @@ void glimpl_goodbye()
     pb_push(client_id);
     pb_push(0);
     glimpl_commit();
+
+    // if (net_ctx != NULL)
+    //     net_goodbye(net_ctx);
 
 #ifdef _WIN32
     pb_unset();
@@ -349,62 +304,38 @@ void glimpl_swap_buffers(int width, int height, int vflip, int format)
     }
     else {
         glimpl_commit();
-        // return;
 
-        int signature = net_generate_signature();
-        
-        struct sgl_packet_header header = {
-            client_id,
-            true,
-            SGL_PACKET_TYPE_FRAMEBUFFER_FAST_BUT_LOSS,
-            sizeof(int) * 4,
-            0,
-            0,
-            signature
+        struct sgl_packet_swapbuffers_request packet = {
+            /* client_id = */   client_id,
+            /* width = */       width,
+            /* height = */      height,
+            /* vflip = */       vflip,
+            /* format = */      format
         };
 
-        memcpy(packet_space, &header, sizeof(header));
-        memcpy(packet_space + sizeof(header) + (sizeof(int) * 0), &width, sizeof(int));
-        memcpy(packet_space + sizeof(header) + (sizeof(int) * 1), &height, sizeof(int));
-        memcpy(packet_space + sizeof(header) + (sizeof(int) * 2), &vflip, sizeof(int));
-        memcpy(packet_space + sizeof(header) + (sizeof(int) * 3), &format, sizeof(int));
+        net_send_udp(net_ctx, &packet, sizeof(packet), 0);
         
-        net_sendto(net_ctx, packet_space, sizeof(header) + (sizeof(int) * 4), 0);
-        
-        bool done = false;
-        size_t offset = 0;
-        int last_index = -1;
-        size_t block_size = 0;
-        //printf("start\n");
+        int expected = (width * height * 4) / SGL_SWAPBUFFERS_RESULT_SIZE + ((width * height * 4) % SGL_SWAPBUFFERS_RESULT_SIZE != 0);
 
-        /*
-         * to-do: redesign this part because the misses check is causing significant reduced performance
-         * this part also causes the client to lock up, so redesign needed quick
-         */
-        int misses = 0;
-        while (!done && misses < 10000) {
-            net_recvfrom(net_ctx, packet_space, sizeof(packet_space), NET_DONTWAIT);
-            struct sgl_packet_header *temporary_header = (struct sgl_packet_header*)packet_space;
+        // wait for sync
+        // TO-DO: MAYBE TIMEOUT BECAUSE UDP IS NOT GUARANTEED
+        // WARNING: sync here appears to disturb the FIFO upload
+        struct sgl_packet_sync sync;
+        net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &sync, sizeof(sync));
 
-            /*
-             * check if packet is for us
-             */
-            if (temporary_header->client_id != client_id || temporary_header->signature != signature)
+        for (int i = 0; i < expected * 4; i++) {
+            struct sgl_packet_swapbuffers_result result;
+            // while (net_recv_udp(net_ctx, &result, sizeof(result), 0) == -1);
+            int recieved = net_recv_udp(net_ctx, &result, sizeof(result), 0);
+
+            // global, so throwout any results that aren't ours (possible vuln for other applications? idk)
+            if (result.client_id != client_id || recieved < 0) {
+                // i--;
                 continue;
-
-            switch (temporary_header->type) {
-            case SGL_PACKET_TYPE_FRAMEBUFFER_DONE:
-                done = true;
-                break;
-            case SGL_PACKET_TYPE_FRAMEBUFFER_FAST_BUT_LOSS:
-                /* assume increments of SGL_PACKET_MAX_BLOCK_SIZE if sent in chunks */
-                memcpy((char*)fake_framebuffer + (temporary_header->index * SGL_PACKET_MAX_BLOCK_SIZE), packet_space + sizeof(struct sgl_packet_header), temporary_header->size);
-                break;
             }
 
-            misses++;
+            memcpy((char*)fake_framebuffer + (result.index * SGL_SWAPBUFFERS_RESULT_SIZE), result.result, result.size);
         }
-        //printf("end\n");
     }
 }
 
@@ -448,39 +379,20 @@ void glimpl_init()
 
         char *res = net_init_client(&net_ctx, network, atoi(&network[strlen(network) + 1]));
         if (res != NULL) {
-            fprintf(stderr, "glimpl_init: could not initialize client (%s)", res);
+            fprintf(stderr, "glimpl_init: could not initialize client (%s)\n", res);
             exit(1);
         }
 
-        int signature = net_generate_signature();
+        struct sgl_packet_connect packet = { 0 };
+        net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
 
-        struct sgl_packet_header header = {
-            0,
-            true,
-            SGL_PACKET_TYPE_CONNECT,
-            0,
-            0,
-            0,
-            signature
-        };
+        glimpl_major = packet.gl_major;
+        glimpl_minor = packet.gl_minor;
 
-        size_t framebuffer_size, fifo_size;
-
-        /*
-         * warning (to-do, fix-me, todo, fixme): sizeof(...) may change when switching to and from 32-bit
-         * architectures
-         */
-        net_sendto(net_ctx, &header, sizeof(header), 0);
-        filter_net_recvfrom(net_ctx, SGL_PACKET_TYPE_CONNECT, header.signature, &header);
-        framebuffer_size = *(size_t*)&packet_space[sizeof(struct sgl_packet_header)];
-        fifo_size = *(size_t*)&packet_space[sizeof(struct sgl_packet_header) + sizeof(framebuffer_size)];
-        glimpl_major = *(int*)&packet_space[sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size)];
-        glimpl_minor = *(int*)&packet_space[sizeof(struct sgl_packet_header) + sizeof(framebuffer_size) + sizeof(fifo_size) + sizeof(glimpl_major)];
-
-        client_id = header.client_id;
+        client_id = packet.client_id;
 
         fake_register_space = malloc(SGL_OFFSET_COMMAND_START);
-        fake_framebuffer = malloc(framebuffer_size);
+        fake_framebuffer = malloc(packet.framebuffer_size);
 
         struct pb_net_hooks hooks = {
             pb_read_hook,
@@ -492,7 +404,7 @@ void glimpl_init()
             NULL
         };
 
-        pb_set_net(hooks, fifo_size);
+        pb_set_net(hooks, packet.fifo_size);
     }
 
     char *gl_version_override = getenv("GL_VERSION_OVERRIDE");
@@ -504,23 +416,23 @@ void glimpl_init()
         lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
 
         /*
-        * claim client id and increment the register for the
-        * next claimee to claim
-        */
+         * claim client id and increment the register for the
+         * next claimee to claim
+         */
         spin_lock(lockg);
         client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
         pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
         pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
 
         /*
-        * notify the server we would like to connect
-        */
+         * notify the server we would like to connect
+         */
         pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
         spin_unlock(lockg);
         
         /*
-        * commit
-        */
+         * commit
+         */
         pb_push(SGL_CMD_CREATE_CONTEXT);
         glimpl_commit();
     }
