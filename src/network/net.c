@@ -25,6 +25,8 @@
 
 #pragma comment(lib, "Ws2_32.lib")
 static WSADATA wsaData;
+
+#define MSG_NOSIGNAL 0
 #endif
 
 /*
@@ -119,6 +121,34 @@ static char *net_create_sockets(struct net_context *nctx, int port)
     return NULL;
 }
 
+#ifdef _WIN32
+static int64_t timer_freq, timer_start;
+void time_init() {
+    LARGE_INTEGER t;
+    QueryPerformanceFrequency(&t);
+    timer_freq = t.QuadPart;
+
+    QueryPerformanceCounter(&t);
+    timer_start = t.QuadPart;
+}
+
+int64_t time_ms()
+{
+    LARGE_INTEGER t;
+    QueryPerformanceCounter(&t);
+    return ((t.QuadPart-timer_start) * 1000) / timer_freq;
+}
+#else
+void time_init() {}
+
+int64_t time_ms() 
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (int64_t)ts.tv_sec*1000 + (int64_t)ts.tv_nsec/1000000;
+}
+#endif
+
 char *net_init_server(struct net_context **ctx, int port)
 {
     *ctx = malloc(sizeof(struct net_context));
@@ -202,6 +232,11 @@ char *net_init_client(struct net_context **ctx, char *hostname, int port)
     if (connect(nctx->tcp_socket, (struct sockaddr *) &nctx->server, sizeof(nctx->server)) < 0)
         if (errno != EINPROGRESS)
             return error_messages[ERR_FAILED_TO_CONNECT];
+
+    /*
+     * required for windows, on linux does nothing
+     */
+    time_init();
 
     /*
      * return null because no error message is to be returned
@@ -305,13 +340,6 @@ long net_send_udp(struct net_context *ctx, const void *__buf, size_t __n, int __
         return sendto(ctx->udp_socket, __buf, __n, __flags, (struct sockaddr *) &ctx->client, sizeof(ctx->client));
     else
         return sendto(ctx->udp_socket, __buf, __n, __flags, (struct sockaddr *) &ctx->server, sizeof(ctx->server));
-}
-
-static int64_t time_ms(void) 
-{
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (int64_t)ts.tv_sec * 1000 + (int64_t)ts.tv_nsec / 1000000;
 }
 
 long net_recv_udp_timeout(struct net_context *ctx, void *__restrict __buf, size_t __n, int __flags, size_t timeout_ms)
