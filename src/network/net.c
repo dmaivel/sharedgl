@@ -259,19 +259,15 @@ bool net_did_event_happen_here(struct net_context *ctx, int fd)
 {
     return ctx->in_use[fd] && ctx->fds[fd].revents & POLLIN;
 }
-#endif
 
 void net_close(struct net_context *ctx, int fd)
 {
     ctx->in_use[fd] = false;
     ctx->fds[fd].revents = 0;
     ctx->fds[fd].fd = -1;
-#ifdef _WIN32
-    closesocket(ctx->fds[fd].fd);
-#else
     close(ctx->fds[fd].fd);
-#endif
 }
+#endif
 
 // void net_goodbye(struct net_context *ctx)
 // {
