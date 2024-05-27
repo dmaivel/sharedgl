@@ -371,7 +371,11 @@ long net_recv_udp_timeout(struct net_context *ctx, void *__restrict __buf, size_
 
 bool net_recv_tcp(struct net_context *ctx, int fd, void *__restrict __buf, size_t __n)
 {
+#ifdef _WIN32
+    int socket = ctx->tcp_socket;
+#else
     int socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
+#endif
 
     // for (int i = 0; i < 5; i++)
     //     if (__n == table[i].size)
@@ -397,7 +401,11 @@ bool net_recv_tcp(struct net_context *ctx, int fd, void *__restrict __buf, size_
 
 bool net_send_tcp(struct net_context *ctx, int fd, const void *__buf, size_t __n)
 {
+#ifdef _WIN32
+    int socket = ctx->tcp_socket;
+#else
     int socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
+#endif
 
     // for (int i = 0; i < 5; i++)
     //     if (__n == table[i].size)
@@ -425,7 +433,11 @@ bool net_send_tcp(struct net_context *ctx, int fd, const void *__buf, size_t __n
 
 bool net_recv_tcp_timeout(struct net_context *ctx, int fd, void *__restrict __buf, size_t __n, size_t timeout_ms)
 {
+#ifdef _WIN32
+    int socket = ctx->tcp_socket;
+#else
     int socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
+#endif
     size_t initial = time_ms();
 
     // for (int i = 0; i < 5; i++)
