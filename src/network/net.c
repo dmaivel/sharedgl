@@ -27,6 +27,9 @@
 static WSADATA wsaData;
 
 #define MSG_NOSIGNAL 0
+
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t;
 #endif
 
 /*
