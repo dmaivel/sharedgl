@@ -137,20 +137,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
     struct net_context *net_ctx = NULL;
 
     if ((signed)fifo_size < 0) {
-        printf("%sfatal%s: framebuffer too big! try increasing memory\n", COLOR_ERRO, COLOR_RESET);
+        PRINT_LOG("framebuffer too big, try increasing memory!\n");
         return;
     }
-
-    printf("%sinfo%s: [%s0x%08lx%s - %s0x%08lx%s] [%s0x%08lx%s - %s0x%08lx%s] [%s0x%08lx%s - %s0x%08lx%s]\n", 
-        COLOR_INFO, COLOR_RESET, 
-        COLOR_NUMB, (size_t)0, COLOR_RESET, 
-        COLOR_NUMB, (size_t)SGL_OFFSET_COMMAND_START - 1, COLOR_RESET,
-        COLOR_NUMB, (size_t)SGL_OFFSET_COMMAND_START, COLOR_RESET, 
-        COLOR_NUMB, SGL_OFFSET_COMMAND_START + fifo_size - 1, COLOR_RESET, 
-        COLOR_NUMB, SGL_OFFSET_COMMAND_START + fifo_size, COLOR_RESET, 
-        COLOR_NUMB, args.memory_size, COLOR_RESET
-    );
-    printf("%sinfo%s: %-26s%-26s%-26s\n\n", COLOR_INFO, COLOR_RESET, "registers", "fifo buffer", "framebuffer");
 
     memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
 
@@ -169,15 +158,16 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
     if (args.network_over_shared) {
         char *res = net_init_server(&net_ctx, args.port);
         if (res != NULL) {
-            printf("%sfatal%s: could not initialize server (%s)\n", COLOR_ERRO, COLOR_RESET, res);
+            PRINT_LOG("failed to start server (reason: %s)\n", res);
             return;
         }
-
-        printf("%sinfo%s: running server on %s%s%s:%s%d%s\n\n", 
-            COLOR_INFO, COLOR_RESET, 
-            COLOR_NUMB, net_get_ip(), COLOR_RESET, 
-            COLOR_NUMB, args.port, COLOR_RESET);
+        
+        PRINT_LOG("--------------------------------------------------------\n");
+        PRINT_LOG("running server on %s:%d\n", net_get_ip(), args.port);
+        PRINT_LOG("ensure SGL_NET_OVER_SHARED is set before running clients\n");
     }
+
+    PRINT_LOG("--------------------------------------------------------\n");
 
     bool network_expecting_retval = true;
 
@@ -208,7 +198,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     */
                     connection_add(creg, 0);
 
-                    printf("%sinfo%s: client %s%d%s connected\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, creg, COLOR_RESET);
+                    PRINT_LOG("client %d connected\n", creg);
 
                     /*
                      * prevent the same client from connecting more
@@ -253,7 +243,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 
                     *((int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID)) += 1;
 
-                    printf("%sinfo%s: client %s%d%s connected\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, id, COLOR_RESET);
+                    PRINT_LOG("client %d connected\n", id);
                 }
 
                 /* 
@@ -316,7 +306,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                         struct sgl_packet_fifo_upload initial_upload_packet, *the_rest_of_the_packets = NULL;
                         if (!net_recv_tcp_timeout(net_ctx, i, &initial_upload_packet, sizeof(initial_upload_packet), 500)) {
                             int id = get_id_from_fd(i);
-                            printf("%sinfo%s: client %s%d%s timed out, disconnected\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, id, COLOR_RESET);
+                            PRINT_LOG("client %d timed out, disconnected\n", id);
                             connection_rem(id, net_ctx);
                             memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
                             break;
@@ -370,7 +360,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             case SGL_CMD_GOODBYE_WORLD: {
                 int id = *pb++;
-                printf("%sinfo%s: client %s%d%s disconnected\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, id, COLOR_RESET);
+                PRINT_LOG("client %d disconnected\n", id);
                 connection_rem(id, net_ctx);
                 memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
                 network_expecting_retval = false;
@@ -4690,17 +4680,11 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             }
+
             if (!begun) {
-                int error = glGetError();
-                if (error != GL_NO_ERROR)
-                    printf("%sglerr%s: client %s%d%s opengl error: %s%d%s (%s0x%04x%s) from %s%s%s (%s%d%s)\n", 
-                        COLOR_ERRO, COLOR_RESET, 
-                        COLOR_NUMB, client_id, COLOR_RESET, 
-                        COLOR_NUMB, error, COLOR_RESET, 
-                        COLOR_NUMB, error, COLOR_RESET, 
-                        COLOR_INFO, sgl_cmd2str(cmd), COLOR_RESET, 
-                        COLOR_NUMB, cmd, COLOR_RESET
-                    );
+                int error;
+                while ((error = glGetError()) != GL_NO_ERROR)
+                    PRINT_LOG("gl error (%d / 0x%04x) on client %d from %s (%d)\n", error, error, client_id, sgl_cmd2str(cmd), cmd);
             }
         }
 

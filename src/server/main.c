@@ -49,11 +49,11 @@ static void generate_virtual_machine_arguments(size_t m)
     static const char *qemu_string =
         "-object memory-backend-file,size=%ldM,share,mem-path=/dev/shm/" SGL_SHARED_MEMORY_NAME ",id=" SGL_SHARED_MEMORY_NAME "\n";
 
-    printf("%slibvirt%s:\n", COLOR_UNIQ, COLOR_RESET);
-    printf(libvirt_string, m);
-    printf("\n%sqemu%s:\n", COLOR_UNIQ, COLOR_RESET);
-    printf(qemu_string, m);
-    printf("\n");
+    fprintf(stderr, "\nlibvirt:\n");
+    fprintf(stderr, libvirt_string, m);
+    fprintf(stderr, "\nqemu:\n");
+    fprintf(stderr, qemu_string, m);
+    fprintf(stderr, "\n");
 }
 
 static void term_handler(int sig)
@@ -65,24 +65,20 @@ static void term_handler(int sig)
     case SIGINT:
         break;
     case SIGSEGV:
-        printf("%sfatal%s: server stopped: segmentation fault on %s%s%s (%s%d%s)", 
-            COLOR_ERRO, COLOR_RESET, 
-            COLOR_INFO, sgl_cmd2str(icmd), COLOR_RESET,
-            COLOR_NUMB, icmd, COLOR_RESET);
+        PRINT_LOG("server stopped! segmentation fault on %s (%d)\n", sgl_cmd2str(icmd), icmd);
         break;
+    // shouldn't ever reach here
     case SIGPIPE:
-        printf("%sfatal%s: socket unexpectedly closed", 
-            COLOR_ERRO, COLOR_RESET);
+        PRINT_LOG("server stopped! socket unexpectedly closed\n");
         break;
     }
 
-    puts("");
     exit(1);
 }
 
 static void arg_parser_protector(int sig)
 {
-    printf("%sfatal%s: expected second argument\n", COLOR_ERRO, COLOR_RESET);
+    PRINT_LOG("expected second argument\n");
     exit(1);
 }
 
@@ -116,6 +112,7 @@ int main(int argc, char **argv)
             break;
         case 'x':
             shm_unlink(SGL_SHARED_MEMORY_NAME);
+            PRINT_LOG("unlinked shared memory '%s'\n", SGL_SHARED_MEMORY_NAME);
             return 0;
         case 'g':
             major = argv[i + 1][0] - '0';
@@ -143,7 +140,7 @@ int main(int argc, char **argv)
             i++;
             break;
         default:
-            printf("%serr%s: unknown argument \"%s\"\n", COLOR_ERRO, COLOR_RESET, argv[i]);
+            PRINT_LOG("unrecognized command-line option '%s'\n", argv[i]);
         }
     }
 
@@ -151,17 +148,14 @@ int main(int argc, char **argv)
     signal(SIGSEGV, term_handler);
     signal(SIGPIPE, SIG_IGN);
 
-    printf("%sinfo%s: press %sCTRL+C%s to terminate server\n\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, COLOR_RESET);
-    printf("%sinfo%s: reporting gl version %s%d%s.%s%d%s\n\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, major, COLOR_RESET, COLOR_NUMB, minor, COLOR_RESET);
+    PRINT_LOG("press CTRL+C to terminate server\n");
 
     if (print_virtual_machine_arguments) {
         if (!network_over_shared)
             generate_virtual_machine_arguments(shm_size);
         else
-            printf("%sinfo%s: command line argument '-v' ignored as networking is enabled\n\n", COLOR_INFO, COLOR_RESET);
+            PRINT_LOG("command line argument '-v' ignored as networking is enabled\n");
     }
-
-    printf("%sinfo%s: using %s%ld%s MiB of memory\n", COLOR_INFO, COLOR_RESET, COLOR_NUMB, shm_size, COLOR_RESET);
 
     /*
      * allocate memory, only create a shared memory file if using shared memory
@@ -170,12 +164,12 @@ int main(int argc, char **argv)
     if (!network_over_shared) {
         int shm_fd = shm_open(SGL_SHARED_MEMORY_NAME, O_CREAT | O_RDWR, S_IRWXU);
         if (shm_fd == -1) {
-            printf("%serr%s: failed to open shared memory '%s'\n", COLOR_ERRO, COLOR_RESET, SGL_SHARED_MEMORY_NAME);
+            PRINT_LOG("failed to open shared memory '%s'\n", SGL_SHARED_MEMORY_NAME);
             return -1;
         }
 
         if (ftruncate(shm_fd, shm_size) == -1) {
-            printf("%serr%s: failed to truncate shared memory\n", COLOR_ERRO, COLOR_RESET);
+            PRINT_LOG("failed to truncate shared memory\n");
             return -2;
         }
 
@@ -184,6 +178,8 @@ int main(int argc, char **argv)
     else {
         shm_ptr = mmap(NULL, shm_size, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
     }
+
+    PRINT_LOG("reserved %ld MiB of memory\n", shm_size / 1024 / 1024);
 
     struct sgl_cmd_processor_args args = {
         .base_address = shm_ptr,
@@ -197,6 +193,11 @@ int main(int argc, char **argv)
 
         .internal_cmd_ptr = &internal_cmd_ptr,
     };
+
+    int mw, mh;
+    sgl_get_max_resolution(&mw, &mh);
+    PRINT_LOG("maximum resolution set to %dx%d\n", mw, mh);
+    PRINT_LOG("reporting gl version %d.%d\n", major, minor);
 
     sgl_cmd_processor_start(args);
 }

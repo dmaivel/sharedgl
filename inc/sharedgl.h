@@ -11,47 +11,20 @@
 #define GLAPI
 #endif
 
-#define COLOR_ESC "\x1b["
-#define COLOR_RESET COLOR_ESC "0m"
+#include <stdio.h>
+#include <stdarg.h>
+#include <time.h>
+#include <string.h>
 
-#define COLOR_ATTR_RESET "0;"
-#define COLOR_ATTR_BOLD "1;"
-#define COLOR_ATTR_DIM "2;"
-#define COLOR_ATTR_UNDERLINE "3;"
-#define COLOR_ATTR_BLINK "5;"
-#define COLOR_ATTR_REVERSE "7;"
-#define COLOR_ATTR_HIDDEN "8;"
-
-#define COLOR_FG_BLACK "30"
-#define COLOR_FG_RED "31"
-#define COLOR_FG_GREEN "32"
-#define COLOR_FG_YELLOW "33"
-#define COLOR_FG_BLUE "34"
-#define COLOR_FG_MAGENTA "35"
-#define COLOR_FG_CYAN "36"
-#define COLOR_FG_WHITE "37"
-
-#define COLOR_BG_BLACK ";40m"
-#define COLOR_BG_RED ";41m"
-#define COLOR_BG_GREEN ";42m"
-#define COLOR_BG_YELLOW ";43m"
-#define COLOR_BG_BLUE ";44m"
-#define COLOR_BG_MAGENTA ";45m"
-#define COLOR_BG_CYAN ";46m"
-#define COLOR_BG_WHITE ";47m"
-
-#define COLOR_BG_NONE "m"
-
-#ifndef NO_VERBOSE_COLOR_OUTPUT
-#define COLOR(...) COLOR_ESC __VA_ARGS__
-#else
-#define COLOR(...) ""
-#endif
-
-#define COLOR_INFO COLOR(COLOR_ATTR_BOLD COLOR_FG_BLUE COLOR_BG_NONE)
-#define COLOR_NUMB COLOR(COLOR_ATTR_BOLD COLOR_FG_GREEN COLOR_BG_NONE)
-#define COLOR_ERRO COLOR(COLOR_ATTR_BOLD COLOR_FG_RED COLOR_BG_NONE)
-#define COLOR_UNIQ COLOR(COLOR_ATTR_BOLD COLOR_FG_CYAN COLOR_BG_NONE)
+#define PRINT_LOG(...) \
+    { \
+        time_t current_time; \
+        time(&current_time); \
+        char *time_cstr = ctime(&current_time); \
+        time_cstr[strlen(time_cstr) - 1] = 0; \
+        fprintf(stderr, "[%s] ", time_cstr); \
+        fprintf(stderr, __VA_ARGS__); \
+    }
 
 #define SGL_OFFSET_REGISTER_COMMIT (sizeof(int) * 0)
 #define SGL_OFFSET_REGISTER_RETVAL (sizeof(int) * 1)
