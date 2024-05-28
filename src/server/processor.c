@@ -1,4 +1,3 @@
-#include "network/packet.h"
 #define SHAREDGL_HOST
 
 #include <sharedgl.h>

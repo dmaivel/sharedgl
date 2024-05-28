@@ -1,4 +1,3 @@
-#include <network/packet.h>
 #include <network/net.h>
 #include <server/dynarr.h>
 
