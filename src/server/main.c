@@ -1,19 +1,19 @@
 #define SHAREDGL_HOST
 
 #include <sharedgl.h>
+#include <sgldebug.h>
+
 #include <server/processor.h>
 #include <server/overlay.h>
 #include <server/context.h>
-#include <sgldebug.h>
 
 #include <unistd.h>
 #include <dirent.h>
+#include <fcntl.h>
+#include <signal.h>
 
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <signal.h>
 
 #include <stdio.h>
 #include <stdlib.h>
