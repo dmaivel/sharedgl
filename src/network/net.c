@@ -31,14 +31,20 @@ static WSADATA wsaData;
 typedef SSIZE_T ssize_t;
 #endif
 
+#ifdef _WIN32
+typedef SOCKET sockfd_t;
+#else
+typedef int sockfd_t;
+#endif
+
 /*
  * context definition
  */
 struct net_context {
     bool is_server;
 
-    int udp_socket;
-    int tcp_socket;
+    sockfd_t udp_socket;
+    sockfd_t tcp_socket;
 
     struct sockaddr_in client;
     struct sockaddr_in server;
@@ -83,7 +89,7 @@ char *net_get_ip()
 }
 #endif
 
-static void set_nonblocking(int socket)
+static void set_nonblocking(sockfd_t socket)
 {
 #ifdef _WIN32
     u_long mode = 1;
@@ -94,7 +100,7 @@ static void set_nonblocking(int socket)
 #endif
 }
 
-static bool set_no_delay(int socket)
+static bool set_no_delay(sockfd_t socket)
 {
     int flag = 1;
     // set TCP_NODELAY to disable Nagle's algorithm
@@ -102,7 +108,7 @@ static bool set_no_delay(int socket)
     return ret == 0;
 }
 
-static bool set_reuse_addr(int socket) 
+static bool set_reuse_addr(sockfd_t socket) 
 {
     int flag = 1;
     int ret = setsockopt(socket, SOL_SOCKET, SO_REUSEADDR, (char *)&flag, sizeof(int));
@@ -273,7 +279,7 @@ enum net_poll_reason net_poll(struct net_context *ctx)
 
 net_socket net_accept(struct net_context *ctx)
 {
-    int socket = accept(ctx->tcp_socket, (struct sockaddr *)&ctx->client, &(socklen_t){ sizeof(ctx->client) });
+    sockfd_t socket = accept(ctx->tcp_socket, (struct sockaddr *)&ctx->client, &(socklen_t){ sizeof(ctx->client) });
     if (socket < 0)
         return NET_SOCKET_NONE;
 
@@ -374,9 +380,9 @@ long net_recv_udp_timeout(struct net_context *ctx, void *__restrict __buf, size_
 bool net_recv_tcp(struct net_context *ctx, int fd, void *__restrict __buf, size_t __n)
 {
 #ifdef _WIN32
-    int socket = ctx->tcp_socket;
+    sockfd_t socket = ctx->tcp_socket;
 #else
-    int socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
+    sockfd_t socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
 #endif
 
     // for (int i = 0; i < 5; i++)
@@ -404,9 +410,9 @@ bool net_recv_tcp(struct net_context *ctx, int fd, void *__restrict __buf, size_
 bool net_send_tcp(struct net_context *ctx, int fd, const void *__buf, size_t __n)
 {
 #ifdef _WIN32
-    int socket = ctx->tcp_socket;
+    sockfd_t socket = ctx->tcp_socket;
 #else
-    int socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
+    sockfd_t socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
 #endif
 
     // for (int i = 0; i < 5; i++)
@@ -436,9 +442,9 @@ bool net_send_tcp(struct net_context *ctx, int fd, const void *__buf, size_t __n
 bool net_recv_tcp_timeout(struct net_context *ctx, int fd, void *__restrict __buf, size_t __n, size_t timeout_ms)
 {
 #ifdef _WIN32
-    int socket = ctx->tcp_socket;
+    sockfd_t socket = ctx->tcp_socket;
 #else
-    int socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
+    sockfd_t socket = fd != NET_SOCKET_SERVER ? ctx->fds[fd].fd : ctx->tcp_socket;
 #endif
     size_t initial = time_ms();
 
