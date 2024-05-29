@@ -390,7 +390,9 @@ long net_recv_udp_timeout(struct net_context *ctx, void *__restrict __buf, size_
 static bool was_operation_invalid(ssize_t n)
 {
 #ifdef _WIN32
-    return (n == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK);
+    // WSAENOTCONN should be a temp fix, bc without it we're likely not connected yet
+    int error = WSAGetLastError();
+    return (n == SOCKET_ERROR && error != WSAEWOULDBLOCK && error != WSAEINPROGRESS && error != WSAENOTCONN);
 #else
     return (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK);
 #endif
