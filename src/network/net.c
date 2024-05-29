@@ -33,7 +33,7 @@ typedef SSIZE_T ssize_t;
 
 #ifdef _WIN32
 typedef SOCKET sockfd_t;
-typedef size_t sockret_t;
+typedef int sockret_t;
 #define INVALID_RETURN_VALUE SOCKET_ERROR
 #else
 typedef int sockfd_t;
