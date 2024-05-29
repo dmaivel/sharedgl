@@ -33,8 +33,12 @@ typedef SSIZE_T ssize_t;
 
 #ifdef _WIN32
 typedef SOCKET sockfd_t;
+typedef int sockret_t;
+#define INVALID_RETURN_VALUE SOCKET_ERROR
 #else
 typedef int sockfd_t;
+typedef ssize_t sockret_t;
+#define INVALID_RETURN_VALUE -1
 #endif
 
 /*
@@ -237,9 +241,15 @@ char *net_init_client(struct net_context **ctx, char *hostname, int port)
     set_no_delay(nctx->tcp_socket);
     set_no_delay(nctx->udp_socket);
 
-    if (connect(nctx->tcp_socket, (struct sockaddr *) &nctx->server, sizeof(nctx->server)) < 0)
+    if (connect(nctx->tcp_socket, (struct sockaddr *) &nctx->server, sizeof(nctx->server)) < 0) {
+#ifdef _WIN32
+        if (WSAGetLastError() != WSAEWOULDBLOCK)
+            return error_messages[ERR_FAILED_TO_CONNECT];
+#else
         if (errno != EINPROGRESS)
             return error_messages[ERR_FAILED_TO_CONNECT];
+#endif
+    }
 
     /*
      * required for windows, on linux does nothing
@@ -377,6 +387,15 @@ long net_recv_udp_timeout(struct net_context *ctx, void *__restrict __buf, size_
 //     { sizeof(struct sgl_packet_retval), "sgl_packet_retval" }
 // };
 
+static bool was_operation_invalid(ssize_t n)
+{
+#ifdef _WIN32
+    return (n == SOCKET_ERROR && WSAGetLastError() != WSAEWOULDBLOCK);
+#else
+    return (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK);
+#endif
+}
+
 bool net_recv_tcp(struct net_context *ctx, int fd, void *__restrict __buf, size_t __n)
 {
 #ifdef _WIN32
@@ -392,10 +411,10 @@ bool net_recv_tcp(struct net_context *ctx, int fd, void *__restrict __buf, size_
 
     size_t bytes_recv = 0;
     while (bytes_recv < __n) {
-        ssize_t n = recv(socket, (char *)__buf + bytes_recv, __n - bytes_recv, MSG_NOSIGNAL);
-        if (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
+        sockret_t n = recv(socket, (char *)__buf + bytes_recv, __n - bytes_recv, MSG_NOSIGNAL);
+        if (was_operation_invalid(n))
             return false;
-        else if (n == -1)
+        else if (n == INVALID_RETURN_VALUE)
             continue;
 
         // if (n <= 0)
@@ -422,12 +441,12 @@ bool net_send_tcp(struct net_context *ctx, int fd, const void *__buf, size_t __n
 
     size_t bytes_sent = 0;
     while (bytes_sent < __n) {
-        ssize_t n = send(socket, (const char *)__buf + bytes_sent, __n - bytes_sent, MSG_NOSIGNAL);
-        if (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        sockret_t n = send(socket, (const char *)__buf + bytes_sent, __n - bytes_sent, MSG_NOSIGNAL);
+        if (was_operation_invalid(n)) {
             // printf("net_send_tcp: socket error, [socket = %d | errno = %d]\n", socket, errno);
             return false;
         }
-        else if (n == -1)
+        else if (n == INVALID_RETURN_VALUE)
             continue;
         
         // if (n < 0)
@@ -455,15 +474,15 @@ bool net_recv_tcp_timeout(struct net_context *ctx, int fd, void *__restrict __bu
 
     size_t bytes_recv = 0;
     while (bytes_recv < __n) {
-        ssize_t n = recv(socket, (char *)__buf + bytes_recv, __n - bytes_recv, 0);
-        if (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK)
+        sockret_t n = recv(socket, (char *)__buf + bytes_recv, __n - bytes_recv, 0);
+        if (was_operation_invalid(n))
             return false;
         else {
             if (time_ms() - initial > timeout_ms) {
                 fprintf(stderr, "net_recv_tcp_timeout: timed out after %lds\n", timeout_ms);
                 return false;
             }
-            if (n == -1)
+            if (n == INVALID_RETURN_VALUE)
                 continue;
         }
 
