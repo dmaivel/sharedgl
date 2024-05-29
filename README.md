@@ -141,7 +141,7 @@ There are two possible drivers one may use:
            :: cd sharedgl
            mkdir build
            cd build
-           cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..
+           cmake -DCMAKE_GENERATOR_PLATFORM=x64 -DWINKERNEL=ON ..
            cmake --build . --target ksgldrv --config Release
            cd ..
            xcopy .\scripts\kcertify.bat .\build\Release\kcertify.bat
@@ -167,6 +167,7 @@ There are two ways to install the library on windows:
        :: cd sharedgl
        mkdir build
        cd build
+       :: if you get errors regarding wdk, also use -DWINKERNEL=OFF
        cmake -DCMAKE_GENERATOR_PLATFORM=x64 ..
        cmake --build . --target sharedgl-core --config Release
        cmake -DCMAKE_GENERATOR_PLATFORM=Win32 ..

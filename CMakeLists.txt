@@ -49,10 +49,10 @@ ELSEIF(WIN32)
 ENDIF(UNIX)
 
 # windows driver
-IF(WIN32)
+IF(WIN32 AND WINKERNEL)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/kernel/windows/findwdk/")
     find_package(WDK REQUIRED)
 
     file(GLOB GLOBBED_KERNEL_SOURCES CONFIGURE_DEPENDS "kernel/windows/*.c")
     wdk_add_driver(ksgldrv KMDF 1.15 ${GLOBBED_KERNEL_SOURCES})
-ENDIF(WIN32)
+ENDIF(WIN32 AND WINKERNEL)
