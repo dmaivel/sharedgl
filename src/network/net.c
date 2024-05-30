@@ -245,6 +245,32 @@ char *net_init_client(struct net_context **ctx, char *hostname, int port)
 #ifdef _WIN32
         if (WSAGetLastError() != WSAEWOULDBLOCK)
             return error_messages[ERR_FAILED_TO_CONNECT];
+
+        fd_set writefds;
+        FD_ZERO(&writefds);
+        FD_SET(nctx->tcp_socket, &writefds);
+
+        // 5 second timeout
+        struct timeval timeout;
+        timeout.tv_sec = 5;
+        timeout.tv_usec = 0;
+
+        int result = select(0, NULL, &writefds, NULL, &timeout);
+        if (result == SOCKET_ERROR || result == 0) {
+            // select error or timeout
+            return error_messages[ERR_FAILED_TO_CONNECT];
+        } else {
+            int error = 0;
+            int error_size = sizeof(error);
+            if (getsockopt(nctx->tcp_socket, SOL_SOCKET, SO_ERROR, (char *)&error, &error_size) == 0) {
+                // failed to connect
+                if (error != 0)
+                    return error_messages[ERR_FAILED_TO_CONNECT];
+            } else {
+                // getsockopt failed
+                return error_messages[ERR_FAILED_TO_CONNECT];
+            }
+        }
 #else
         if (errno != EINPROGRESS)
             return error_messages[ERR_FAILED_TO_CONNECT];
@@ -390,9 +416,8 @@ long net_recv_udp_timeout(struct net_context *ctx, void *__restrict __buf, size_
 static bool was_operation_invalid(ssize_t n)
 {
 #ifdef _WIN32
-    // WSAENOTCONN should be a temp fix, bc without it we're likely not connected yet
     int error = WSAGetLastError();
-    return (n == SOCKET_ERROR && error != WSAEWOULDBLOCK && error != WSAEINPROGRESS && error != WSAENOTCONN);
+    return (n == SOCKET_ERROR && error != WSAEWOULDBLOCK && error != WSAEINPROGRESS);
 #else
     return (n == -1 && errno != EAGAIN && errno != EWOULDBLOCK);
 #endif
