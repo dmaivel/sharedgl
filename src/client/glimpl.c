@@ -1308,8 +1308,8 @@ const GLubyte *glGetString(GLenum name)
                 glsl_vr[2] = version[2];
             }
             else {
-                glsl_vr[0] = '1';
-                glsl_vr[2] = '4';
+                glsl_vr[0] = '3';
+                glsl_vr[2] = '3';
             }
         }
     }
