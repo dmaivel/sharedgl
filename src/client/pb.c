@@ -182,11 +182,17 @@ void pb_copy(void *data, int s, size_t length)
     memcpy(data, (void*)((size_t)ptr + s), length);
 }
 
+/*
+ *  // equivalent to
+ *  int *pdata = (int*)data;
+ *  for (int i = 0; i < length / 4; i++)
+ *      pb_push(*pdata++);
+ */
 void pb_memcpy(void *src, size_t length)
 {
-    length = length - (length % 4);
+    // length = length - (length % 4);
     memcpy(in_cur, src, length);
-    in_cur += length;
+    in_cur += (length / 4);
 }
 
 void *pb_ptr(size_t offs)

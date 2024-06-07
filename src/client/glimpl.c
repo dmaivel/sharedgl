@@ -114,17 +114,189 @@ struct gl_normal_index_pointer      glimpl_normal_ptr,
 
 struct gl_edge_flag_pointer         glimpl_edge_flag_ptr;
 
-#define NUM_EXTENSIONS 8
-static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_bgra GL_EXT_framebuffer_sRGB GL_EXT_paletted_texture GL_EXT_texture_filter_anisotropic";
-static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
+// #define NUM_EXTENSIONS 8
+// static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_bgra GL_EXT_framebuffer_sRGB GL_EXT_paletted_texture GL_EXT_texture_filter_anisotropic";
+// static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
+//     "GL_ARB_framebuffer_object",
+//     "GL_ARB_shading_language_100",
+//     "GL_ARB_texture_storage",
+//     "GL_ARB_vertex_array_object",
+//     "GL_EXT_bgra",
+//     "GL_EXT_framebuffer_sRGB",
+//     "GL_EXT_paletted_texture",
+//     "GL_EXT_texture_filter_anisotropic"
+// };
+
+#define NUM_EXTENSIONS 167
+static const char *glimpl_extensions_full = "GL_AMD_seamless_cubemap_per_texture GL_AMD_vertex_shader_layer GL_AMD_vertex_shader_viewport_index GL_ARB_arrays_of_arrays GL_ARB_base_instance GL_ARB_blend_func_extended GL_ARB_clear_buffer_object GL_ARB_color_buffer_float GL_ARB_compatibility GL_ARB_compressed_texture_pixel_storage GL_ARB_conservative_depth GL_ARB_copy_buffer GL_ARB_debug_output GL_ARB_depth_buffer_float GL_ARB_depth_clamp GL_ARB_depth_texture GL_ARB_draw_buffers GL_ARB_draw_buffers_blend GL_ARB_draw_elements_base_vertex GL_ARB_draw_instanced GL_ARB_ES2_compatibility GL_ARB_ES3_compatibility GL_ARB_explicit_attrib_location GL_ARB_fragment_coord_conventions GL_ARB_fragment_program GL_ARB_fragment_program_shadow GL_ARB_fragment_shader GL_ARB_framebuffer_no_attachments GL_ARB_framebuffer_object GL_ARB_framebuffer_sRGB GL_ARB_geometry_shader4 GL_ARB_get_program_binary GL_ARB_gpu_shader5 GL_ARB_half_float_pixel GL_ARB_half_float_vertex GL_ARB_imaging GL_ARB_instanced_arrays GL_ARB_internalformat_query GL_ARB_map_buffer_alignment GL_ARB_map_buffer_range GL_ARB_multisample GL_ARB_multitexture GL_ARB_occlusion_query GL_ARB_occlusion_query2 GL_ARB_pixel_buffer_object GL_ARB_point_parameters GL_ARB_point_sprite GL_ARB_provoking_vertex GL_ARB_robustness GL_ARB_sample_shading GL_ARB_sampler_objects GL_ARB_seamless_cube_map GL_ARB_separate_shader_objects GL_ARB_shader_bit_encoding GL_ARB_shader_objects GL_ARB_shader_texture_lod GL_ARB_shading_language_100 GL_ARB_shading_language_420pack GL_ARB_shading_language_include GL_ARB_shadow GL_ARB_sync GL_ARB_texture_border_clamp GL_ARB_texture_buffer_object GL_ARB_texture_buffer_object_rgb32 GL_ARB_texture_compression GL_ARB_texture_compression_bptc GL_ARB_texture_compression_rgtc GL_ARB_texture_cube_map GL_ARB_texture_cube_map_array GL_ARB_texture_env_add GL_ARB_texture_env_combine GL_ARB_texture_env_crossbar GL_ARB_texture_env_dot3 GL_ARB_texture_float GL_ARB_texture_gather GL_ARB_texture_mirrored_repeat GL_ARB_texture_multisample GL_ARB_texture_non_power_of_two GL_ARB_texture_query_lod GL_ARB_texture_rectangle GL_ARB_texture_rg GL_ARB_texture_rgb10_a2ui GL_ARB_texture_stencil8 GL_ARB_texture_storage GL_ARB_texture_storage_multisample GL_ARB_texture_swizzle GL_ARB_timer_query GL_ARB_transform_feedback2 GL_ARB_transform_feedback3 GL_ARB_transform_feedback_instanced GL_ARB_transpose_matrix GL_ARB_uniform_buffer_object GL_ARB_vertex_array_bgra GL_ARB_vertex_array_object GL_ARB_vertex_attrib_binding GL_ARB_vertex_blend GL_ARB_vertex_buffer_object GL_ARB_vertex_program GL_ARB_vertex_shader GL_ARB_vertex_type_2_10_10_10_rev GL_ARB_viewport_array GL_ARB_window_pos GL_EXT_abgr GL_EXT_bgra GL_EXT_bindable_uniform GL_EXT_blend_color GL_EXT_blend_equation_separate GL_EXT_blend_func_separate GL_EXT_blend_logic_op GL_EXT_blend_minmax GL_EXT_blend_subtract GL_EXT_compiled_vertex_array GL_EXT_depth_bounds_test GL_EXT_direct_state_access GL_EXT_draw_buffers2 GL_EXT_draw_instanced GL_EXT_fog_coord GL_EXT_framebuffer_blit GL_EXT_framebuffer_multisample GL_EXT_framebuffer_object GL_EXT_framebuffer_sRGB GL_EXT_geometry_shader4 GL_EXT_gpu_program_parameters GL_EXT_gpu_shader4 GL_EXT_multi_draw_arrays GL_EXT_packed_depth_stencil GL_EXT_packed_float GL_EXT_packed_pixels GL_EXT_paletted_texture GL_EXT_pixel_buffer_object GL_EXT_point_parameters GL_EXT_polygon_offset GL_EXT_provoking_vertex GL_EXT_rescale_normal GL_EXT_secondary_color GL_EXT_separate_shader_objects GL_EXT_separate_specular_color GL_EXT_shadow_funcs GL_EXT_stencil_two_side GL_EXT_stencil_wrap GL_EXT_texture3D GL_EXT_texture_array GL_EXT_texture_buffer_object GL_EXT_texture_compression_latc GL_EXT_texture_compression_rgtc GL_EXT_texture_compression_s3tc GL_EXT_texture_cube_map GL_EXT_texture_edge_clamp GL_EXT_texture_env_add GL_EXT_texture_env_combine GL_EXT_texture_env_dot3 GL_EXT_texture_filter_anisotropic GL_EXT_texture_integer GL_EXT_texture_lod_bias GL_EXT_texture_mirror_clamp GL_EXT_texture_object GL_EXT_texture_shared_exponent GL_EXT_texture_sRGB GL_EXT_texture_sRGB_decode GL_EXT_texture_storage GL_EXT_texture_swizzle GL_EXT_timer_query GL_EXT_transform_feedback GL_EXT_vertex_array GL_EXT_vertex_array_bgra GL_EXT_vertex_attrib_64bit GL_EXT_vertex_shader";
+static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
+    "GL_AMD_seamless_cubemap_per_texture",
+    "GL_AMD_vertex_shader_layer",
+    "GL_AMD_vertex_shader_viewport_index",
+    "GL_ARB_arrays_of_arrays",
+    "GL_ARB_base_instance",
+    "GL_ARB_blend_func_extended",
+    "GL_ARB_clear_buffer_object",
+    "GL_ARB_color_buffer_float",
+    "GL_ARB_compatibility",
+    "GL_ARB_compressed_texture_pixel_storage",
+    "GL_ARB_conservative_depth",
+    "GL_ARB_copy_buffer",
+    "GL_ARB_debug_output",
+    "GL_ARB_depth_buffer_float",
+    "GL_ARB_depth_clamp",
+    "GL_ARB_depth_texture",
+    "GL_ARB_draw_buffers",
+    "GL_ARB_draw_buffers_blend",
+    "GL_ARB_draw_elements_base_vertex",
+    "GL_ARB_draw_instanced",
+    "GL_ARB_ES2_compatibility",
+    "GL_ARB_ES3_compatibility",
+    "GL_ARB_explicit_attrib_location",
+    "GL_ARB_fragment_coord_conventions",
+    "GL_ARB_fragment_program",
+    "GL_ARB_fragment_program_shadow",
+    "GL_ARB_fragment_shader",
+    "GL_ARB_framebuffer_no_attachments",
     "GL_ARB_framebuffer_object",
+    "GL_ARB_framebuffer_sRGB",
+    "GL_ARB_geometry_shader4",
+    "GL_ARB_get_program_binary",
+    "GL_ARB_gpu_shader5",
+    "GL_ARB_half_float_pixel",
+    "GL_ARB_half_float_vertex",
+    "GL_ARB_imaging",
+    "GL_ARB_instanced_arrays",
+    "GL_ARB_internalformat_query",
+    "GL_ARB_map_buffer_alignment",
+    "GL_ARB_map_buffer_range",
+    "GL_ARB_multisample",
+    "GL_ARB_multitexture",
+    "GL_ARB_occlusion_query",
+    "GL_ARB_occlusion_query2",
+    "GL_ARB_pixel_buffer_object",
+    "GL_ARB_point_parameters",
+    "GL_ARB_point_sprite",
+    "GL_ARB_provoking_vertex",
+    "GL_ARB_robustness",
+    "GL_ARB_sample_shading",
+    "GL_ARB_sampler_objects",
+    "GL_ARB_seamless_cube_map",
+    "GL_ARB_separate_shader_objects",
+    "GL_ARB_shader_bit_encoding",
+    "GL_ARB_shader_objects",
+    "GL_ARB_shader_texture_lod",
     "GL_ARB_shading_language_100",
+    "GL_ARB_shading_language_420pack",
+    "GL_ARB_shading_language_include",
+    "GL_ARB_shadow",
+    "GL_ARB_sync",
+    "GL_ARB_texture_border_clamp",
+    "GL_ARB_texture_buffer_object",
+    "GL_ARB_texture_buffer_object_rgb32",
+    "GL_ARB_texture_compression",
+    "GL_ARB_texture_compression_bptc",
+    "GL_ARB_texture_compression_rgtc",
+    "GL_ARB_texture_cube_map",
+    "GL_ARB_texture_cube_map_array",
+    "GL_ARB_texture_env_add",
+    "GL_ARB_texture_env_combine",
+    "GL_ARB_texture_env_crossbar",
+    "GL_ARB_texture_env_dot3",
+    "GL_ARB_texture_float",
+    "GL_ARB_texture_gather",
+    "GL_ARB_texture_mirrored_repeat",
+    "GL_ARB_texture_multisample",
+    "GL_ARB_texture_non_power_of_two",
+    "GL_ARB_texture_query_lod",
+    "GL_ARB_texture_rectangle",
+    "GL_ARB_texture_rg",
+    "GL_ARB_texture_rgb10_a2ui",
+    "GL_ARB_texture_stencil8",
     "GL_ARB_texture_storage",
+    "GL_ARB_texture_storage_multisample",
+    "GL_ARB_texture_swizzle",
+    "GL_ARB_timer_query",
+    "GL_ARB_transform_feedback2",
+    "GL_ARB_transform_feedback3",
+    "GL_ARB_transform_feedback_instanced",
+    "GL_ARB_transpose_matrix",
+    "GL_ARB_uniform_buffer_object",
+    "GL_ARB_vertex_array_bgra",
     "GL_ARB_vertex_array_object",
+    "GL_ARB_vertex_attrib_binding",
+    "GL_ARB_vertex_blend",
+    "GL_ARB_vertex_buffer_object",
+    "GL_ARB_vertex_program",
+    "GL_ARB_vertex_shader",
+    "GL_ARB_vertex_type_2_10_10_10_rev",
+    "GL_ARB_viewport_array",
+    "GL_ARB_window_pos",
+    "GL_EXT_abgr",
     "GL_EXT_bgra",
+    "GL_EXT_bindable_uniform",
+    "GL_EXT_blend_color",
+    "GL_EXT_blend_equation_separate",
+    "GL_EXT_blend_func_separate",
+    "GL_EXT_blend_logic_op",
+    "GL_EXT_blend_minmax",
+    "GL_EXT_blend_subtract",
+    "GL_EXT_compiled_vertex_array",
+    "GL_EXT_depth_bounds_test",
+    "GL_EXT_direct_state_access",
+    "GL_EXT_draw_buffers2",
+    "GL_EXT_draw_instanced",
+    "GL_EXT_fog_coord",
+    "GL_EXT_framebuffer_blit",
+    "GL_EXT_framebuffer_multisample",
+    "GL_EXT_framebuffer_object",
     "GL_EXT_framebuffer_sRGB",
+    "GL_EXT_geometry_shader4",
+    "GL_EXT_gpu_program_parameters",
+    "GL_EXT_gpu_shader4",
+    "GL_EXT_multi_draw_arrays",
+    "GL_EXT_packed_depth_stencil",
+    "GL_EXT_packed_float",
+    "GL_EXT_packed_pixels",
     "GL_EXT_paletted_texture",
-    "GL_EXT_texture_filter_anisotropic"
+    "GL_EXT_pixel_buffer_object",
+    "GL_EXT_point_parameters",
+    "GL_EXT_polygon_offset",
+    "GL_EXT_provoking_vertex",
+    "GL_EXT_rescale_normal",
+    "GL_EXT_secondary_color",
+    "GL_EXT_separate_shader_objects",
+    "GL_EXT_separate_specular_color",
+    "GL_EXT_shadow_funcs",
+    "GL_EXT_stencil_two_side",
+    "GL_EXT_stencil_wrap",
+    "GL_EXT_texture3D",
+    "GL_EXT_texture_array",
+    "GL_EXT_texture_buffer_object",
+    "GL_EXT_texture_compression_latc",
+    "GL_EXT_texture_compression_rgtc",
+    "GL_EXT_texture_compression_s3tc",
+    "GL_EXT_texture_cube_map",
+    "GL_EXT_texture_edge_clamp",
+    "GL_EXT_texture_env_add",
+    "GL_EXT_texture_env_combine",
+    "GL_EXT_texture_env_dot3",
+    "GL_EXT_texture_filter_anisotropic",
+    "GL_EXT_texture_integer",
+    "GL_EXT_texture_lod_bias",
+    "GL_EXT_texture_mirror_clamp",
+    "GL_EXT_texture_object",
+    "GL_EXT_texture_shared_exponent",
+    "GL_EXT_texture_sRGB",
+    "GL_EXT_texture_sRGB_decode",
+    "GL_EXT_texture_storage",
+    "GL_EXT_texture_swizzle",
+    "GL_EXT_timer_query",
+    "GL_EXT_transform_feedback",
+    "GL_EXT_vertex_array",
+    "GL_EXT_vertex_array_bgra",
+    "GL_EXT_vertex_attrib_64bit",
+    "GL_EXT_vertex_shader"
 };
 
 static struct net_context *net_ctx = NULL;
@@ -172,18 +344,18 @@ static void *pb_ptr_hook(size_t offset)
 }
 
 /*
- * temporary solution to commit stalling out at `recv` when
- * committing the goodbye message
+ * temporary solution to submit stalling out at `recv` when
+ * submitting the goodbye message
  */
 bool expecting_retval = true;
 
-void glimpl_commit()
+void glimpl_submit()
 {
     /*
      * processor stops at 0
      */
     pb_push(0);
-// printf("COMMIT START\n");
+
     if (net_ctx == NULL) {
         /*
         * lock
@@ -196,11 +368,11 @@ void glimpl_commit()
         pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
 
         /*
-        * copy internal buffer to shared memory and commit
+        * copy internal buffer to shared memory and submit
         */
         pb_copy_to_shared();
-        pb_write(SGL_OFFSET_REGISTER_COMMIT, 1);
-        while (pb_read(SGL_OFFSET_REGISTER_COMMIT) == 1);
+        pb_write(SGL_OFFSET_REGISTER_SUBMIT, 1);
+        while (pb_read(SGL_OFFSET_REGISTER_SUBMIT) == 1);
         pb_reset();
 
         /*
@@ -255,7 +427,6 @@ retry:;
 
         pb_reset();
     }
-    // printf("COMMIT END\n");
 }
 
 void glimpl_goodbye()
@@ -263,7 +434,7 @@ void glimpl_goodbye()
     expecting_retval = false;
 
     /*
-     * probably not a good idea to commit
+     * probably not a good idea to submit
      * all commands before sending our
      * goodbye to the server, so instead
      * we should just overwrite the beginning
@@ -274,7 +445,7 @@ void glimpl_goodbye()
     pb_push(SGL_CMD_GOODBYE_WORLD);
     pb_push(client_id);
     pb_push(0);
-    glimpl_commit();
+    glimpl_submit();
 
     // if (net_ctx != NULL)
     //     net_goodbye(net_ctx);
@@ -289,7 +460,7 @@ void glimpl_report(int width, int height)
     pb_push(SGL_CMD_REPORT_DIMS);
     pb_push(width);
     pb_push(height);
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glimpl_swap_buffers(int width, int height, int vflip, int format)
@@ -300,10 +471,10 @@ void glimpl_swap_buffers(int width, int height, int vflip, int format)
         pb_push(height);
         pb_push(vflip);
         pb_push(format);
-        glimpl_commit();
+        glimpl_submit();
     }
     else {
-        glimpl_commit();
+        glimpl_submit();
 
         struct sgl_packet_swapbuffers_request packet = {
             /* client_id = */   client_id,
@@ -317,9 +488,7 @@ void glimpl_swap_buffers(int width, int height, int vflip, int format)
         
         int expected = (width * height * 4) / SGL_SWAPBUFFERS_RESULT_SIZE + ((width * height * 4) % SGL_SWAPBUFFERS_RESULT_SIZE != 0);
 
-        // wait for sync
-        // TO-DO: MAYBE TIMEOUT BECAUSE UDP IS NOT GUARANTEED
-        // WARNING: sync here appears to disturb the FIFO upload
+        // wait for sync, timeout appears to disturb fifo upload
         struct sgl_packet_sync sync;
         net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &sync, sizeof(sync));
 
@@ -431,10 +600,10 @@ void glimpl_init()
         spin_unlock(lockg);
         
         /*
-         * commit
+         * submit
          */
         pb_push(SGL_CMD_CREATE_CONTEXT);
-        glimpl_commit();
+        glimpl_submit();
     }
 }
 
@@ -477,7 +646,8 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
     }
     case GL_RGBA8:
     case GL_RGBA:
-    case GL_BGRA: {
+    case GL_BGRA: 
+    case GL_COMPRESSED_SRGB_ALPHA: {
         unsigned int *p = (void*)pixels;
         pb_push(SGL_CMD_VP_UPLOAD);
         pb_push(width * height * depth);
@@ -537,13 +707,11 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
         } 
 
         pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_color_ptr.size);
-        const float *color = glimpl_color_ptr.pointer;
+        pb_push(max_index);
+        const unsigned char *color = glimpl_color_ptr.pointer;
         for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_color_ptr.size; j++)
-                pb_pushf(*color++);
-            for (int j = 0; j < (glimpl_color_ptr.stride / 4) - true_size; j++)
-                color++;
+            pb_push(*(unsigned int*)color);
+            color += (glimpl_color_ptr.stride);
         }
 
         pb_push(SGL_CMD_COLORPOINTER);
@@ -616,6 +784,7 @@ static inline void glimpl_draw_elements(int mode, int type, int start, int end, 
         }
         }
 
+        // increment bc we want count, not the value of the largest index
         max_index++;
         glimpl_push_client_pointers(mode, max_index);
 
@@ -761,12 +930,12 @@ void glBlendFunc(GLenum sfactor, GLenum dfactor)
 
 void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     if (data != NULL) {
         pb_push(SGL_CMD_VP_UPLOAD);
         pb_push(size / sizeof(int)); /* could be very bad mistake */
-        int *idata = (int*)data;
+        unsigned int *idata = (unsigned int*)data;
         for (int i = 0; i < size / sizeof(int); i++)
             pb_push(idata[i]);
     }
@@ -776,7 +945,7 @@ void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage
     pb_push(size);
     pb_push(usage);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glCallList(GLuint list)
@@ -837,7 +1006,7 @@ void glCompileShader(GLuint shader)
 GLuint glCreateProgram()
 {
     pb_push(SGL_CMD_CREATEPROGRAM);
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -845,7 +1014,7 @@ GLuint glCreateShader(GLenum type)
 {
     pb_push(SGL_CMD_CREATESHADER);
     pb_push(type);
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -918,7 +1087,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 
     if (vap) {
         if (vap->client_managed) {
-            if (vap->ptr > (int*)0x10000) {
+            if (!is_value_likely_an_offset(vap->ptr)) {
                 pb_push(SGL_CMD_VP_UPLOAD);
                 pb_push(vap->size * count);
                 for (int i = 0; i < vap->size * count; i++)
@@ -940,7 +1109,6 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     else {
         glimpl_push_client_pointers(mode, count);
     }
-
 
     pb_push(SGL_CMD_DRAWARRAYS);
     pb_push(mode);
@@ -984,10 +1152,10 @@ void glEnableVertexAttribArray(GLuint index)
 {
     glimpl_vaps[index].enabled = true;
 
-    if (!glimpl_vaps[index].client_managed) {
+    // if (!glimpl_vaps[index].client_managed) {
         pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
         pb_push(index);
-    }
+    // }
 }
 
 void glEnd(void) 
@@ -1025,7 +1193,7 @@ void glGenBuffers(GLsizei n, GLuint* buffers)
         pb_push(SGL_CMD_GENBUFFERS);
         pb_push(1);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -1038,7 +1206,7 @@ void glGenFramebuffers(GLsizei n, GLuint* framebuffers)
         pb_push(SGL_CMD_GENFRAMEBUFFERS);
         pb_push(1);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -1048,7 +1216,7 @@ GLuint glGenLists(GLsizei range)
     pb_push(SGL_CMD_GENLISTS);
     pb_push(range);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -1060,7 +1228,7 @@ void glGenQueries(GLsizei n, GLuint* ids)
         pb_push(SGL_CMD_GENQUERIES);
         pb_push(1);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -1068,12 +1236,12 @@ void glGenQueries(GLsizei n, GLuint* ids)
 void glGenTextures(GLsizei n, GLuint* textures)
 {
     GLuint *p = textures;
-    
+
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_GENTEXTURES);
         pb_push(1);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -1086,7 +1254,7 @@ void glGenVertexArrays(GLsizei n, GLuint* arrays)
         pb_push(SGL_CMD_GENVERTEXARRAYS);
         pb_push(1);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -1097,7 +1265,7 @@ void glGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params)
     pb_push(id);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read64(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -1167,7 +1335,7 @@ GLint glGetUniformLocation(GLuint program, const GLchar* name)
     pb_push(program);
     push_string(name);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -1177,7 +1345,7 @@ GLint glGetAttribLocation(GLuint program, const GLchar* name)
     pb_push(program);
     push_string(name);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -1185,7 +1353,7 @@ void glGetFloatv(GLenum pname, GLfloat* data)
 {
     pb_push(SGL_CMD_GETFLOATV);
     pb_push(pname);
-    glimpl_commit();
+    glimpl_submit();
     GL_GET_MEMCPY_RETVAL(data, float);
 }
 
@@ -1209,7 +1377,7 @@ void glGetIntegerv(GLenum pname, GLint* data)
 
     pb_push(SGL_CMD_GETINTEGERV);
     pb_push(pname);
-    glimpl_commit();
+    glimpl_submit();
     GL_GET_MEMCPY_RETVAL(data, int);
 }
 
@@ -1217,7 +1385,7 @@ void glGetBooleanv(GLenum pname, GLboolean* data)
 {
     pb_push(SGL_CMD_GETBOOLEANV);
     pb_push(pname);
-    glimpl_commit();
+    glimpl_submit();
     GL_GET_MEMCPY_RETVAL(data, GLboolean);
 }
 
@@ -1225,7 +1393,7 @@ void glGetDoublev(GLenum pname, GLdouble* data)
 {
     pb_push(SGL_CMD_GETDOUBLEV);
     pb_push(pname);
-    glimpl_commit();
+    glimpl_submit();
     GL_GET_MEMCPY_RETVAL(data, double);
 }
 
@@ -1327,7 +1495,7 @@ void glShadeModel(GLenum mode)
 
 void glShaderSource(GLuint shader, GLsizei count, const GLchar** string, const GLint* length)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     for (int i = 0; i < count; i++) {
         pb_push(SGL_CMD_SHADERSOURCE);
@@ -1335,12 +1503,12 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar** string, const G
         push_string(string[i]);
     }
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTexImage1D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLint border, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     glimpl_upload_texture(width, 1, 1, internalformat, pixels);
 
@@ -1353,12 +1521,12 @@ void glTexImage1D(GLenum target, GLint level, GLint internalformat, GLsizei widt
     pb_push(format);
     pb_push(type);
     
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     glimpl_upload_texture(width, 1, 1, format, pixels);
 
@@ -1370,12 +1538,12 @@ void glTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, G
     pb_push(format);
     pb_push(type);
     
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTexImage3D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     glimpl_upload_texture(width, height, depth, internalformat, pixels);
 
@@ -1390,12 +1558,12 @@ void glTexImage3D(GLenum target, GLint level, GLint internalformat, GLsizei widt
     pb_push(format);
     pb_push(type);
     
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     glimpl_upload_texture(width, height, depth, format, pixels);
 
@@ -1411,12 +1579,12 @@ void glTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, G
     pb_push(format);
     pb_push(type);
     
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     glimpl_upload_texture(width, height, 1, internalformat, pixels);
 
@@ -1430,12 +1598,12 @@ void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei widt
     pb_push(format);
     pb_push(type);
     
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     glimpl_upload_texture(width, height, 1, format, pixels);
 
@@ -1449,12 +1617,12 @@ void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, G
     pb_push(format);
     pb_push(type);
     
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     glimpl_upload_texture(width, height, 1, format, pixels);
 
@@ -1468,7 +1636,7 @@ void glTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffs
     pb_push(format);
     pb_push(type);
     
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glTranslated(GLdouble x, GLdouble y, GLdouble z)
@@ -1523,7 +1691,7 @@ void glVertex3f(GLfloat x, GLfloat y, GLfloat z)
 
 void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer)
 {
-    bool client_managed = pointer > (void*)0x10000;
+    bool client_managed = !is_value_likely_an_offset(pointer);
 
     glimpl_vaps[index] = (struct gl_vertex_attrib_pointer){ 
         .index = index,
@@ -1536,15 +1704,15 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
         .client_managed = client_managed
     };
 
-    if (!client_managed) {
+    // if (!client_managed) {
         pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
         pb_push(index);
         pb_push(size);
         pb_push(type);
         pb_push(normalized);
         pb_push(stride);
-        pb_push((int)((long)pointer & 0x00000000FFFFFFFF));
-    }
+        pb_push((int)((long)pointer));
+    // }
 }
 
 void glViewport(GLint x, GLint y, GLsizei width, GLsizei height)
@@ -1842,7 +2010,7 @@ GLboolean glIsEnabled(GLenum cap)
     pb_push(SGL_CMD_ISENABLED);
     pb_push(cap);
     
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -2549,7 +2717,7 @@ GLint glRenderMode(GLenum mode)
     pb_push(SGL_CMD_RENDERMODE);
     pb_push(mode);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -2758,7 +2926,7 @@ GLboolean glIsList(GLuint list)
     pb_push(SGL_CMD_ISLIST);
     pb_push(list);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -2866,7 +3034,7 @@ GLboolean glIsTexture(GLuint texture)
     pb_push(SGL_CMD_ISTEXTURE);
     pb_push(texture);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3295,7 +3463,7 @@ GLboolean glIsQuery(GLuint id)
     pb_push(SGL_CMD_ISQUERY);
     pb_push(id);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3304,7 +3472,7 @@ GLboolean glIsBuffer(GLuint buffer)
     pb_push(SGL_CMD_ISBUFFER);
     pb_push(buffer);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3313,7 +3481,7 @@ GLboolean glUnmapBuffer(GLenum target)
     pb_push(SGL_CMD_UNMAPBUFFER);
     pb_push(target);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3353,10 +3521,10 @@ void glDisableVertexAttribArray(GLuint index)
 {
     glimpl_vaps[index].enabled = false;
 
-    if (!glimpl_vaps[index].client_managed) {
+    // if (!glimpl_vaps[index].client_managed) {
         pb_push(SGL_CMD_DISABLEVERTEXATTRIBARRAY);
         pb_push(index);
-    }
+    // }
 }
 
 GLboolean glIsProgram(GLuint program)
@@ -3364,7 +3532,7 @@ GLboolean glIsProgram(GLuint program)
     pb_push(SGL_CMD_ISPROGRAM);
     pb_push(program);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3373,7 +3541,7 @@ GLboolean glIsShader(GLuint shader)
     pb_push(SGL_CMD_ISSHADER);
     pb_push(shader);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3586,7 +3754,7 @@ GLboolean glIsEnabledi(GLenum target, GLuint index)
     pb_push(target);
     pb_push(index);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3754,7 +3922,7 @@ GLboolean glIsRenderbuffer(GLuint renderbuffer)
     pb_push(SGL_CMD_ISRENDERBUFFER);
     pb_push(renderbuffer);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3779,7 +3947,7 @@ GLboolean glIsFramebuffer(GLuint framebuffer)
     pb_push(SGL_CMD_ISFRAMEBUFFER);
     pb_push(framebuffer);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3795,7 +3963,7 @@ GLenum glCheckFramebufferStatus(GLenum target)
     pb_push(SGL_CMD_CHECKFRAMEBUFFERSTATUS);
     pb_push(target);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3893,7 +4061,7 @@ GLboolean glIsVertexArray(GLuint array)
     pb_push(SGL_CMD_ISVERTEXARRAY);
     pb_push(array);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -3965,7 +4133,7 @@ GLboolean glIsSampler(GLuint sampler)
     pb_push(SGL_CMD_ISSAMPLER);
     pb_push(sampler);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -4243,7 +4411,7 @@ GLboolean glIsTransformFeedback(GLuint id)
     pb_push(SGL_CMD_ISTRANSFORMFEEDBACK);
     pb_push(id);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -4339,7 +4507,7 @@ GLboolean glIsProgramPipeline(GLuint pipeline)
     pb_push(SGL_CMD_ISPROGRAMPIPELINE);
     pb_push(pipeline);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -4856,7 +5024,7 @@ GLboolean glUnmapNamedBuffer(GLuint buffer)
     pb_push(SGL_CMD_UNMAPNAMEDBUFFER);
     pb_push(buffer);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -4951,7 +5119,7 @@ GLenum glCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target)
     pb_push(framebuffer);
     pb_push(target);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -5236,7 +5404,7 @@ GLenum glGetGraphicsResetStatus(void)
 {
     pb_push(SGL_CMD_GETGRAPHICSRESETSTATUS);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -6239,7 +6407,7 @@ void glFeedbackBuffer(GLsizei size, GLenum type, GLfloat* buffer)
     pb_push(size);
     pb_push(type);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(buffer, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
 }
 
@@ -6248,7 +6416,7 @@ void glSelectBuffer(GLsizei size, GLuint* buffer)
     pb_push(SGL_CMD_SELECTBUFFER);
     pb_push(size);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(buffer, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
 }
 
@@ -6347,7 +6515,7 @@ void glGetClipPlane(GLenum plane, GLdouble* equation)
     pb_push(plane);
     pb_push(0); /* is dst float? */
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(equation, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), 4 * sizeof(double));
 }
 
@@ -6357,7 +6525,7 @@ void glGetClipPlanef(GLenum plane, GLfloat* equation)
     pb_push(plane);
     pb_push(1); /* is dst float? */
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(equation, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), 4 * sizeof(float));
 }
 
@@ -6380,7 +6548,7 @@ void glGetLightfv(GLenum light, GLenum pname, GLfloat* params)
     pb_push(light);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
 }
 
@@ -6403,7 +6571,7 @@ void glGetLightiv(GLenum light, GLenum pname, GLint* params)
     pb_push(light);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(int));
 }
 
@@ -6447,7 +6615,7 @@ void glGetMaterialfv(GLenum face, GLenum pname, GLfloat* params)
     pb_push(face);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(float));
 }
 
@@ -6470,7 +6638,7 @@ void glGetMaterialiv(GLenum face, GLenum pname, GLint* params)
     pb_push(face);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), size * sizeof(int));
 }
 
@@ -6508,7 +6676,7 @@ void glGetTexEnvfv(GLenum target, GLenum pname, GLfloat* params)
     pb_push(target);
     pb_push(pname);
     
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_TEXTURE_ENV_COLOR) * (3 * sizeof(float))));
 }
 
@@ -6518,7 +6686,7 @@ void glGetTexEnviv(GLenum target, GLenum pname, GLint* params)
     pb_push(target);
     pb_push(pname);
     
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int) + ((pname == GL_TEXTURE_ENV_COLOR) * (3 * sizeof(int))));
 }
 
@@ -6528,7 +6696,7 @@ void glGetTexGendv(GLenum coord, GLenum pname, GLdouble* params)
     pb_push(coord);
     pb_push(pname);
     
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(double) + ((pname == GL_OBJECT_PLANE || pname == GL_EYE_PLANE) * (3 * sizeof(double))));
 }
 
@@ -6538,7 +6706,7 @@ void glGetTexGenfv(GLenum coord, GLenum pname, GLfloat* params)
     pb_push(coord);
     pb_push(pname);
     
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_OBJECT_PLANE || pname == GL_EYE_PLANE) * (3 * sizeof(float))));
 }
 
@@ -6548,7 +6716,7 @@ void glGetTexGeniv(GLenum coord, GLenum pname, GLint* params)
     pb_push(coord);
     pb_push(pname);
     
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int) + ((pname == GL_OBJECT_PLANE || pname == GL_EYE_PLANE) * (3 * sizeof(int))));
 }
 
@@ -6616,7 +6784,7 @@ void glGetTexParameterfv(GLenum target, GLenum pname, GLfloat* params)
     pb_push(target);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_TEXTURE_BORDER_COLOR || pname == GL_TEXTURE_SWIZZLE_RGBA) * (3 * sizeof(float))));
 }
 
@@ -6626,7 +6794,7 @@ void glGetTexParameteriv(GLenum target, GLenum pname, GLint* params)
     pb_push(target);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_TEXTURE_BORDER_COLOR || pname == GL_TEXTURE_SWIZZLE_RGBA) * (3 * sizeof(float))));
 }
 
@@ -6637,7 +6805,7 @@ void glGetTexLevelParameterfv(GLenum target, GLint level, GLenum pname, GLfloat*
     pb_push(level);
     pb_push(pname);
     
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float));
 }
 
@@ -6648,7 +6816,7 @@ void glGetTexLevelParameteriv(GLenum target, GLint level, GLenum pname, GLint* p
     pb_push(level);
     pb_push(pname);
     
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int));
 }
 
@@ -6682,7 +6850,7 @@ GLboolean glAreTexturesResident(GLsizei n, const GLuint* textures, GLboolean* re
         pb_push(SGL_CMD_ARETEXTURESRESIDENT);
         pb_push(textures[i]);
 
-        glimpl_commit();
+        glimpl_submit();
         *p = pb_read(SGL_OFFSET_REGISTER_RETVAL);
         
         res = res && *p++;
@@ -6702,7 +6870,7 @@ void glPrioritizeTextures(GLsizei n, const GLuint* textures, const GLfloat* prio
 
 void glCompressedTexImage3D(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, const void* data)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
@@ -6718,12 +6886,12 @@ void glCompressedTexImage3D(GLenum target, GLint level, GLenum internalformat, G
     pb_push(border);
     pb_push(imageSize);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glCompressedTexImage2D(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void* data)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
@@ -6738,12 +6906,12 @@ void glCompressedTexImage2D(GLenum target, GLint level, GLenum internalformat, G
     pb_push(border);
     pb_push(imageSize);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glCompressedTexImage1D(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLint border, GLsizei imageSize, const void* data)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
@@ -6757,12 +6925,12 @@ void glCompressedTexImage1D(GLenum target, GLint level, GLenum internalformat, G
     pb_push(border);
     pb_push(imageSize);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glCompressedTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void* data)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
@@ -6780,12 +6948,12 @@ void glCompressedTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint 
     pb_push(format);
     pb_push(imageSize);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glCompressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void* data)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
@@ -6801,12 +6969,12 @@ void glCompressedTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint 
     pb_push(format);
     pb_push(imageSize);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glCompressedTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void* data)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(imageSize / 4);
@@ -6820,7 +6988,7 @@ void glCompressedTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsize
     pb_push(format);
     pb_push(imageSize);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glGetCompressedTexImage(GLenum target, GLint level, void* img)
@@ -6904,7 +7072,7 @@ void glGetQueryiv(GLenum target, GLenum pname, GLint* params)
     pb_push(target);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -6914,7 +7082,7 @@ void glGetQueryObjectiv(GLuint id, GLenum pname, GLint* params)
     pb_push(id);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -6924,13 +7092,13 @@ void glGetQueryObjectuiv(GLuint id, GLenum pname, GLuint* params)
     pb_push(id);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
 void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void* data)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(size / sizeof(int)); /* could be very bad mistake */
@@ -6943,7 +7111,7 @@ void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void
     pb_push(offset);
     pb_push(size);
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, void* data)
@@ -6967,7 +7135,7 @@ void glGetBufferParameteriv(GLenum target, GLenum pname, GLint* params)
     pb_push(target);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -6999,7 +7167,7 @@ void glGetActiveAttrib(GLuint program, GLuint index, GLsizei bufSize, GLsizei* l
     pb_push(index);
     pb_push(512); /* bufSize */
     
-    glimpl_commit();
+    glimpl_submit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(size, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), sizeof(GLint));
@@ -7017,7 +7185,7 @@ void glGetActiveUniform(GLuint program, GLuint index, GLsizei bufSize, GLsizei* 
     pb_push(index);
     pb_push(512); /* bufSize */
     
-    glimpl_commit();
+    glimpl_submit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(size, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), sizeof(GLint));
@@ -7034,7 +7202,7 @@ void glGetAttachedShaders(GLuint program, GLsizei maxCount, GLsizei* count, GLui
     pb_push(program);
     pb_push(128); /* maxCount */
 
-    glimpl_commit();
+    glimpl_submit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(shaders, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len * sizeof(GLuint));
@@ -7047,7 +7215,7 @@ void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLcha
     pb_push(program);
     pb_push(512); /* bufSize */
 
-    glimpl_commit();
+    glimpl_submit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
@@ -7060,7 +7228,7 @@ void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar*
     pb_push(shader);
     pb_push(512); /* bufSize */
 
-    glimpl_commit();
+    glimpl_submit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
@@ -7073,7 +7241,7 @@ void glGetShaderSource(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* 
     pb_push(shader);
     pb_push(3072); /* bufSize */
 
-    glimpl_commit();
+    glimpl_submit();
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(source, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
@@ -7086,7 +7254,7 @@ void glGetUniformfv(GLuint program, GLint location, GLfloat* params)
     pb_push(program);
     pb_push(location);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL), sizeof(float));
 }
 
@@ -7096,7 +7264,7 @@ void glGetUniformiv(GLuint program, GLint location, GLint* params)
     pb_push(program);
     pb_push(location);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL), sizeof(int));
 }
 
@@ -7106,7 +7274,7 @@ void glGetVertexAttribdv(GLuint index, GLenum pname, GLdouble* params)
     pb_push(index);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLdouble) + ((pname == GL_CURRENT_VERTEX_ATTRIB) * 3 * sizeof(GLdouble)));
 }
 
@@ -7116,7 +7284,7 @@ void glGetVertexAttribfv(GLuint index, GLenum pname, GLfloat* params)
     pb_push(index);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) + ((pname == GL_CURRENT_VERTEX_ATTRIB) * 3 * sizeof(float)));
 }
 
@@ -7126,7 +7294,7 @@ void glGetVertexAttribiv(GLuint index, GLenum pname, GLint* params)
     pb_push(index);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(int) + ((pname == GL_CURRENT_VERTEX_ATTRIB) * 3 * sizeof(int)));
 }
 
@@ -7380,7 +7548,7 @@ void glGetBooleani_v(GLenum target, GLuint index, GLboolean* data)
     pb_push(SGL_CMD_GETBOOLEANI_V);
     pb_push(target);
     pb_push(index);
-    glimpl_commit();
+    glimpl_submit();
     GL_GET_MEMCPY_RETVAL_EX(target, data, GLboolean);
 }
 
@@ -7389,13 +7557,13 @@ void glGetIntegeri_v(GLenum target, GLuint index, GLint* data)
     pb_push(SGL_CMD_GETINTEGERI_V);
     pb_push(target);
     pb_push(index);
-    glimpl_commit();
+    glimpl_submit();
     GL_GET_MEMCPY_RETVAL_EX(target, data, GLint);
 }
 
 void glTransformFeedbackVaryings(GLuint program, GLsizei count, const GLchar* const*varyings, GLenum bufferMode)
 {
-    glimpl_commit();
+    glimpl_submit();
 
     for (int i = 0; i < count; i++) {
         pb_push(SGL_CMD_TRANSFORMFEEDBACKVARYINGS);
@@ -7405,7 +7573,7 @@ void glTransformFeedbackVaryings(GLuint program, GLsizei count, const GLchar* co
         pb_push(bufferMode);
     }
 
-    glimpl_commit();
+    glimpl_submit();
 }
 
 void glGetTransformFeedbackVarying(GLuint program, GLuint index, GLsizei bufSize, GLsizei* length, GLsizei* size, GLenum* type, GLchar* name)
@@ -7414,11 +7582,11 @@ void glGetTransformFeedbackVarying(GLuint program, GLuint index, GLsizei bufSize
     pb_push(program);
     pb_push(index);
     pb_push(bufSize);
-    glimpl_commit();
+    glimpl_submit();
 
     // hope that data fits in SGL_OFFSET_REGISTER_RETVAL_V
     // could lead to corrupting the push buffer, unless garbage
-    // is overwritten with enough data before commit
+    // is overwritten with enough data before submit
     uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
     GLsizei length_notptr;
 
@@ -7474,7 +7642,7 @@ GLint glGetFragDataLocation(GLuint program, const GLchar* name)
     pb_push(program);
     push_string(name);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -7500,7 +7668,7 @@ void glGetTexParameterIuiv(GLenum target, GLenum pname, GLuint* params)
 
 void glDeleteRenderbuffers(GLsizei n, const GLuint* renderbuffers)
 {
-    // to-do: should glDelete* end w/ commit?
+    // to-do: should glDelete* end w/ submit?
     for (int i = 0; i < n; i++) {
         pb_push(SGL_CMD_DELETERENDERBUFFERS);
         // pb_push(1);
@@ -7516,7 +7684,7 @@ void glGenRenderbuffers(GLsizei n, GLuint* renderbuffers)
         pb_push(SGL_CMD_GENRENDERBUFFERS);
         // pb_push(1);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -7526,7 +7694,7 @@ void glGetRenderbufferParameteriv(GLenum target, GLenum pname, GLint* params)
     pb_push(SGL_CMD_GETRENDERBUFFERPARAMETERIV);
     pb_push(target);
     pb_push(pname);
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
 }
 
@@ -7545,21 +7713,30 @@ void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLe
     pb_push(target);
     pb_push(attachment);
     pb_push(pname);
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
 }
 
 void* glMapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
     // stub
-    return NULL;
+    return calloc(1, length);
 }
 
 void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount)
 {
-    // to-do: implement
-    fprintf(stderr, "glDrawElementsInstanced: not implemented, fallback to glDrawElements");
-    glDrawElements(mode, count, type, indices);
+    if (!is_value_likely_an_offset(indices)) {
+        fprintf(stderr, "glDrawElementsInstanced: indices isn't an offset, fallback to glDrawElements\n");
+        glDrawElements(mode, count, type, indices);
+        return;
+    }
+
+    pb_push(SGL_CMD_DRAWELEMENTSINSTANCED);
+    pb_push(mode);
+    pb_push(count);
+    pb_push(type);
+    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push(instancecount);
 }
 
 void glGetUniformIndices(GLuint program, GLsizei uniformCount, const GLchar* const*uniformNames, GLuint* uniformIndices)
@@ -7572,7 +7749,7 @@ void glGetUniformIndices(GLuint program, GLsizei uniformCount, const GLchar* con
         // pb_push(1);
         push_string(uniformNames[i]);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -7588,7 +7765,7 @@ void glGetActiveUniformsiv(GLuint program, GLsizei uniformCount, const GLuint* u
         pb_push(uniformIndices[i]);
         pb_push(pname);
 
-        glimpl_commit();
+        glimpl_submit();
         *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
     }
 }
@@ -7600,7 +7777,7 @@ void glGetActiveUniformName(GLuint program, GLuint uniformIndex, GLsizei bufSize
     pb_push(uniformIndex);
     pb_push(bufSize);
 
-    glimpl_commit();
+    glimpl_submit();
 
     uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
     GLsizei length_notptr;
@@ -7618,7 +7795,7 @@ GLuint glGetUniformBlockIndex(GLuint program, const GLchar* uniformBlockName)
     pb_push(program);
     push_string(uniformBlockName);
 
-    glimpl_commit();
+    glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -7629,7 +7806,7 @@ void glGetActiveUniformBlockiv(GLuint program, GLuint uniformBlockIndex, GLenum 
     pb_push(uniformBlockIndex);
     pb_push(pname);
 
-    glimpl_commit();
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
@@ -7640,7 +7817,7 @@ void glGetActiveUniformBlockName(GLuint program, GLuint uniformBlockIndex, GLsiz
     pb_push(uniformBlockIndex);
     pb_push(bufSize);
 
-    glimpl_commit();
+    glimpl_submit();
 
     uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
     GLsizei length_notptr;
@@ -7650,6 +7827,298 @@ void glGetActiveUniformBlockName(GLuint program, GLuint uniformBlockIndex, GLsiz
         *length = length_notptr;
 
     memcpy(uniformBlockName, (void*)(ptr + sizeof(*length)), length_notptr);
+}
+
+void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLint basevertex)
+{
+    if (!is_value_likely_an_offset(indices)) {
+        fprintf(stderr, "glDrawElementsBaseVertex: indices isn't an offset, fallback to glDrawElements\n");
+        glDrawElements(mode, count, type, indices);
+        return;
+    }
+
+    pb_push(SGL_CMD_DRAWELEMENTSBASEVERTEX);
+    pb_push(mode);
+    pb_push(count);
+    pb_push(type);
+    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push(basevertex);
+}
+
+void glDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void* indices, GLint basevertex)
+{
+    if (!is_value_likely_an_offset(indices)) {
+        fprintf(stderr, "glDrawRangeElementsBaseVertex: indices isn't an offset, fallback to glDrawElements\n");
+        glDrawElements(mode, count, type, indices);
+        return;
+    }
+
+    pb_push(SGL_CMD_DRAWRANGEELEMENTSBASEVERTEX);
+    pb_push(mode);
+    pb_push(start);
+    pb_push(end);
+    pb_push(count);
+    pb_push(type);
+    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push(basevertex);
+}
+
+void glDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex)
+{
+    if (!is_value_likely_an_offset(indices)) {
+        fprintf(stderr, "glDrawElementsInstancedBaseVertex: indices isn't an offset, fallback to glDrawElements\n");
+        glDrawElements(mode, count, type, indices);
+        return;
+    }
+
+    pb_push(SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEX);
+    pb_push(mode);
+    pb_push(count);
+    pb_push(type);
+    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push(instancecount);
+    pb_push(basevertex);
+}
+
+void glMultiDrawElementsBaseVertex(GLenum mode, const GLsizei* count, GLenum type, const void* const*indices, GLsizei drawcount, const GLint* basevertex)
+{
+    for (int i = 0; i < drawcount; i++)
+        glDrawElementsBaseVertex(mode, count[i], type, indices[i], basevertex[i]);
+}
+
+GLsync glFenceSync(GLenum condition, GLbitfield flags)
+{
+    // fprintf(stderr, "glFenceSync: sync is stub\n");
+    return NULL;
+}
+
+GLboolean glIsSync(GLsync sync)
+{
+    // fprintf(stderr, "glIsSync: sync is stub\n");
+    return GL_TRUE;
+}
+
+void glDeleteSync(GLsync sync)
+{
+    return;
+}
+
+GLenum glClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
+{
+    // fprintf(stderr, "glClientWaitSync: sync is stub\n");
+    return GL_CONDITION_SATISFIED;
+}
+
+void glWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
+{
+    // fprintf(stderr, "glWaitSync: sync is stub\n");
+}
+
+void glGetInteger64v(GLenum pname, GLint64* data)
+{
+    // wrong
+    glGetIntegerv(pname, (GLint*)data);
+}
+
+void glGetSynciv(GLsync sync, GLenum pname, GLsizei bufSize, GLsizei* length, GLint* values)
+{
+    // fprintf(stderr, "glGetSynciv: sync is stub\n");
+}
+
+void glGetInteger64i_v(GLenum target, GLuint index, GLint64* data)
+{
+    // wrong
+    glGetIntegeri_v(target, index, (GLint*)data);
+}
+
+void glGetBufferParameteri64v(GLenum target, GLenum pname, GLint64* params)
+{
+    // wrong
+    glGetBufferParameteriv(target, pname, (GLint*)params);
+}
+
+void glGetMultisamplefv(GLenum pname, GLuint index, GLfloat* val)
+{
+    pb_push(SGL_CMD_GETMULTISAMPLEFV);
+    pb_push(pname);
+    pb_push(index);
+
+    glimpl_submit();
+
+    memcpy(val, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(float) * 2);
+}
+
+void glBindFragDataLocationIndexed(GLuint program, GLuint colorNumber, GLuint index, const GLchar* name)
+{
+    pb_push(SGL_CMD_BINDFRAGDATALOCATIONINDEXED);
+    pb_push(program);
+    pb_push(colorNumber);
+    pb_push(index);
+    push_string(name);
+}
+
+GLint glGetFragDataIndex(GLuint program, const GLchar* name)
+{
+    pb_push(SGL_CMD_GETFRAGDATAINDEX);
+    pb_push(program);
+    push_string(name);
+
+    glimpl_submit();
+
+    return pb_read(SGL_OFFSET_REGISTER_RETVAL); 
+}
+
+void glGenSamplers(GLsizei count, GLuint* samplers)
+{
+    GLuint *p = samplers;
+
+    for (int i = 0; i < count; i++) {
+        pb_push(SGL_CMD_GENSAMPLERS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glDeleteSamplers(GLsizei count, const GLuint* samplers)
+{
+    for (int i = 0; i < count; i++) {
+        pb_push(SGL_CMD_DELETESAMPLERS);
+        // pb_push(1);
+
+        pb_push(samplers[i]);
+    }
+}
+
+void glSamplerParameteriv(GLuint sampler, GLenum pname, const GLint* param)
+{
+
+}
+
+void glSamplerParameterfv(GLuint sampler, GLenum pname, const GLfloat* param)
+{
+
+}
+
+void glSamplerParameterIiv(GLuint sampler, GLenum pname, const GLint* param)
+{
+
+}
+
+void glSamplerParameterIuiv(GLuint sampler, GLenum pname, const GLuint* param)
+{
+
+}
+
+void glGetSamplerParameteriv(GLuint sampler, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetSamplerParameterIiv(GLuint sampler, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetSamplerParameterfv(GLuint sampler, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetSamplerParameterIuiv(GLuint sampler, GLenum pname, GLuint* params)
+{
+
+}
+
+void glGetQueryObjecti64v(GLuint id, GLenum pname, GLint64* params)
+{
+
+}
+
+void glVertexAttribP2uiv(GLuint index, GLenum type, GLboolean normalized, const GLuint* value)
+{
+
+}
+
+void glVertexAttribP3uiv(GLuint index, GLenum type, GLboolean normalized, const GLuint* value)
+{
+
+}
+
+void glVertexAttribP4uiv(GLuint index, GLenum type, GLboolean normalized, const GLuint* value)
+{
+
+}
+
+void glVertexP2uiv(GLenum type, const GLuint* value)
+{
+
+}
+
+void glVertexP3uiv(GLenum type, const GLuint* value)
+{
+
+}
+
+void glVertexP4uiv(GLenum type, const GLuint* value)
+{
+
+}
+
+void glTexCoordP2uiv(GLenum type, const GLuint* coords)
+{
+
+}
+
+void glTexCoordP3uiv(GLenum type, const GLuint* coords)
+{
+
+}
+
+void glTexCoordP4uiv(GLenum type, const GLuint* coords)
+{
+
+}
+
+void glMultiTexCoordP2uiv(GLenum texture, GLenum type, const GLuint* coords)
+{
+
+}
+
+void glMultiTexCoordP3uiv(GLenum texture, GLenum type, const GLuint* coords)
+{
+
+}
+
+void glMultiTexCoordP4uiv(GLenum texture, GLenum type, const GLuint* coords)
+{
+
+}
+
+void glNormalP3uiv(GLenum type, const GLuint* coords)
+{
+
+}
+
+void glColorP3uiv(GLenum type, const GLuint* color)
+{
+
+}
+
+void glColorP4uiv(GLenum type, const GLuint* color)
+{
+
+}
+
+void glSecondaryColorP3uiv(GLenum type, const GLuint* color)
+{
+    
+}
+
+void glVertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer)
+{
+    glVertexAttribPointer(index, size, type, 0, stride, pointer);
 }
 
 #ifdef _WIN32

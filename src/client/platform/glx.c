@@ -11,7 +11,7 @@
 #include <dlfcn.h>
 
 static Window win = -1;
-static const char *glx_extensions = "GLX_ARB_create_context_profile GLX_ARB_get_proc_address GLX_EXT_visual_info";
+static const char *glx_extensions = "GLX_ARB_create_context GLX_ARB_create_context_no_error GLX_ARB_create_context_profile GLX_ARB_create_context_robustness GLX_ARB_get_proc_address GLX_EXT_create_context_es2_profile GLX_EXT_create_context_es_profile GLX_EXT_visual_info";
 
 static int glx_major = 1;
 static int glx_minor = 4;
@@ -304,7 +304,7 @@ XVisualInfo *glXGetVisualFromFBConfig(Display *dpy, GLXFBConfig config)
 
 GLXContext glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list)
 {
-    return glXCreateContext(NULL, NULL, 0, 0);
+    return glXCreateContext(dpy, NULL, 0, 0);
 }
 
 int glXGetConfig(Display *dpy, XVisualInfo *visual, int attrib, int *value)
@@ -370,7 +370,6 @@ int glXQueryContext(Display *dpy, GLXContext ctx, int attribute, int *value)
 void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 {
     static struct glx_swap_data swap_data = { 0 };
-    static char *fbb = NULL;
 
     if (swap_data.initialized == false) {
         XWindowAttributes attr;
@@ -388,7 +387,6 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         /*
          * create an ximage whose pointer points to our framebuffer
          */
-        fbb = glimpl_fb_address();
         swap_data.ximage = XCreateImage(dpy, swap_data.vinfo.visual, swap_data.vinfo.depth, ZPixmap, 0, glimpl_fb_address(), swap_data.width, swap_data.height, 8, swap_data.width*4);
         swap_data.gcv.graphics_exposures = 0;
         swap_data.gc = XCreateGC(dpy, swap_data.parent, GCGraphicsExposures, &swap_data.gcv);

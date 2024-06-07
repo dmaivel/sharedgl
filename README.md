@@ -47,6 +47,8 @@ cmake --build . --target sharedgl-core --config Release
 
 For detailed build instructions for Windows, visit the [Windows section](#windows-in-a-vm).
 
+If on linux, some applications may require an explicit `libGLX`, so run `ln -s libGL.so.1 libGLX.so.0` in `build` to make a symlink.
+
 # Usage
 The server must be started on the host before running any clients. Note that the server can only be ran on Linux.
 
@@ -228,11 +230,11 @@ This list describes the amount of functions left from each standard to implement
 - [x] OpenGL 2
     - [x] 2.0 (~93 total) 
     - [x] 2.1 (~6 total) 
-- [ ] OpenGL 3
+- [x] OpenGL 3
     - [x] 3.0 (~84 total) 
     - [x] 3.1 (~15 total) 
-    - [ ] 3.2 (~14 remaining) (~19 total) 
-    - [ ] 3.3 (~29 remaining) (~58 total) 
+    - [x] 3.2 (~14 remaining)
+    - [x] 3.3 (~29 remaining)
 - [ ] OpenGL 4
     - [ ] 4.0 (~24 remaining) (~46 total) 
     - [ ] 4.1 (~36 remaining) (~89 total) 
@@ -249,7 +251,6 @@ This list describes the amount of functions left from each standard to implement
 - Resizing is possible, no proper implementation
 - Some GLFW applications cant request OpenGL profiles
 - New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run
-  - Some applications may require an explicit `libGLX`, so run `ln -s libGL.so.1 libGLX.so.0` in `build` to make a symlink.
 
 # Troubleshooting
 You may encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`. Although the code base is buggy, these are some tips to try to further attempts to get an application to work:

@@ -88,9 +88,9 @@ static void connection_rem(int id, struct net_context *net_ctx)
     dynarr_free_element((void**)&connections, 0, match_connection, (void*)((long)id));
 }
 
-static bool wait_for_commit(void *p) 
+static bool wait_for_submit(void *p) 
 {
-    return *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) == 1;
+    return *(int*)(p + SGL_OFFSET_REGISTER_SUBMIT) == 1;
 }
 
 int scramble_arr[1000];
@@ -179,12 +179,12 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
          */
         if (!args.network_over_shared) {
             /*
-             * not only wait for a commit from a specific client,
+             * not only wait for a submit from a specific client,
              * but also ensure that the client we are waiting for
              * still exists, in case it didn't notify the server
              * of its exit
              */
-            while (!wait_for_commit(p)) {
+            while (!wait_for_submit(p)) {
                 int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
 
                 /*
@@ -211,6 +211,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                  * some sort of "sync"
                  */
                 usleep(1);
+                // _mm_pause();
             }
 
             client_id = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
@@ -872,7 +873,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     normalized = *pb++,
                     stride = *pb++,
                     ptr = *pb++;
-                glVertexAttribPointer(index, size, type, normalized, stride, (ptr > 0x10000) ? uploaded : (void*)(long)ptr);
+                glVertexAttribPointer(index, size, type, normalized, stride, !is_value_likely_an_offset((void*)(long)ptr) ? uploaded : (void*)(long)ptr);
                 break;
             }
             case SGL_CMD_VIEWPORT: {
@@ -4606,7 +4607,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_DELETERENDERBUFFERS: {
-                glDeleteRenderbuffers(1, (GLuint*)pb++);
+                unsigned int renderbuffer = *pb++;
+                glDeleteRenderbuffers(1, &renderbuffer);
                 break;
             }
             case SGL_CMD_GENRENDERBUFFERS: {
@@ -4620,7 +4622,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_DELETEFRAMEBUFFERS: {
-                glDeleteRenderbuffers(1, (GLuint*)p++);
+                unsigned int framebuffer = *pb++;
+                glDeleteFramebuffers(1, &framebuffer);
                 break;
             }
             case SGL_CMD_GETFRAMEBUFFERATTACHMENTPARAMETERIV: {
@@ -4678,6 +4681,76 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 );
                 break;
             }
+            case SGL_CMD_DRAWELEMENTSINSTANCED: {
+                int mode = *pb++,
+                    count = *pb++,
+                    type = *pb++,
+                    indices = *pb++,
+                    instancecount = *pb++;
+                glDrawElementsInstanced(mode, count, type, (void*)(uintptr_t)indices, instancecount);
+                break;
+            }
+            case SGL_CMD_DRAWELEMENTSBASEVERTEX: {
+                int mode = *pb++,
+                    count = *pb++,
+                    type = *pb++,
+                    indices = *pb++,
+                    basevertex = *pb++;
+                glDrawElementsBaseVertex(mode, count, type, (void*)(uintptr_t)indices, basevertex);
+                break;
+            }
+            case SGL_CMD_DRAWRANGEELEMENTSBASEVERTEX: {
+                int mode = *pb++,
+                    start = *pb++,
+                    end = *pb++,
+                    count = *pb++,
+                    type = *pb++,
+                    indices = *pb++,
+                    basevertex = *pb++;
+                glDrawRangeElementsBaseVertex(mode, start, end, count, type, (void*)(uintptr_t)indices, basevertex);
+                break;
+            }
+            case SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEX: {
+                int mode = *pb++,
+                    count = *pb++,
+                    type = *pb++,
+                    indices = *pb++,
+                    instancecount = *pb++,
+                    basevertex = *pb++;
+                glDrawElementsInstancedBaseVertex(mode, count, type, (void*)(uintptr_t)indices, instancecount, basevertex);
+                break;
+            }
+            case SGL_CMD_GETMULTISAMPLEFV: {
+                int pname = *pb++,
+                    index = *pb++;
+                glGetMultisamplefv(pname, index, (float*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
+                break;
+            }
+            case SGL_CMD_BINDFRAGDATALOCATIONINDEXED: {
+                int program = *pb++,
+                    colorNumber = *pb++,
+                    index = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+                glBindFragDataLocationIndexed(program, colorNumber, index, name);
+                break;
+            }
+            case SGL_CMD_GETFRAGDATAINDEX: {
+                int program = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetFragDataIndex(program, name);
+                break;
+            }
+            case SGL_CMD_GENSAMPLERS: {
+                glGenSamplers(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_DELETESAMPLERS: {
+                unsigned int samplers = *pb++;
+                glDeleteSamplers(1, &samplers);
+                break;
+            }
             }
 
             if (!begun) {
@@ -4688,10 +4761,10 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
         }
 
         /* 
-         * commit done 
+         * submit done 
          */
-        glFinish();
-        *(int*)(p + SGL_OFFSET_REGISTER_COMMIT) = 0;
+        // glFinish();
+        *(int*)(p + SGL_OFFSET_REGISTER_SUBMIT) = 0;
 
         /*
          * for networking only: we need to send retval back to client upon completion

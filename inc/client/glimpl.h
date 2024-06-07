@@ -4,7 +4,7 @@
 #include <commongl.h>
 
 void glimpl_init();
-void glimpl_commit();
+void glimpl_submit();
 void glimpl_goodbye();
 void glimpl_report(int width, int height);
 void glimpl_swap_buffers(int width, int height, int vflip, int format);

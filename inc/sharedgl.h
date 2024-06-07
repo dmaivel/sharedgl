@@ -13,8 +13,10 @@
 
 #include <stdio.h>
 #include <stdarg.h>
-#include <time.h>
 #include <string.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <time.h>
 
 #define PRINT_LOG(...) \
     { \
@@ -26,7 +28,7 @@
         fprintf(stderr, __VA_ARGS__); \
     }
 
-#define SGL_OFFSET_REGISTER_COMMIT (sizeof(int) * 0)
+#define SGL_OFFSET_REGISTER_SUBMIT (sizeof(int) * 0)
 #define SGL_OFFSET_REGISTER_RETVAL (sizeof(int) * 1)
 #define SGL_OFFSET_REGISTER_READY_HINT (sizeof(int) * 2)
 #define SGL_OFFSET_REGISTER_LOCK (sizeof(int) * 3)
@@ -40,9 +42,15 @@
 #define SGL_OFFSET_COMMAND_START 0x1000
 
 #define SGL_DEFAULT_MAJOR 3
-#define SGL_DEFAULT_MINOR 1
+#define SGL_DEFAULT_MINOR 3
 
 #define SGL_SHARED_MEMORY_NAME "sharedgl_shared_memory"
+
+inline bool is_value_likely_an_offset(const void *p)
+{
+    uintptr_t v = (uintptr_t)p;
+    return v < 0x100000;
+}
 
 /*
  * commands, pretty much 1:1 mapping for opengl
