@@ -170,6 +170,10 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 
     bool network_expecting_retval = true;
 
+    void *map_buffer;
+    size_t map_buffer_offset = 0;
+    int vp_upload_count;
+
     while (1) {
         int client_id = 0;
         int timeout = 0;
@@ -384,9 +388,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_VP_UPLOAD: {
-                int c = *pb++;
+                vp_upload_count = *pb++;
                 uploaded = pb;
-                for (int i = 0; i < c; i++)
+                for (int i = 0; i < vp_upload_count; i++)
                     pb++;
                 break;
             }
@@ -402,6 +406,12 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             }
             case SGL_CMD_VP_NULL: {
                 uploaded = NULL;
+                break;
+            }
+            case SGL_CMD_VP_DOWNLOAD: {
+                int length = *pb++;
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, map_buffer + map_buffer_offset, length);
+                map_buffer_offset += length;
                 break;
             }
             
@@ -466,8 +476,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_BUFFERDATA: {
                 int target = *pb++,
                     size = *pb++,
+                    use_uploaded = *pb++,
                     usage = *pb++;
-                glBufferData(target, size, uploaded, usage);
+                glBufferData(target, size, use_uploaded ? uploaded : NULL, usage);
                 break;
             }
             case SGL_CMD_CALLLIST:
@@ -633,6 +644,18 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 unsigned long res = 0;
                 glGetQueryObjectui64v(id, pname, &res);
                 *(long*)(p + SGL_OFFSET_REGISTER_RETVAL) = res;
+                break;
+            }
+            case SGL_CMD_GETPROGRAMIV: {
+                int program = *pb++,
+                    pname = *pb++;
+                glGetProgramiv(program, pname, (int*)((char*)p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETSHADERIV: {
+                int shader = *pb++,
+                    pname = *pb++;
+                glGetShaderiv(shader, pname, (int*)((char*)p + SGL_OFFSET_REGISTER_RETVAL));
                 break;
             }
             case SGL_CMD_GETUNIFORMLOCATION: {
@@ -2295,6 +2318,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             }
             case SGL_CMD_UNMAPBUFFER: {
                 int target = *pb++;
+                int length = *pb++;
+                memcpy(map_buffer, uploaded, length);
                 *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glUnmapBuffer(target);
                 break;
             }
@@ -4749,6 +4774,53 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_DELETESAMPLERS: {
                 unsigned int samplers = *pb++;
                 glDeleteSamplers(1, &samplers);
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIBIPOINTER: {
+                int index = *pb++,
+                    size = *pb++,
+                    type = *pb++,
+                    stride = *pb++,
+                    ptr = *pb++;
+                glVertexAttribIPointer(index, size, type, stride, !is_value_likely_an_offset((void*)(long)ptr) ? uploaded : (void*)(long)ptr);
+                break;
+            }
+            case SGL_CMD_MAPBUFFERRANGE: {
+                int target = *pb++,
+                    offset = *pb++,
+                    length = *pb++,
+                    access = *pb++;
+                map_buffer = glMapBufferRange(target, offset, length, access);
+                map_buffer_offset = 0;
+                break;
+            }
+            case SGL_CMD_FENCESYNC: {
+                int condition = *pb++,
+                    flags = *pb++;
+                *(GLsync*)(p + SGL_OFFSET_REGISTER_RETVAL_V) = glFenceSync(condition, flags);
+                break;
+            }
+            case SGL_CMD_DELETESYNC: {
+                uint64_t sync = *(uint64_t*)pb;
+                pb++; pb++;
+                glDeleteSync((GLsync)sync);
+                break;
+            }
+            case SGL_CMD_CLIENTWAITSYNC: {
+                uint64_t sync = *(uint64_t*)pb;
+                pb++; pb++;
+                int flags = *pb++;
+                uint64_t timeout = *(uint64_t*)pb;
+                pb++; pb++;
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL_V) = glClientWaitSync((GLsync)sync, flags, timeout);
+                break;
+            }
+            case SGL_CMD_DRAWBUFFERS: {
+                int n = *pb++;
+                unsigned int bufs[16];
+                for (int i = 0; i < n; i++)
+                    bufs[i] = *pb++;
+                glDrawBuffers(n, bufs);
                 break;
             }
             }

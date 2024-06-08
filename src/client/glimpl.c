@@ -100,6 +100,15 @@ struct gl_edge_flag_pointer {
     bool in_use;
 };
 
+struct gl_map_buffer {
+    int target;
+    void *mem;
+    size_t offset;
+    size_t length;
+    int access;
+    bool in_use;
+};
+
 struct gl_vertex_attrib_pointer     glimpl_vaps[GLIMPL_MAX_OBJECTS];
 
 struct gl_color_tex_vertex_pointer  glimpl_color_ptr,
@@ -114,6 +123,8 @@ struct gl_normal_index_pointer      glimpl_normal_ptr,
 
 struct gl_edge_flag_pointer         glimpl_edge_flag_ptr;
 
+struct gl_map_buffer                glimpl_map_buffer;
+
 // #define NUM_EXTENSIONS 8
 // static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_bgra GL_EXT_framebuffer_sRGB GL_EXT_paletted_texture GL_EXT_texture_filter_anisotropic";
 // static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
@@ -127,8 +138,8 @@ struct gl_edge_flag_pointer         glimpl_edge_flag_ptr;
 //     "GL_EXT_texture_filter_anisotropic"
 // };
 
-#define NUM_EXTENSIONS 51
-static const char *glimpl_extensions_full = "GL_ARB_color_buffer_float GL_ARB_compressed_texture_pixel_storage GL_ARB_conservative_depth GL_ARB_copy_buffer GL_ARB_draw_buffers_blend GL_ARB_ES2_compatibility GL_ARB_ES3_compatibility GL_ARB_explicit_uniform_location GL_ARB_framebuffer_object GL_ARB_get_program_binary GL_ARB_half_float_pixel GL_ARB_internalformat_query GL_ARB_internalformat_query2 GL_ARB_map_buffer_alignment GL_ARB_map_buffer_range GL_ARB_program_interface_query GL_ARB_separate_shader_objects GL_ARB_shader_precision GL_ARB_shading_language_420pack GL_ARB_shading_language_packing GL_ARB_sync GL_ARB_texture_buffer_object_rgb32 GL_ARB_texture_buffer_range GL_ARB_texture_compression_rgtc GL_ARB_texture_rectangle GL_ARB_texture_rg GL_ARB_texture_storage GL_ARB_texture_view GL_ARB_transform_feedback2 GL_ARB_transform_feedback3 GL_ARB_vertex_array_object GL_ARB_vertex_attrib_binding GL_ARB_viewport_array GL_EXT_abgr GL_EXT_bgra GL_EXT_bindable_uniform GL_EXT_draw_buffers2 GL_EXT_framebuffer_blit GL_EXT_framebuffer_multisample GL_EXT_framebuffer_object GL_EXT_framebuffer_sRGB GL_EXT_geometry_shader4 GL_EXT_gpu_shader4 GL_EXT_packed_depth_stencil GL_EXT_texture_compression_s3tc GL_EXT_texture_filter_anisotropic GL_EXT_texture_sRGB GL_NV_texture_barrier WGL_ARB_extensions_string WGL_ARB_framebuffer_sRGB WGL_ARB_pixel_format";
+#define NUM_EXTENSIONS 52
+static const char *glimpl_extensions_full = "GL_ARB_color_buffer_float GL_ARB_compressed_texture_pixel_storage GL_ARB_conservative_depth GL_ARB_copy_buffer GL_ARB_draw_buffers_blend GL_ARB_ES2_compatibility GL_ARB_ES3_compatibility GL_ARB_explicit_uniform_location GL_ARB_framebuffer_object GL_ARB_get_program_binary GL_ARB_half_float_pixel GL_ARB_internalformat_query GL_ARB_internalformat_query2 GL_ARB_map_buffer_alignment GL_ARB_map_buffer_range GL_ARB_multitexture GL_ARB_program_interface_query GL_ARB_separate_shader_objects GL_ARB_shader_precision GL_ARB_shading_language_420pack GL_ARB_shading_language_packing GL_ARB_sync GL_ARB_texture_buffer_object_rgb32 GL_ARB_texture_buffer_range GL_ARB_texture_compression_rgtc GL_ARB_texture_rectangle GL_ARB_texture_rg GL_ARB_texture_storage GL_ARB_texture_view GL_ARB_transform_feedback2 GL_ARB_transform_feedback3 GL_ARB_vertex_array_object GL_ARB_vertex_attrib_binding GL_ARB_viewport_array GL_EXT_abgr GL_EXT_bgra GL_EXT_bindable_uniform GL_EXT_draw_buffers2 GL_EXT_framebuffer_blit GL_EXT_framebuffer_multisample GL_EXT_framebuffer_object GL_EXT_framebuffer_sRGB GL_EXT_geometry_shader4 GL_EXT_gpu_shader4 GL_EXT_packed_depth_stencil GL_EXT_texture_compression_s3tc GL_EXT_texture_filter_anisotropic GL_EXT_texture_sRGB GL_NV_texture_barrier WGL_ARB_extensions_string WGL_ARB_framebuffer_sRGB WGL_ARB_pixel_format";
 static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_color_buffer_float",
     "GL_ARB_compressed_texture_pixel_storage",
@@ -145,6 +156,7 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_internalformat_query2",
     "GL_ARB_map_buffer_alignment",
     "GL_ARB_map_buffer_range",
+    "GL_ARB_multitexture",
     "GL_ARB_program_interface_query",
     "GL_ARB_separate_shader_objects",
     "GL_ARB_shader_precision",
@@ -816,17 +828,20 @@ void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage
 {
     glimpl_submit();
 
+    int length = (size / sizeof(int)) + (size % sizeof(int) != 0);
+
     if (data != NULL) {
         pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(size / sizeof(int)); /* could be very bad mistake */
+        pb_push(length); /* could be very bad mistake */
         unsigned int *idata = (unsigned int*)data;
-        for (int i = 0; i < size / sizeof(int); i++)
+        for (int i = 0; i < length; i++)
             pb_push(idata[i]);
     }
     
     pb_push(SGL_CMD_BUFFERDATA);
     pb_push(target);
     pb_push(size);
+    pb_push(data != NULL);
     pb_push(usage);
 
     glimpl_submit();
@@ -969,30 +984,32 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
     struct gl_vertex_attrib_pointer *vap = glimpl_get_enabled_vap();
 
-    if (vap) {
-        if (vap->client_managed) {
-            if (!is_value_likely_an_offset(vap->ptr)) {
-                pb_push(SGL_CMD_VP_UPLOAD);
-                pb_push(vap->size * count);
-                for (int i = 0; i < vap->size * count; i++)
-                    pb_push(vap->ptr[i]);
-            }
+    // if (vap) {
+    //     if (vap->client_managed) {
+    //         if (!is_value_likely_an_offset(vap->ptr)) {
+    //             pb_push(SGL_CMD_VP_UPLOAD);
+    //             pb_push(vap->size * count);
+    //             for (int i = 0; i < vap->size * count; i++)
+    //                 pb_push(vap->ptr[i]);
+    //         }
 
-            pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
-            pb_push(vap->index);
-            pb_push(vap->size);
-            pb_push(vap->type);
-            pb_push(vap->normalized);
-            pb_push(vap->stride);
-            pb_push((int)((long)vap->ptr & 0x00000000FFFFFFFF));
+    //         pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
+    //         pb_push(vap->index);
+    //         pb_push(vap->size);
+    //         pb_push(vap->type);
+    //         pb_push(vap->normalized);
+    //         pb_push(vap->stride);
+    //         pb_push((int)((long)vap->ptr & 0x00000000FFFFFFFF));
 
-            pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
-            pb_push(vap->index);
-        }
-    }
-    else {
-        glimpl_push_client_pointers(mode, count);
-    }
+    //         pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
+    //         pb_push(vap->index);
+    //     }
+    // }
+    // else {
+    //     glimpl_push_client_pointers(mode, count);
+    // }
+
+    glimpl_push_client_pointers(mode, count);
 
     pb_push(SGL_CMD_DRAWARRAYS);
     pb_push(mode);
@@ -1155,14 +1172,22 @@ void glGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params)
 
 void glGetProgramiv(GLuint program, GLenum pname, GLint* params)
 {
-    /* stub */
-    *params = GL_TRUE;
+    pb_push(SGL_CMD_GETPROGRAMIV);
+    pb_push(program);
+    pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
 void glGetShaderiv(GLuint shader, GLenum pname, GLint* params)
 {
-    /* stub */
-    *params = GL_TRUE;
+    pb_push(SGL_CMD_GETSHADERIV);
+    pb_push(shader);
+    pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
 void glGetObjectParameterivARB(void *obj, GLenum pname, GLint* params)
@@ -3362,8 +3387,23 @@ GLboolean glIsBuffer(GLuint buffer)
 
 GLboolean glUnmapBuffer(GLenum target)
 {
+    if (glimpl_map_buffer.target != target) {
+        fprintf(stderr, "glUnmapBuffer: target mismatch\n");
+        return GL_FALSE;
+    }
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(glimpl_map_buffer.length / 4 + (glimpl_map_buffer.length % 4 != 0));
+    pb_memcpy(glimpl_map_buffer.mem, glimpl_map_buffer.length + ((glimpl_map_buffer.length % 4 != 0) * sizeof(int)));
+
+    if (glimpl_map_buffer.in_use) {
+        free(glimpl_map_buffer.mem);
+        glimpl_map_buffer.in_use = false;
+    }
+
     pb_push(SGL_CMD_UNMAPBUFFER);
     pb_push(target);
+    pb_push(glimpl_map_buffer.length);
 
     glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
@@ -6984,10 +7024,12 @@ void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void
 {
     glimpl_submit();
 
+    int length = (size / sizeof(int)) + (size % sizeof(int) != 0);
+
     pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(size / sizeof(int)); /* could be very bad mistake */
-    int *idata = (int*)data;
-    for (int i = 0; i < size / sizeof(int); i++)
+    pb_push(length); /* could be very bad mistake */
+    unsigned int *idata = (unsigned int*)data;
+    for (int i = 0; i < length; i++)
         pb_push(idata[i]);
     
     pb_push(SGL_CMD_BUFFERSUBDATA);
@@ -7032,8 +7074,10 @@ void glGetBufferPointerv(GLenum target, GLenum pname, void* *params)
 
 void glDrawBuffers(GLsizei n, const GLenum* bufs)
 {
+    pb_push(SGL_CMD_DRAWBUFFERS);
+    pb_push(n);
     for (int i = 0; i < n; i++)
-        glDrawBuffer(bufs[i]);
+        pb_push(bufs[i]);
 }
 
 void glBindAttribLocation(GLuint program, GLuint index, const GLchar* name)
@@ -7103,7 +7147,9 @@ void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLcha
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
-    *length = len;
+    
+    if (length != NULL)
+        *length = len;
 }
 
 void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
@@ -7116,7 +7162,9 @@ void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar*
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
-    *length = len;
+    
+    if (length != NULL)
+        *length = len;
 }
 
 void glGetShaderSource(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* source)
@@ -7603,8 +7651,47 @@ void glGetFramebufferAttachmentParameteriv(GLenum target, GLenum attachment, GLe
 
 void* glMapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
-    // stub
-    return calloc(1, length);
+    if (glimpl_map_buffer.in_use) {
+        fprintf(stderr, "glMapBufferRange: map buffer already in use, returning NULL\n");
+        return NULL;
+    }
+
+    glimpl_map_buffer = (struct gl_map_buffer){
+        /* target = */  target,
+        /* mem = */     calloc(length, 1),
+        /* offset = */  offset,
+        /* length = */  length,
+        /* access = */  access,
+        /* in_use = */  true
+    };
+
+    pb_push(SGL_CMD_MAPBUFFERRANGE);
+    pb_push(target);
+    pb_push(offset);
+    pb_push(length);
+    pb_push(access);
+
+    glimpl_submit();
+
+    int blocks = length / SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES + (length % SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES != 0);
+    size_t count = length;
+
+    void *retval_v = pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+
+    for (int i = 0; i < blocks; i++) {
+        size_t true_count = count > SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES ? SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES : count;
+
+        pb_push(SGL_CMD_VP_DOWNLOAD);
+        pb_push(true_count);
+        
+        glimpl_submit();
+
+        memcpy((char*)glimpl_map_buffer.mem + (i * SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES), retval_v, true_count);
+
+        count -= SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES;
+    }
+
+    return glimpl_map_buffer.mem;
 }
 
 void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount)
@@ -7772,30 +7859,65 @@ void glMultiDrawElementsBaseVertex(GLenum mode, const GLsizei* count, GLenum typ
 
 GLsync glFenceSync(GLenum condition, GLbitfield flags)
 {
-    // fprintf(stderr, "glFenceSync: sync is stub\n");
+    // pb_push(SGL_CMD_FENCESYNC);
+    // pb_push(condition);
+    // pb_push(flags);
+    
+    // glimpl_submit();
+
+    // return (GLsync)pb_read64(SGL_OFFSET_REGISTER_RETVAL_V);
     return NULL;
 }
 
 GLboolean glIsSync(GLsync sync)
 {
-    // fprintf(stderr, "glIsSync: sync is stub\n");
+    // pb_push(SGL_CMD_ISSYNC);
+    // pb_push(((uint64_t*)&sync)[0]);
+    // pb_push(((uint64_t*)&sync)[1]);
+
+    // glimpl_submit();
+
+    // return pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
     return GL_TRUE;
 }
 
 void glDeleteSync(GLsync sync)
 {
-    return;
+    // pb_push(SGL_CMD_DELETESYNC);
+    // pb_push(((uint64_t*)&sync)[0]);
+    // pb_push(((uint64_t*)&sync)[1]);
+
+    // glimpl_submit();
 }
 
 GLenum glClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
 {
-    // fprintf(stderr, "glClientWaitSync: sync is stub\n");
+    // pb_push(SGL_CMD_CLIENTWAITSYNC);
+    // pb_push(((uint64_t*)&sync)[0]);
+    // pb_push(((uint64_t*)&sync)[1]);
+    // pb_push(flags);
+    // pb_push((&timeout)[0]);
+    // pb_push((&timeout)[1]);
+
+    // glimpl_submit();
+
+    // return pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
+
+    // SGL_OFFSET_REGISTER_RETVAL_V causes issues on network
+    // to-do: fix?
     return GL_CONDITION_SATISFIED;
 }
 
 void glWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
 {
-    // fprintf(stderr, "glWaitSync: sync is stub\n");
+    // pb_push(SGL_CMD_WAITSYNC);
+    // pb_push(((uint64_t*)&sync)[0]);
+    // pb_push(((uint64_t*)&sync)[1]);
+    // pb_push(flags);
+    // pb_push((&timeout)[0]);
+    // pb_push((&timeout)[1]);
+
+    // glimpl_submit();
 }
 
 void glGetInteger64v(GLenum pname, GLint64* data)
@@ -8002,7 +8124,27 @@ void glSecondaryColorP3uiv(GLenum type, const GLuint* color)
 
 void glVertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer)
 {
-    glVertexAttribPointer(index, size, type, 0, stride, pointer);
+    bool client_managed = !is_value_likely_an_offset(pointer);
+
+    glimpl_vaps[index] = (struct gl_vertex_attrib_pointer){ 
+        .index = index,
+        .size = size,
+        .type = type,
+        .normalized = GL_FALSE,
+        .stride = stride,
+        .ptr = (void*)pointer,
+        .enabled = false,
+        .client_managed = client_managed
+    };
+
+    // if (!client_managed) {
+        pb_push(SGL_CMD_VERTEXATTRIBIPOINTER);
+        pb_push(index);
+        pb_push(size);
+        pb_push(type);
+        pb_push(stride);
+        pb_push((int)((long)pointer));
+    // }
 }
 
 #ifdef _WIN32
