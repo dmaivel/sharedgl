@@ -1080,7 +1080,7 @@ void overlay_stage1(struct overlay_context *ctx)
         return;
 
     ctx->delta_ticks = clock() - ctx->current_ticks;
-    if (ctx->current_ticks)
+    if (ctx->current_ticks && ctx->delta_ticks != 0)
         ctx->fps = CLOCKS_PER_SEC / ctx->delta_ticks;
 }
 

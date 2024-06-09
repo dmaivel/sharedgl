@@ -54,6 +54,7 @@
     case GL_MAX_VIEWPORT_DIMS: \
     case GL_POINT_SIZE_RANGE: \
     case GL_POLYGON_MODE: \
+    case GL_ALIASED_POINT_SIZE_RANGE: \
         memcpy(data, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(type) * 2); \
         break; \
     default: \
@@ -7134,7 +7135,9 @@ void glGetAttachedShaders(GLuint program, GLsizei maxCount, GLsizei* count, GLui
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(shaders, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len * sizeof(GLuint));
-    *count = len;
+
+    if (count)
+        *count = len;
 }
 
 void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
@@ -7148,7 +7151,7 @@ void glGetProgramInfoLog(GLuint program, GLsizei bufSize, GLsizei* length, GLcha
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
     
-    if (length != NULL)
+    if (length)
         *length = len;
 }
 
@@ -7163,7 +7166,7 @@ void glGetShaderInfoLog(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar*
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(infoLog, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
     
-    if (length != NULL)
+    if (length)
         *length = len;
 }
 
@@ -7177,7 +7180,9 @@ void glGetShaderSource(GLuint shader, GLsizei bufSize, GLsizei* length, GLchar* 
     GLsizei len;
     memcpy(&len, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(GLsizei));
     memcpy(source, (void*)((size_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V) + sizeof(GLsizei)), len);
-    *length = len;
+
+    if (length)
+        *length = len;
 }
 
 void glGetUniformfv(GLuint program, GLint location, GLfloat* params)
