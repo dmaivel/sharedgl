@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <client/glimpl.h>
 #include <client/platform/gldrv.h>
+#include <client/platform/windrv.h>
 
 #include <stdbool.h>
 
@@ -41,6 +42,57 @@ static struct pfd_depth_info pfd_depths[4] = {
     { 16, 0 },
     { 24, 8 }
 };
+
+static HMODULE g_hModule = 0;
+
+void WinDrvSetModuleAddress(HMODULE module)
+{
+    g_hModule = module;
+}
+
+static const char *wgl_extensions = "WGL_ARB_create_context WGL_ARB_create_context_profile WGL_ARB_extensions_string WGL_ARB_pixel_format";
+
+const char* wglGetExtensionsStringARB(HDC hdc)
+{
+    return wgl_extensions;
+}
+
+HGLRC wglCreateContextAttribsARB(HDC hDC, HGLRC hShareContext, const int *attribList)
+{
+    return (HGLRC)1;
+}
+
+BOOL wglGetPixelFormatAttribivARB(HDC hdc,
+                                  int iPixelFormat,
+                                  int iLayerPlane,
+                                  UINT nAttributes,
+                                  const int *piAttributes,
+                                  int *piValues)
+{
+    return TRUE;
+}
+
+BOOL wglGetPixelFormatAttribfvARB(HDC hdc,
+                                  int iPixelFormat,
+                                  int iLayerPlane,
+                                  UINT nAttributes,
+                                  const int *piAttributes,
+                                  FLOAT *pfValues)
+{
+    return TRUE;
+}
+
+BOOL wglChoosePixelFormatARB(HDC hdc,
+                             const int *piAttribIList,
+                             const FLOAT *pfAttribFList,
+                             UINT nMaxFormats,
+                             int *piFormats,
+                             UINT *nNumFormats)
+{
+    *piFormats = 1;
+    *nNumFormats = 1;
+    return TRUE;
+}
 
 static void pfdAdd(
     bool doublebuffer, bool gdi, unsigned int accum,
@@ -168,13 +220,12 @@ BOOL APIENTRY DrvShareLists(DHGLRC dhglrc1, DHGLRC dhglrc2)
 PROC APIENTRY DrvGetProcAddress(LPCSTR lpszProc)
 {
     /*
-     * WGL Extensions
+     * WGL extensions, GL functions
+     * a table for WGL extensions makes sense, but we export every function so a table isn't needed
+     * commented out || (lpszProc[0] == 'w' && lpszProc[1] == 'g' && lpszProc[2] == 'l'), some apps dont like that part
      */
-    if (lpszProc[0] == 'w' && lpszProc[1] == 'g' && lpszProc[2] == 'l')
-        return NULL;
-
-    if (lpszProc[0] == 'g' && lpszProc[1] == 'l')
-        return GetProcAddress(GetModuleHandleW(NULL), lpszProc);
+    if ((lpszProc[0] == 'g' && lpszProc[1] == 'l'))
+        return GetProcAddress(g_hModule, lpszProc);
 
     return NULL;
 }

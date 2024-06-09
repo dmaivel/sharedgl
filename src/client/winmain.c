@@ -1,7 +1,7 @@
 #ifdef _WIN32 /* globbed */
 
 #include <windows.h>
-#include <client/platform/wgl.h>
+#include <client/platform/windrv.h>
 #include <client/glimpl.h>
 
 VOID Main()
@@ -14,8 +14,10 @@ VOID Main()
 
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) 
 {
-    if (reason == DLL_PROCESS_ATTACH)
+    if (reason == DLL_PROCESS_ATTACH) {
+        WinDrvSetModuleAddress(module);
         Main();
+    }
     if (reason == DLL_PROCESS_DETACH)
         glimpl_goodbye();
 
