@@ -68,17 +68,14 @@ options:
 ```
 
 ### Environment variables
-When running clients, a user may specify one or more of the following environment variables for version control:
-```
-GL_VERSION_OVERRIDE=X.X
-GLX_VERSION_OVERRIDE=X.X
-GLSL_VERSION_OVERRIDE=X.X
-```
 
-If networking on the server is enabled (using `-n`), the client must be aware of the address and port (both of which are outputted by the server):
-```
-SGL_NET_OVER_SHARED=HOST_ADDRESS:PORT
-```
+| **Option**                | **Legal values** | **Default** | **Description**                                                                                                                                                                                                                       |
+|---------------------------|------------------|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GL_VERSION_OVERRIDE       | Integer.Integer  | 3.3         | Override the OpenGL version on the client side.                                                                                                                                                                                       |
+| GLX_VERSION_OVERRIDE      | Integer.Integer  | 1.4         | Override the GLX version on the client side.                                                                                                                                                                                          |
+| GLSL_VERSION_OVERRIDE     | Integer.Integer  | 3.3         | Override the GLSL version on the client side.                                                                                                                                                                                         |
+| SGL_NET_OVER_SHARED       | Ip:Port          |             | If networking is enabled, this environment variable must exist on the guest.                                                                                                                                                          |
+| SGL_RUN_WITH_LOW_PRIORITY | Boolean          | true        | On older CPUs, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. This may not be needed on systems with newer CPUs. Set on the client side. |
 
 ### Network
 
