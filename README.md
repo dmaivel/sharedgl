@@ -249,6 +249,7 @@ This list describes the amount of functions left from each standard to implement
 - New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run
 
 # Troubleshooting
+
 If you encounter "Entry point retrieval is broken" on applications that use GLFW, use `LD_PRELOAD`.
 ---
 If you encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`:
