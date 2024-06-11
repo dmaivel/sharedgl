@@ -250,27 +250,22 @@ This list describes the amount of functions left from each standard to implement
 
 # Troubleshooting
 
-If you encounter "Entry point retrieval is broken" on applications that use GLFW, use `LD_PRELOAD`.
----
-If you encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`:
-- Try changing the GL version (i.e `-g 2.0`)
-- Allocate more memory (i.e `-m 256`)
----
-Application shows a blank window in the virtual machine?
-- Make sure the shared memory device passes through all the memory (check the size)
----
-Application doesn't run in the virtual machine? (Process exists but stalls)
-- Make sure the server is running
-    - If you start the server and it still won't run, shut down the VM, run `sudo ./sglrenderer -x`, start the server, start the VM
-- Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for linux)
----
-Server reports, `err: failed to open shared memory 'sharedgl_shared_memory'`
-- This (usually) happens when the shared memory file is created before the server runs, meaning the file was created with different privileges. You may either:
-    - Run the server as `sudo`
-    - Shutdown the VM, run `sudo ./sglrenderer -x`, start the server, then start the VM
----
-Client outputs, `glimpl_init: failed to find memory` to the terminal
-- This occurs in VMs when you do not pass a shared memory device, which is required for the clients to see the shared memory
+1. If you encounter "Entry point retrieval is broken" on applications that use GLFW, use `LD_PRELOAD`.
+2. If you encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`:
+    - Try changing the GL version (i.e `-g 2.0`)
+    - Allocate more memory (i.e `-m 256`)
+3. Application shows a blank window in the virtual machine?
+    - Make sure the shared memory device passes through all the memory (check the size)
+4. Application doesn't run in the virtual machine? (Process exists but stalls)
+    - Make sure the server is running
+        - If you start the server and it still won't run, shut down the VM, run `sudo ./sglrenderer -x`, start the server, start the VM
+    - Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for linux)
+5. Server reports, `err: failed to open shared memory 'sharedgl_shared_memory'`
+    - This (usually) happens when the shared memory file is created before the server runs, meaning the file was created with different privileges. You may either:
+        - Run the server as `sudo`
+        - Shutdown the VM, run `sudo ./sglrenderer -x`, start the server, then start the VM
+6. Client outputs, `glimpl_init: failed to find memory` to the terminal
+    - This occurs in VMs when you do not pass a shared memory device, which is required for the clients to see the shared memory
 
 # Showcase
 
