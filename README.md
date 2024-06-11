@@ -246,12 +246,13 @@ This list describes the amount of functions left from each standard to implement
 - Clients may reserve too much memory according to server's allocated memory
 - No Vsync
 - Resizing is possible, no proper implementation
-- Some GLFW applications cant request OpenGL profiles
 - New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run
 
 # Troubleshooting
-You may encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`. Although the code base is buggy, these are some tips to try to further attempts to get an application to work:
-- Change the GL version (i.e `-g 2.0`)
+If you encounter "Entry point retrieval is broken" on applications that use GLFW, use `LD_PRELOAD`.
+---
+If you encounter weird crashes/faults/errors such as `IOT instruction` or `No provider of glXXX found.`:
+- Try changing the GL version (i.e `-g 2.0`)
 - Allocate more memory (i.e `-m 256`)
 ---
 Application shows a blank window in the virtual machine?

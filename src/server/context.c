@@ -73,12 +73,22 @@ void sgl_context_destroy(struct sgl_host_context *ctx)
     free(ctx);
 }
 
+#define SGL_DEBUG_EMIT_FRAMES
+#ifdef SGL_DEBUG_EMIT_FRAMES
+SDL_Window *window;
+#endif
+
 void sgl_set_current(struct sgl_host_context *ctx)
 {
     if (ctx == NULL)
         SDL_GL_MakeCurrent(NULL, NULL);
     else
         SDL_GL_MakeCurrent(ctx->window, ctx->gl_context);
+
+#ifdef SGL_DEBUG_EMIT_FRAMES
+    if (ctx)
+        window = ctx->window;
+#endif
 }
 
 void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int vflip, int format, size_t mem_usage)
@@ -106,6 +116,10 @@ void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int v
     }
 
     overlay_stage2(&overlay_ctx, data, width, mem_usage);
+
+#ifdef SGL_DEBUG_EMIT_FRAMES
+    SDL_GL_SwapWindow(window);
+#endif
 
     return data;
 }

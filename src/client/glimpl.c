@@ -19,6 +19,7 @@
 #endif
 
 #define GLIMPL_MAX_OBJECTS 256
+#define GLIMPL_MAX_TEXTURES 8
 
 // used by glGet*v
 #define GL_GET_MEMCPY_RETVAL_EX(name, data, type) \
@@ -113,9 +114,11 @@ struct gl_map_buffer {
 struct gl_vertex_attrib_pointer     glimpl_vaps[GLIMPL_MAX_OBJECTS];
 
 struct gl_color_tex_vertex_pointer  glimpl_color_ptr,
-                                    glimpl_tex_coord_ptr,
+                                    glimpl_tex_coord_ptr[GLIMPL_MAX_TEXTURES],
                                     glimpl_vertex_ptr,
                                     glimpl_color2_ptr;
+
+int                                 glimpl_client_active_texture = 0;
 
 struct gl_normal_index_pointer      glimpl_normal_ptr,
                                     glimpl_index_pointer,
@@ -578,7 +581,7 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
         for (int i = 0; i < max_index; i++) {
             for (int j = 0; j < glimpl_vertex_ptr.size; j++)
                 pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_normal_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
+            for (int j = 0; j < (glimpl_normal_ptr.stride / sizeof(float)) - glimpl_vertex_ptr.size; j++)
                 fvertices++;
         }
 
@@ -617,22 +620,49 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
         pb_push(0);
     }
 
-    if (glimpl_tex_coord_ptr.in_use) {
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_tex_coord_ptr.size);
-        const float *fvertices = glimpl_tex_coord_ptr.pointer;
+    for (int t = 0; t < GLIMPL_MAX_TEXTURES; t++) {
+        if (glimpl_tex_coord_ptr[t].in_use) {
+            pb_push(SGL_CMD_VP_UPLOAD);
+            pb_push(max_index * glimpl_tex_coord_ptr[t].size);
+            switch (glimpl_tex_coord_ptr[t].type) {
+            case GL_SHORT: {
+                const short *svertices = glimpl_tex_coord_ptr[t].pointer;
 
-        for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_tex_coord_ptr.size; j++)
-                pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_tex_coord_ptr.stride / 4) - glimpl_tex_coord_ptr.size; j++)
-                fvertices++;
+                // assuming size = 2
+                for (int i = 0; i < max_index; i++) {
+                    for (int j = 0; j < glimpl_tex_coord_ptr[t].size; j += 2) {
+                        pb_push((svertices[0] << 16) | svertices[1]);
+                        svertices++;
+                        svertices++;
+                    }
+                    for (int j = 0; j < (glimpl_tex_coord_ptr[t].stride / sizeof(short)) - glimpl_tex_coord_ptr[t].size; j++)
+                        svertices++;
+                    // svertices += glimpl_tex_coord_ptr[t].stride / sizeof(short);
+                }
+            }
+            default: {
+                const float *fvertices = glimpl_tex_coord_ptr[t].pointer;
+
+                for (int i = 0; i < max_index; i++) {
+                    for (int j = 0; j < glimpl_tex_coord_ptr[t].size; j++)
+                        pb_pushf(*fvertices++);
+                    for (int j = 0; j < (glimpl_tex_coord_ptr[t].stride / sizeof(float)) - glimpl_tex_coord_ptr[t].size; j++)
+                        fvertices++;
+                }
+            }
+            }
+
+            pb_push(SGL_CMD_CLIENTACTIVETEXTURE);
+            pb_push(GL_TEXTURE0 + t);
+
+            pb_push(SGL_CMD_ENABLECLIENTSTATE);
+            pb_push(GL_TEXTURE_COORD_ARRAY);
+
+            pb_push(SGL_CMD_TEXCOORDPOINTER);
+            pb_push(glimpl_tex_coord_ptr[t].size);
+            pb_push(glimpl_tex_coord_ptr[t].type);
+            pb_push(0);
         }
-
-        pb_push(SGL_CMD_TEXCOORDPOINTER);
-        pb_push(glimpl_tex_coord_ptr.size);
-        pb_push(glimpl_tex_coord_ptr.type);
-        pb_push(0);
     }
 
     if (glimpl_vertex_ptr.in_use) {
@@ -643,7 +673,7 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
         for (int i = 0; i < max_index; i++) {
             for (int j = 0; j < glimpl_vertex_ptr.size; j++)
                 pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_vertex_ptr.stride / 4) - glimpl_vertex_ptr.size; j++)
+            for (int j = 0; j < (glimpl_vertex_ptr.stride / sizeof(float)) - glimpl_vertex_ptr.size; j++)
                 fvertices++;
         }
 
@@ -1009,6 +1039,30 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     // else {
     //     glimpl_push_client_pointers(mode, count);
     // }
+
+    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++) {
+        struct gl_vertex_attrib_pointer *vap = &glimpl_vaps[i];
+        if (vap->client_managed) {
+            bool is_ptr_offset = is_value_likely_an_offset(vap->ptr);
+            if (!is_ptr_offset) {
+                pb_push(SGL_CMD_VP_UPLOAD);
+                pb_push(vap->size * count);
+                for (int i = 0; i < vap->size * count; i++)
+                    pb_push(vap->ptr[i]);
+            }
+
+            pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
+            pb_push(vap->index);
+            pb_push(vap->size);
+            pb_push(vap->type);
+            pb_push(vap->normalized);
+            pb_push(vap->stride);
+            pb_push(is_ptr_offset ? (int)(long)vap->ptr : 0xFFFFFFFF); // force server to use upload
+
+            pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
+            pb_push(vap->index);
+        }
+    }
 
     glimpl_push_client_pointers(mode, count);
 
@@ -1685,12 +1739,12 @@ void glNormalPointer(GLenum type, GLsizei stride, const void* pointer)
 
 void glTexCoordPointer(GLint size, GLenum type, GLsizei stride, const void* pointer)
 {
-    glimpl_tex_coord_ptr = (struct gl_color_tex_vertex_pointer){
+    glimpl_tex_coord_ptr[glimpl_client_active_texture] = (struct gl_color_tex_vertex_pointer){
         .size = size,
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = glimpl_tex_coord_ptr.in_use
+        .in_use = glimpl_tex_coord_ptr[glimpl_client_active_texture].in_use
     };
 }
 
@@ -2964,7 +3018,7 @@ void glDisableClientState(GLenum array)
         glimpl_normal_ptr.in_use = false;
         break;
     case GL_TEXTURE_COORD_ARRAY:
-        glimpl_tex_coord_ptr.in_use = false;
+        glimpl_tex_coord_ptr[glimpl_client_active_texture].in_use = false;
         break;
     case GL_VERTEX_ARRAY:
         glimpl_vertex_ptr.in_use = false;
@@ -2985,7 +3039,7 @@ void glEnableClientState(GLenum array)
         glimpl_normal_ptr.in_use = true;
         break;
     case GL_TEXTURE_COORD_ARRAY:
-        glimpl_tex_coord_ptr.in_use = true;
+        glimpl_tex_coord_ptr[glimpl_client_active_texture].in_use = true;
         break;
     case GL_VERTEX_ARRAY:
         glimpl_vertex_ptr.in_use = true;
@@ -3056,6 +3110,8 @@ void glClientActiveTexture(GLenum texture)
 {
     pb_push(SGL_CMD_CLIENTACTIVETEXTURE);
     pb_push(texture);
+
+    glimpl_client_active_texture = texture - (GLenum)GL_TEXTURE0;
 }
 
 void glMultiTexCoord1d(GLenum target, GLdouble s)
@@ -6758,7 +6814,7 @@ void glGetPointerv(GLenum pname, GLvoid **params)
         *params = (void*)glimpl_color_ptr.pointer;
         break;
     case GL_TEXTURE_COORD_ARRAY_POINTER:
-        *params = (void*)glimpl_tex_coord_ptr.pointer;
+        *params = (void*)glimpl_tex_coord_ptr[glimpl_client_active_texture].pointer;
         break;
     default:
         *params = (void*)0;
