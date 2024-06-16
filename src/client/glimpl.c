@@ -18,6 +18,8 @@
 #include <sys/mman.h>
 #endif
 
+#define GLIMPL_USES_SHARED_MEMORY (net_ctx == NULL)
+
 #define GLIMPL_MAX_OBJECTS 256
 #define GLIMPL_MAX_TEXTURES 8
 
@@ -256,7 +258,7 @@ void glimpl_submit()
      */
     pb_push(0);
 
-    if (net_ctx == NULL) {
+    if (GLIMPL_USES_SHARED_MEMORY) {
         /*
         * lock
         */
@@ -365,7 +367,7 @@ void glimpl_report(int width, int height)
 
 void glimpl_swap_buffers(int width, int height, int vflip, int format)
 {
-    if (net_ctx == NULL) {
+    if (GLIMPL_USES_SHARED_MEMORY) {
         pb_push(SGL_CMD_REQUEST_FRAMEBUFFER);
         pb_push(width);
         pb_push(height);
@@ -481,7 +483,7 @@ void glimpl_init()
     glimpl_major = gl_version_override ? gl_version_override[0] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMAJ);
     glimpl_minor = gl_version_override ? gl_version_override[2] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMIN);
 
-    if (network == NULL) {
+    if (GLIMPL_USES_SHARED_MEMORY) {
         lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
 
         /*

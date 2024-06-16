@@ -11,9 +11,9 @@ SharedGL is an OpenGL implementation that enables 3D acceleration for Windows an
 2. [Usage](#usage)
    - [Environment variables](#environment-variables)
    - [Shared memory or network](#shared-memory-or-network)
+   - [Windows in a VM](#windows-in-a-vm)
    - [Linux](#linux)
       - [Linux in a VM](#linux-in-a-vm)
-   - [Windows in a VM](#windows-in-a-vm)
 3. [Networking](#networking)
 4. [Virtual machines](#virtual-machines)
 5. [Supported GL versions](#supported-gl-versions)
@@ -79,35 +79,7 @@ options:
 
 ### Network
 
-Starting from version `0.5.0`, network capabilities are offered. If you wish to accelerate graphics over another machine or do not wish to install any kernel drivers, use the network feature.
-
-## Linux
-For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
-
-```bash
-$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/sharedgl/build
-$ glxgears
-$ ...
-```
-
-Some applications may require adding the library to the `LD_PRELOAD` environment variable aswell, which is done the same way as shown above.
-
-Note that the Linux library does not need to be used in a virtual machine, allowing users to debug the library entirely on the host.
-
-### Linux in a VM
-
-[Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
-
-For virtual linux clients, an additional kernel module needs to be compiled in the virtual machine, resulting in a binary `sharedgl.ko` which needs to be loaded. Loading/installing can be done by running the provided script (`./kernel/linux/install.sh`), following compilation. If the module doesn't load on boot, it is recommended that you add `sharedgl` to your modprobe config.
-
-```bash
-# within 'sharedgl' directory
-cd kernel/linux
-make
-```
-
-> [!WARNING]\
-> If you move the client library to the guest from the host instead of compiling it in the guest, you may encounter the `SIGILL` exception in the virtual machine as the build compiles with the native (host) architecture. To fix, either change your cpu model to `host-model`/`host-passthrough` or comment out the `-march=native` line in the cmake script (will most likely reduce performance).
+Starting from version `0.5.0`, network capabilities are offered. If you wish to accelerate graphics over another machine or do not wish to install any kernel drivers, use the network feature. See [networking](#networking) for more information.
 
 ## Windows (in a VM)
 
@@ -177,12 +149,53 @@ There are two ways to install the library on windows:
        call wininstall.bat
        ```
 
+## Linux
+For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
+
+```bash
+$ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/sharedgl/build
+$ glxgears
+$ ...
+```
+
+Some applications may require adding the library to the `LD_PRELOAD` environment variable aswell, which is done the same way as shown above.
+
+Note that the Linux library does not need to be used in a virtual machine, allowing users to debug the library entirely on the host.
+
+### Linux in a VM
+
+[Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
+
+For virtual linux clients, an additional kernel module needs to be compiled in the virtual machine, resulting in a binary `sharedgl.ko` which needs to be loaded. Loading/installing can be done by running the provided script (`./kernel/linux/install.sh`), following compilation. If the module doesn't load on boot, it is recommended that you add `sharedgl` to your modprobe config.
+
+```bash
+# within 'sharedgl' directory
+cd kernel/linux
+make
+```
+
+> [!WARNING]\
+> If you move the client library to the guest from the host instead of compiling it in the guest, you may encounter the `SIGILL` exception in the virtual machine as the build compiles with the native (host) architecture. To fix, either change your cpu model to `host-model`/`host-passthrough` or comment out the `-march=native` line in the cmake script (will most likely reduce performance).
+
 # Networking
 
 Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
   - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
   - Ensure the client libraries are installed
   - Ensure that the environment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists in the guest (`ADDRESS` being the host's IP address)
+
+If the network feature feels too slow, you may want to modify `SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT` in `inc/network/packet.h`, which can be ranged from [1, 15360]:
+```diff
+/*
+ * 256: safe, keeps packet size under 1400 bytes
+ * 512: default
+ * 15360: largest, may result in fragmentation
+ */
+- #define SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT 512
++ #define SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT 15360
+```
+
+Note that this change will require rebuilding the client and server.
 
 # Virtual machines
 

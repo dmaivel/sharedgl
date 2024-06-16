@@ -7,8 +7,8 @@
 
 /*
  * 256: safe, keeps packet size under 1400 bytes
- * 512: medium
- * 15360: largest, not to be used over networks due to fragmentation
+ * 512: default
+ * 15360: largest, may result in fragmentation
  */
 #define SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT 512
 #define SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE (SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT * sizeof(uint32_t))
