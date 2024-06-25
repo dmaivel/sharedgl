@@ -32,7 +32,7 @@ static const char *usage =
     "    -o                 enables fps overlay on clients (shows server side fps)\n"
     "    -n                 enable network server instead of using shared memory\n"
     "    -x                 remove shared memory file\n"
-    "    -g [MAJOR.MINOR]   report specific opengl version (default: 2.1)\n"
+    "    -g [MAJOR.MINOR]   report specific opengl version (default: %d.%d)\n"
     "    -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)\n"
     "    -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)\n"
     "    -p [PORT]          if networking is enabled, specify which port to use (default: 3000)\n";
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++) {
         switch (argv[i][1]) {
         case 'h':
-            printf("%s", usage);
+            printf(usage, SGL_DEFAULT_MAJOR, SGL_DEFAULT_MINOR);
             return 0;
         case 'v':
             print_virtual_machine_arguments = true;

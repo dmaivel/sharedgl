@@ -61,7 +61,7 @@ options:
     -o                 enables fps overlay on clients (shows server side fps)
     -n                 enable networking instead of shared memory
     -x                 remove shared memory file
-    -g [MAJOR.MINOR]   report specific opengl version (default: 2.1)
+    -g [MAJOR.MINOR]   report specific opengl version (default: 3.3)
     -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)
     -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)
     -p [PORT]          if networking is enabled, specify which port to use (default: 3000)
