@@ -283,6 +283,13 @@ This list describes the amount of functions left from each standard to implement
 # Showcase
 
 <details>
+<summary>Click to reveal: Running SuperTuxKart in a windows virtual machine</summary>
+
+https://github.com/dmaivel/sharedgl/assets/38770072/c302f546-2c05-4cb7-b415-8f01ad1dce7a
+
+</details>
+
+<details>
 <summary>Click to reveal: Running minetest in a windows virtual machine (old)</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/26c6216d-72f7-45b4-9c4f-1734de0d1c6d
