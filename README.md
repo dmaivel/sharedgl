@@ -75,7 +75,7 @@ Variables labeled with `host` get their values from the host/server when their o
 |-|-|-|-|
 | GL_VERSION_OVERRIDE | Digit.Digit | `host` | Override the OpenGL version on the client side. Available for both Windows and Linux clients. |
 | GLX_VERSION_OVERRIDE | Digit.Digit | 1.4 | Override the GLX version on the client side. Only available for Linux clients. |
-| GLSL_VERSION_OVERRIDE | Digit.Digit | 3.3 | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
+| GLSL_VERSION_OVERRIDE | Digit.Digit | 4.4 | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
 | GL_VENDOR_OVERRIDE | String | `host` | Override the vendor string on the client side. Available for both Windows and Linux clients. |
 | GL_RENDERER_OVERRIDE | String | `host` | Override the renderer string on the client side. Available for both Windows and Linux clients. |
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
