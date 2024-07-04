@@ -861,7 +861,7 @@ void glBufferData(GLenum target, GLsizeiptr size, const void *data, GLenum usage
 {
     glimpl_submit();
 
-    int length = (size / sizeof(int)) + (size % sizeof(int) != 0);
+    int length = CEIL_DIV(size, 4);
 
     if (data != NULL) {
         pb_push(SGL_CMD_VP_UPLOAD);
@@ -1032,7 +1032,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
     //         pb_push(vap->type);
     //         pb_push(vap->normalized);
     //         pb_push(vap->stride);
-    //         pb_push((int)((long)vap->ptr & 0x00000000FFFFFFFF));
+    //         pb_push((int)((uintptr_t)vap->ptr & 0x00000000FFFFFFFF));
 
     //         pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
     //         pb_push(vap->index);
@@ -1059,7 +1059,7 @@ void glDrawArrays(GLenum mode, GLint first, GLsizei count)
             pb_push(vap->type);
             pb_push(vap->normalized);
             pb_push(vap->stride);
-            pb_push(is_ptr_offset ? (int)(long)vap->ptr : 0xFFFFFFFF); // force server to use upload
+            pb_push(is_ptr_offset ? (int)(uintptr_t)vap->ptr : 0xFFFFFFFF); // force server to use upload
 
             pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
             pb_push(vap->index);
@@ -1253,10 +1253,24 @@ void glGetObjectParameterivARB(void *obj, GLenum pname, GLint* params)
     *params = GL_TRUE;
 }
 
+static inline void real_glGetString(GLenum name, char *string)
+{
+    pb_push(SGL_CMD_GETSTRING);
+    pb_push(name);
+
+    glimpl_submit();
+    
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    memcpy(string, (void*)ptr, pb_read(SGL_OFFSET_REGISTER_RETVAL));
+}
+
 const GLubyte *glGetString(GLenum name)
 {
-    static char version[16] = "X.X.0 SharedGL";
+    static char version[16] = "X.X.0";
     static char glsl_vr[5] = "X.X0";
+
+    static char real_vendor[256] = "";
+    static char real_renderer[256] = "";
 
     if (version[0] == 'X') {
         version[0] = '0' + (char)glimpl_major;
@@ -1278,11 +1292,30 @@ const GLubyte *glGetString(GLenum name)
                 glsl_vr[2] = '3';
             }
         }
+
+        char *gl_vendor_override = getenv("GL_VENDOR_OVERRIDE");
+        char *gl_renderer_override = getenv("GL_RENDERER_OVERRIDE");
+
+        if (gl_vendor_override) {
+            if (strlen(gl_vendor_override) >= 256)
+                gl_vendor_override[256] = 0;
+            strcpy(real_vendor, gl_vendor_override);
+        } else {
+            real_glGetString(GL_VENDOR, real_vendor);
+        }
+
+        if (gl_renderer_override) {
+            if (strlen(gl_renderer_override) >= 256)
+                gl_renderer_override[256] = 0;
+            strcpy(real_renderer, gl_renderer_override);
+        } else {
+            real_glGetString(GL_RENDERER, real_renderer);
+        }
     }
 
     switch (name) {
-    case GL_VENDOR: return (const GLubyte *)"SharedGL";
-    case GL_RENDERER: return (const GLubyte *)"SharedGL Renderer";
+    case GL_VENDOR: return (const GLubyte *)real_vendor;
+    case GL_RENDERER: return (const GLubyte *)real_renderer;
     case GL_VERSION: return (const GLubyte *)version;
     case GL_EXTENSIONS: return (const GLubyte *)glimpl_extensions_full;
     case GL_SHADING_LANGUAGE_VERSION: return (const GLubyte *)glsl_vr;
@@ -1677,7 +1710,7 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
         pb_push(type);
         pb_push(normalized);
         pb_push(stride);
-        pb_push((int)((long)pointer));
+        pb_push((int)((uintptr_t)pointer));
     // }
 }
 
@@ -7083,7 +7116,7 @@ void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void
 {
     glimpl_submit();
 
-    int length = (size / sizeof(int)) + (size % sizeof(int) != 0);
+    int length = CEIL_DIV(size, 4);
 
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(length); /* could be very bad mistake */
@@ -8206,8 +8239,1546 @@ void glVertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei strid
         pb_push(size);
         pb_push(type);
         pb_push(stride);
-        pb_push((int)((long)pointer));
+        pb_push((int)((uintptr_t)pointer));
     // }
+}
+
+void glDrawArraysIndirect(GLenum mode, const void* indirect)
+{
+    /*
+     * to-do: instead of using this function, check if GL_DRAW_INDIRECT_BUFFER is bound
+     */
+    if (!is_value_likely_an_offset(indirect)) {
+        fprintf(stderr, "glDrawArraysIndirect: expected GL_DRAW_INDIRECT_BUFFER\n");
+        return;
+    }
+    
+    pb_push(SGL_CMD_DRAWARRAYSINDIRECT);
+    pb_push(mode);
+    pb_push((int)(uintptr_t)indirect);
+}
+
+void glDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect)
+{
+    /*
+     * to-do: instead of using this function, check if GL_DRAW_INDIRECT_BUFFER is bound
+     */
+    if (!is_value_likely_an_offset(indirect)) {
+        fprintf(stderr, "glDrawElementsIndirect: expected GL_DRAW_INDIRECT_BUFFER\n");
+        return;
+    }
+    
+    pb_push(SGL_CMD_DRAWELEMENTSINDIRECT);
+    pb_push(mode);
+    pb_push(type);
+    pb_push((int)(uintptr_t)indirect);
+}
+
+void glUniformMatrix2dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    /*
+     * to-do: support doubles
+     * im too lazy to actually support doubles so we cast to floats
+     */
+    int elem_count = count * 2 * 2;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix2fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix3dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 3 * 3;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix3fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix4dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 4 * 4;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix4fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix2x3dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 2 * 3;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix2x3fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix2x4dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 2 * 4;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix2x4fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix3x2dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 3 * 2;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix3x2fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix3x4dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 3 * 4;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix3x4fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix4x2dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 4 * 2;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix4x2fv(location, count, transpose, valuef);
+}
+
+void glUniformMatrix4x3dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 4 * 3;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glUniformMatrix4x3fv(location, count, transpose, valuef);
+}
+
+void glGetUniformdv(GLuint program, GLint location, GLdouble* params)
+{
+    // very wrong
+    glGetUniformfv(program, location, params);
+}
+
+GLint glGetSubroutineUniformLocation(GLuint program, GLenum shadertype, const GLchar* name)
+{
+    pb_push(SGL_CMD_GETSUBROUTINEUNIFORMLOCATION);
+	pb_push(program);
+	pb_push(shadertype);
+    push_string(name);
+
+	glimpl_submit();
+	return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+GLuint glGetSubroutineIndex(GLuint program, GLenum shadertype, const GLchar* name)
+{
+    pb_push(SGL_CMD_GETSUBROUTINEINDEX);
+	pb_push(program);
+	pb_push(shadertype);
+    push_string(name);
+
+	glimpl_submit();
+	return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetActiveSubroutineUniformiv(GLuint program, GLenum shadertype, GLuint index, GLenum pname, GLint* values)
+{
+    pb_push(SGL_CMD_GETACTIVESUBROUTINEUNIFORMIV);
+	pb_push(program);
+	pb_push(shadertype);
+	pb_push(index);
+	pb_push(pname);
+
+    glimpl_submit();
+    switch (pname) {
+    case GL_COMPATIBLE_SUBROUTINES: {
+        int num = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        int *vals = values;
+        for (int i = 0; i < pb_read(SGL_OFFSET_REGISTER_RETVAL); i++)
+            *vals++ = pb_read(SGL_OFFSET_REGISTER_RETVAL_V + (i * 4));
+        break;
+    }
+    default:
+        *values = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        break;
+    }
+}
+
+void glGetActiveSubroutineUniformName(GLuint program, GLenum shadertype, GLuint index, GLsizei bufsize, GLsizei* length, GLchar* name)
+{
+    pb_push(SGL_CMD_GETACTIVESUBROUTINEUNIFORMNAME);
+	pb_push(program);
+	pb_push(shadertype);
+	pb_push(index);
+	pb_push(bufsize);
+
+    glimpl_submit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(name, (void*)(ptr + sizeof(*length)), length_notptr);
+}
+
+void glGetActiveSubroutineName(GLuint program, GLenum shadertype, GLuint index, GLsizei bufsize, GLsizei* length, GLchar* name)
+{
+    pb_push(SGL_CMD_GETACTIVESUBROUTINENAME);
+	pb_push(program);
+	pb_push(shadertype);
+	pb_push(index);
+	pb_push(bufsize);
+
+    glimpl_submit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(name, (void*)(ptr + sizeof(*length)), length_notptr);
+}
+
+void glUniformSubroutinesuiv(GLenum shadertype, GLsizei count, const GLuint* indices)
+{
+    pb_push(SGL_CMD_UNIFORMSUBROUTINESUIV);
+	pb_push(shadertype);
+	pb_push(count);
+
+    for (int i = 0; i < count; i++)
+        pb_push(indices[i]);
+}
+
+void glGetUniformSubroutineuiv(GLenum shadertype, GLint location, GLuint* params)
+{
+    pb_push(SGL_CMD_GETUNIFORMSUBROUTINEUIV);
+	pb_push(shadertype);
+	pb_push(location);
+
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
+}
+
+void glGetProgramStageiv(GLuint program, GLenum shadertype, GLenum pname, GLint* values)
+{
+    pb_push(SGL_CMD_GETPROGRAMSTAGEIV);
+	pb_push(program);
+	pb_push(shadertype);
+	pb_push(pname);
+
+    glimpl_submit();
+    *values = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
+}
+
+void glPatchParameterfv(GLenum pname, const GLfloat* values)
+{
+    int count = pname == GL_PATCH_DEFAULT_OUTER_LEVEL ? 4 : 2;
+
+    pb_push(SGL_CMD_PATCHPARAMETERFV);
+	pb_push(pname);
+    pb_push(count);
+
+    for (int i = 0; i < count; i++)
+        pb_pushf(values[i]);
+}
+
+void glDeleteTransformFeedbacks(GLsizei n, const GLuint* ids)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETETRANSFORMFEEDBACKS);
+        // pb_push(1);
+
+        pb_push(ids[i]);
+    }
+}
+
+void glGenTransformFeedbacks(GLsizei n, GLuint* ids)
+{
+    GLuint *p = ids;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENTRANSFORMFEEDBACKS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetQueryIndexediv(GLenum target, GLuint index, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETQUERYINDEXEDIV);
+	pb_push(target);
+	pb_push(index);
+	pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
+}
+
+void glShaderBinary(GLsizei count, const GLuint* shaders, GLenum binaryformat, const void* binary, GLsizei length)
+{
+    pb_push(SGL_CMD_SHADERBINARY);
+	pb_push(count);
+	pb_push(binaryformat);
+	pb_push(length);
+    for (int i = 0; i < count; i++)
+        pb_push(shaders[i]);
+    pb_memcpy((void*)binary, length);
+}
+
+void glGetShaderPrecisionFormat(GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision)
+{
+    pb_push(SGL_CMD_GETSHADERPRECISIONFORMAT);
+	pb_push(shadertype);
+	pb_push(precisiontype);
+    pb_push(range[0]);
+    pb_push(range[1]);
+
+    glimpl_submit();
+    *precision = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetProgramBinary(GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, void* binary)
+{
+    // pb_push(SGL_CMD_GETPROGRAMBINARY);
+	// pb_push(program);
+	// pb_push(bufSize);
+
+    fprintf(stderr, "glGetProgramBinary: stub\n");
+
+}
+
+void glProgramBinary(GLuint program, GLenum binaryFormat, const void* binary, GLsizei length)
+{
+    pb_push(SGL_CMD_SHADERBINARY);
+	pb_push(program);
+	pb_push(binaryFormat);
+	pb_push(length);
+    pb_memcpy((void*)binary, length);
+}
+
+GLuint glCreateShaderProgramv(GLenum type, GLsizei count, const GLchar* const*strings)
+{
+    pb_push(SGL_CMD_CREATESHADERPROGRAMV);
+	pb_push(type);
+	pb_push(count);
+
+	glimpl_submit();
+	return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+
+void glDeleteProgramPipelines(GLsizei n, const GLuint* pipelines)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETEPROGRAMPIPELINES);
+        // pb_push(1);
+
+        pb_push(pipelines[i]);
+    }
+}
+
+void glGenProgramPipelines(GLsizei n, GLuint* pipelines)
+{
+    GLuint *p = pipelines;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENPROGRAMPIPELINES);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetProgramPipelineiv(GLuint pipeline, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETPROGRAMPIPELINEIV);
+    pb_push(pipeline);
+    pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glProgramUniformMatrix2fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2 * 2);
+    for (int i = 0; i < count * 2 * 2; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX2FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix3fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 3 * 3);
+    for (int i = 0; i < count * 3 * 3; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX3FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix4fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 4 * 4);
+    for (int i = 0; i < count * 4 * 4; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX4FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix2dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 2 * 2;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix2fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix3dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 3 * 3;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix3fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix4dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 4 * 4;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix4fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix2x3fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2 * 3);
+    for (int i = 0; i < count * 2 * 3; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX2X3FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix3x2fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 3 * 2);
+    for (int i = 0; i < count * 3 * 2; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX3X2FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix2x4fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2 * 4);
+    for (int i = 0; i < count * 2 * 4; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX2X4FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix4x2fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 4 * 2);
+    for (int i = 0; i < count * 4 * 2; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX4X2FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix3x4fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 3 * 4);
+    for (int i = 0; i < count * 3 * 4; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX3X4FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix4x3fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 4 * 3);
+    for (int i = 0; i < count * 4 * 3; i++)
+        pb_pushf(value[i]);
+
+    pb_push(SGL_CMD_PROGRAMUNIFORMMATRIX4X3FV);
+    pb_push(program);
+    pb_push(location);
+    pb_push(count);
+    pb_push(transpose);
+}
+
+void glProgramUniformMatrix2x3dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 2 * 3;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix2x3fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix3x2dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 3 * 2;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix3x2fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix2x4dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 2 * 4;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix2x4fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix4x2dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 4 * 2;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix4x2fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix3x4dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 3 * 4;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix3x4fv(program, location, count, transpose, valuef);
+}
+
+void glProgramUniformMatrix4x3dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
+{
+    int elem_count = count * 4 * 3;
+    GLfloat valuef[elem_count];
+    for (int i = 0; i < elem_count; i++)
+        valuef[i] = value[i];
+    glProgramUniformMatrix4x3fv(program, location, count, transpose, valuef);
+}
+
+void glGetProgramPipelineInfoLog(GLuint pipeline, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
+{
+    pb_push(SGL_CMD_GETPROGRAMPIPELINEINFOLOG);
+	pb_push(pipeline);
+	pb_push(bufSize);
+    
+    glimpl_submit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(infoLog, (void*)(ptr + sizeof(*length)), length_notptr);
+}
+
+void glVertexAttribLPointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer)
+{
+    bool client_managed = !is_value_likely_an_offset(pointer);
+
+    glimpl_vaps[index] = (struct gl_vertex_attrib_pointer){ 
+        .index = index,
+        .size = size,
+        .type = type,
+        .normalized = GL_FALSE,
+        .stride = stride,
+        .ptr = (void*)pointer,
+        .enabled = false,
+        .client_managed = client_managed
+    };
+
+    // if (!client_managed) {
+        pb_push(SGL_CMD_VERTEXATTRIBLPOINTER);
+        pb_push(index);
+        pb_push(size);
+        pb_push(type);
+        pb_push(stride);
+        pb_push((int)((uintptr_t)pointer));
+    // }
+}
+
+void glGetVertexAttribLdv(GLuint index, GLenum pname, GLdouble* params)
+{
+    // wrong
+    glGetVertexAttribdv(index, pname, params);
+}
+
+void glViewportArrayv(GLuint first, GLsizei count, const GLfloat* v)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 4);
+    for (int i = 0; i < count * 4; i++)
+        pb_pushf(v[i]);
+
+    pb_push(SGL_CMD_VIEWPORTARRAYV);
+	pb_push(first);
+	pb_push(count);
+}
+
+void glViewportIndexedfv(GLuint index, const GLfloat* v)
+{
+    glViewportIndexedf(index, v[0], v[1], v[2], v[3]);
+}
+
+void glScissorArrayv(GLuint first, GLsizei count, const GLint* v)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 4);
+    for (int i = 0; i < count * 4; i++)
+        pb_pushf(v[i]);
+
+    pb_push(SGL_CMD_SCISSORARRAYV);
+	pb_push(first);
+	pb_push(count);
+}
+
+void glScissorIndexedv(GLuint index, const GLint* v)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(4);
+    for (int i = 0; i < 4; i++)
+        pb_pushf(v[i]);
+
+    pb_push(SGL_CMD_SCISSORINDEXEDV);
+	pb_push(index);
+}
+
+void glDepthRangeArrayv(GLuint first, GLsizei count, const GLdouble* v)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count * 2);
+    for (int i = 0; i < count * 2; i++)
+        pb_pushf(v[i]);
+
+    pb_push(SGL_CMD_DEPTHRANGEARRAYV);
+	pb_push(first);
+	pb_push(count);
+}
+
+void glGetFloati_v(GLenum target, GLuint index, GLfloat* data)
+{
+    pb_push(SGL_CMD_GETINTEGERI_V);
+    pb_push(target);
+    pb_push(index);
+    glimpl_submit();
+    GL_GET_MEMCPY_RETVAL_EX(target, data, GLfloat);
+}
+
+void glGetDoublei_v(GLenum target, GLuint index, GLdouble* data)
+{
+    pb_push(SGL_CMD_GETDOUBLEI_V);
+    pb_push(target);
+    pb_push(index);
+    glimpl_submit();
+    GL_GET_MEMCPY_RETVAL_EX(target, data, GLfloat);
+}
+
+// 4.2
+
+void glDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLuint baseinstance)
+{
+    /*
+     * to-do: check if GL_ELEMENT_ARRAY_BUFFER is bound
+     */
+    if (!is_value_likely_an_offset(indices)) {
+        fprintf(stderr, "glDrawElementsInstancedBaseInstance: expected GL_ELEMENT_ARRAY_BUFFER\n");
+        return;
+    }
+
+    pb_push(SGL_CMD_DRAWELEMENTSINSTANCEDBASEINSTANCE);
+	pb_push(mode);
+	pb_push(count);
+	pb_push(type);
+    pb_push((uintptr_t)indices);
+	pb_push(instancecount);
+	pb_push(baseinstance);
+}
+
+void glDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance)
+{
+    if (!is_value_likely_an_offset(indices)) {
+        fprintf(stderr, "glDrawElementsInstancedBaseVertexBaseInstance: expected GL_ELEMENT_ARRAY_BUFFER\n");
+        return;
+    }
+
+    pb_push(SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCE);
+	pb_push(mode);
+	pb_push(count);
+	pb_push(type);
+    pb_push((uintptr_t)indices);
+	pb_push(instancecount);
+	pb_push(basevertex);
+	pb_push(baseinstance);
+}
+
+void glGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
+{
+    fprintf(stderr, "glGetInternalformativ: stub\n");
+}
+
+void glGetActiveAtomicCounterBufferiv(GLuint program, GLuint bufferIndex, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETACTIVEATOMICCOUNTERBUFFERIV);
+	pb_push(program);
+	pb_push(bufferIndex);
+	pb_push(pname);
+
+    glimpl_submit();
+    switch (pname) {
+    case GL_ATOMIC_COUNTER_BUFFER_ACTIVE_ATOMIC_COUNTER_INDICES: {
+        int num = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        int *vals = params;
+        for (int i = 0; i < pb_read(SGL_OFFSET_REGISTER_RETVAL); i++)
+            *vals++ = pb_read(SGL_OFFSET_REGISTER_RETVAL_V + (i * 4));
+        break;
+    }
+    default:
+        *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        break;
+    }
+}
+
+// 4.3
+
+void glClearBufferData(GLenum target, GLenum internalformat, GLenum format, GLenum type, const void* data)
+{
+    pb_push(SGL_CMD_CLEARBUFFERDATA);
+	pb_push(target);
+	pb_push(internalformat);
+	pb_push(format);
+	pb_push(type);
+    pb_push(*(unsigned int*)data);
+}
+
+void glClearBufferSubData(GLenum target, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void* data)
+{
+    pb_push(SGL_CMD_CLEARBUFFERSUBDATA);
+	pb_push(target);
+	pb_push(internalformat);
+	pb_push(offset);
+	pb_push(size);
+	pb_push(format);
+	pb_push(type);
+    pb_push(*(unsigned int*)data);
+}
+
+void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETFRAMEBUFFERPARAMETERIV);
+	pb_push(target);
+	pb_push(pname);
+    
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)
+{
+    fprintf(stderr, "glGetInternalformati64v: stub\n");
+}
+
+void glInvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum* attachments)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(numAttachments);
+    for (int i = 0; i < numAttachments; i++)
+        pb_pushf(attachments[i]);
+
+    pb_push(SGL_CMD_INVALIDATEFRAMEBUFFER);
+	pb_push(target);
+	pb_push(numAttachments);
+}
+
+void glInvalidateSubFramebuffer(GLenum target, GLsizei numAttachments, const GLenum* attachments, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(numAttachments);
+    for (int i = 0; i < numAttachments; i++)
+        pb_pushf(attachments[i]);
+
+    pb_push(SGL_CMD_INVALIDATESUBFRAMEBUFFER);
+	pb_push(target);
+	pb_push(numAttachments);
+	pb_push(x);
+	pb_push(y);
+	pb_push(width);
+	pb_push(height);
+}
+
+void glMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride)
+{
+    for (int i = 0; i < drawcount; i++)
+        glDrawArraysIndirect(mode, (char *)indirect + i * stride);
+}
+
+void glMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride)
+{
+    for (int i = 0; i < drawcount; i++)
+        glDrawElementsIndirect(mode, type, (char *)indirect + i * stride);
+}
+
+void glGetProgramInterfaceiv(GLuint program, GLenum programInterface, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETPROGRAMINTERFACEIV);
+	pb_push(program);
+	pb_push(programInterface);
+	pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+GLuint glGetProgramResourceIndex(GLuint program, GLenum programInterface, const GLchar* name)
+{
+    pb_push(SGL_CMD_GETPROGRAMRESOURCEINDEX);
+	pb_push(program);
+	pb_push(programInterface);
+    push_string(name);
+
+	glimpl_submit();
+	return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetProgramResourceName(GLuint program, GLenum programInterface, GLuint index, GLsizei bufSize, GLsizei* length, GLchar* name)
+{
+    pb_push(SGL_CMD_GETPROGRAMRESOURCENAME);
+	pb_push(program);
+	pb_push(programInterface);
+	pb_push(index);
+	pb_push(bufSize);
+    
+    glimpl_submit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(name, (void*)(ptr + sizeof(*length)), length_notptr);
+}
+
+void glGetProgramResourceiv(GLuint program, GLenum programInterface, GLuint index, GLsizei propCount, const GLenum* props, GLsizei bufSize, GLsizei* length, GLint* params)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(propCount);
+    for (int i = 0; i < propCount; i++)
+        pb_push(props[i]);
+
+    pb_push(SGL_CMD_GETPROGRAMRESOURCEIV);
+	pb_push(program);
+	pb_push(programInterface);
+	pb_push(index);
+	pb_push(propCount);
+	pb_push(bufSize);
+
+    glimpl_submit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(params, (void*)(ptr + sizeof(*length)), length_notptr * 4);
+}
+
+GLint glGetProgramResourceLocation(GLuint program, GLenum programInterface, const GLchar* name)
+{
+    pb_push(SGL_CMD_GETPROGRAMRESOURCELOCATION);
+	pb_push(program);
+	pb_push(programInterface);
+    push_string(name);
+
+	glimpl_submit();
+	return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+GLint glGetProgramResourceLocationIndex(GLuint program, GLenum programInterface, const GLchar* name)
+{
+    pb_push(SGL_CMD_GETPROGRAMRESOURCELOCATIONINDEX);
+	pb_push(program);
+	pb_push(programInterface);
+    push_string(name);
+
+	glimpl_submit();
+	return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled)
+{
+
+}
+
+void glDebugMessageInsert(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf)
+{
+
+}
+
+void glDebugMessageCallback(GLDEBUGPROC callback, const void* userParam)
+{
+
+}
+
+GLuint glGetDebugMessageLog(GLuint count, GLsizei bufSize, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* messageLog)
+{
+
+}
+
+void glPushDebugGroup(GLenum source, GLuint id, GLsizei length, const GLchar* message)
+{
+
+}
+
+void glObjectLabel(GLenum identifier, GLuint name, GLsizei length, const GLchar* label)
+{
+
+}
+
+void glGetObjectLabel(GLenum identifier, GLuint name, GLsizei bufSize, GLsizei* length, GLchar* label)
+{
+
+}
+
+void glObjectPtrLabel(const void* ptr, GLsizei length, const GLchar* label)
+{
+
+}
+
+void glGetObjectPtrLabel(const void* ptr, GLsizei bufSize, GLsizei* length, GLchar* label)
+{
+
+}
+
+// 4.4
+
+void glBufferStorage(GLenum target, GLsizeiptr size, const void* data, GLbitfield flags)
+{
+    glimpl_submit();
+
+    int length = CEIL_DIV(size, 4);
+
+    if (data != NULL) {
+        pb_push(SGL_CMD_VP_UPLOAD);
+        pb_push(length); /* could be very bad mistake */
+        unsigned int *idata = (unsigned int*)data;
+        for (int i = 0; i < length; i++)
+            pb_push(idata[i]);
+    }
+    
+    pb_push(SGL_CMD_BUFFERSTORAGE);
+    pb_push(target);
+    pb_push(size);
+    pb_push(data != NULL);
+    pb_push(flags);
+
+    glimpl_submit();
+}
+
+void glClearTexImage(GLuint texture, GLint level, GLenum format, GLenum type, const void* data)
+{
+    pb_push(SGL_CMD_CLEARTEXIMAGE);
+	pb_push(texture);
+	pb_push(level);
+	pb_push(format);
+	pb_push(type);
+    pb_push(*(unsigned int*)data);
+}
+
+void glClearTexSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* data)
+{
+    pb_push(SGL_CMD_CLEARTEXSUBIMAGE);
+	pb_push(texture);
+	pb_push(level);
+	pb_push(xoffset);
+	pb_push(yoffset);
+	pb_push(zoffset);
+	pb_push(width);
+	pb_push(height);
+	pb_push(depth);
+	pb_push(format);
+	pb_push(type);
+    pb_push(*(unsigned int*)data);
+}
+
+void glBindBuffersRange(GLenum target, GLuint first, GLsizei count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes)
+{
+    pb_push(SGL_CMD_BINDBUFFERSRANGE);
+    pb_push(target);
+	pb_push(first);
+	pb_push(count);
+    for (int i = 0; i < count; i++) {
+        pb_push(buffers[i]);
+        pb_push(offsets[i]);
+        pb_push(sizes[i]);
+    }
+}
+
+void glBindTextures(GLuint first, GLsizei count, const GLuint* textures)
+{
+    // to-do: have compatability option?
+    // for (GLuint i = 0; i < count; i++) {
+    //     glActiveTexture(GL_TEXTURE0 + first + i);
+    //     glBindTexture(GL_TEXTURE_2D, textures[i]);
+    // }
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count);
+    for (int i = 0; i < count; i++)
+        pb_push(textures[i]);
+
+    pb_push(SGL_CMD_BINDTEXTURES);
+	pb_push(first);
+	pb_push(count);
+}
+
+void glBindSamplers(GLuint first, GLsizei count, const GLuint* samplers)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count);
+    for (int i = 0; i < count; i++)
+        pb_push(samplers[i]);
+
+    pb_push(SGL_CMD_BINDSAMPLERS);
+	pb_push(first);
+	pb_push(count);
+}
+
+void glBindImageTextures(GLuint first, GLsizei count, const GLuint* textures)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(count);
+    for (int i = 0; i < count; i++)
+        pb_push(textures[i]);
+
+    pb_push(SGL_CMD_BINDIMAGETEXTURES);
+	pb_push(first);
+	pb_push(count);
+}
+
+void glBindVertexBuffers(GLuint first, GLsizei count, const GLuint* buffers, const GLintptr* offsets, const GLsizei* strides)
+{
+    pb_push(SGL_CMD_BINDVERTEXBUFFERS);
+	pb_push(first);
+	pb_push(count);
+    for (int i = 0; i < count; i++) {
+        pb_push(buffers[i]);
+        pb_push(offsets[i]);
+        pb_push(strides[i]);
+    }
+}
+
+// 4.5
+
+void glCreateTransformFeedbacks(GLsizei n, GLuint* ids)
+{
+    GLuint *p = ids;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATETRANSFORMFEEDBACKS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetTransformFeedbackiv(GLuint xfb, GLenum pname, GLint* param)
+{
+
+}
+
+void glGetTransformFeedbacki_v(GLuint xfb, GLenum pname, GLuint index, GLint* param)
+{
+
+}
+
+void glGetTransformFeedbacki64_v(GLuint xfb, GLenum pname, GLuint index, GLint64* param)
+{
+
+}
+
+void glCreateBuffers(GLsizei n, GLuint* buffers)
+{
+    GLuint *p = buffers;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATEBUFFERS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void* data, GLbitfield flags)
+{
+
+}
+
+void glNamedBufferData(GLuint buffer, GLsizeiptr size, const void* data, GLenum usage)
+{
+
+}
+
+void glNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, const void* data)
+{
+
+}
+
+void glClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void* data)
+{
+
+}
+
+void glClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void* data)
+{
+
+}
+
+void* glMapNamedBuffer(GLuint buffer, GLenum access)
+{
+
+}
+
+void* glMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
+{
+
+}
+
+void glGetNamedBufferParameteriv(GLuint buffer, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetNamedBufferParameteri64v(GLuint buffer, GLenum pname, GLint64* params)
+{
+
+}
+
+void glGetNamedBufferPointerv(GLuint buffer, GLenum pname, void* *params)
+{
+
+}
+
+void glGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, void* data)
+{
+
+}
+
+void glCreateFramebuffers(GLsizei n, GLuint* framebuffers)
+{
+    GLuint *p = framebuffers;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATEFRAMEBUFFERS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum* bufs)
+{
+    
+}
+
+void glInvalidateNamedFramebufferData(GLuint framebuffer, GLsizei numAttachments, const GLenum* attachments)
+{
+
+}
+
+void glInvalidateNamedFramebufferSubData(GLuint framebuffer, GLsizei numAttachments, const GLenum* attachments, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+
+}
+
+void glClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value)
+{
+
+}
+
+void glClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value)
+{
+
+}
+
+void glClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value)
+{
+
+}
+
+void glGetNamedFramebufferParameteriv(GLuint framebuffer, GLenum pname, GLint* param)
+{
+
+}
+
+void glGetNamedFramebufferAttachmentParameteriv(GLuint framebuffer, GLenum attachment, GLenum pname, GLint* params)
+{
+
+}
+
+void glCreateRenderbuffers(GLsizei n, GLuint* renderbuffers)
+{
+    GLuint *p = renderbuffers;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATERENDERBUFFERS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetNamedRenderbufferParameteriv(GLuint renderbuffer, GLenum pname, GLint* params)
+{
+
+}
+
+void glCreateTextures(GLenum target, GLsizei n, GLuint* textures)
+{
+    GLuint *p = textures;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATETEXTURES);
+        pb_push(target);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glTextureSubImage1D(GLuint texture, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void* pixels)
+{
+
+}
+
+void glTextureSubImage3D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
+{
+
+}
+
+void glCompressedTextureSubImage1D(GLuint texture, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void* data)
+{
+
+}
+
+void glCompressedTextureSubImage2D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void* data)
+{
+
+}
+
+void glCompressedTextureSubImage3D(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void* data)
+{
+
+}
+
+void glTextureParameterfv(GLuint texture, GLenum pname, const GLfloat* param)
+{
+
+}
+
+void glTextureParameterIiv(GLuint texture, GLenum pname, const GLint* params)
+{
+
+}
+
+void glTextureParameterIuiv(GLuint texture, GLenum pname, const GLuint* params)
+{
+
+}
+
+void glTextureParameteriv(GLuint texture, GLenum pname, const GLint* param)
+{
+
+}
+
+void glGetTextureImage(GLuint texture, GLint level, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
+{
+
+}
+
+void glGetCompressedTextureImage(GLuint texture, GLint level, GLsizei bufSize, void* pixels)
+{
+
+}
+
+void glGetTextureLevelParameterfv(GLuint texture, GLint level, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetTextureLevelParameteriv(GLuint texture, GLint level, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetTextureParameterfv(GLuint texture, GLenum pname, GLfloat* params)
+{
+
+}
+
+void glGetTextureParameterIiv(GLuint texture, GLenum pname, GLint* params)
+{
+
+}
+
+void glGetTextureParameterIuiv(GLuint texture, GLenum pname, GLuint* params)
+{
+
+}
+
+void glGetTextureParameteriv(GLuint texture, GLenum pname, GLint* params)
+{
+
+}
+
+void glCreateVertexArrays(GLsizei n, GLuint* arrays)
+{
+    GLuint *p = arrays;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATEVERTEXARRAYS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glVertexArrayVertexBuffers(GLuint vaobj, GLuint first, GLsizei count, const GLuint* buffers, const GLintptr* offsets, const GLsizei* strides)
+{
+
+}
+
+void glGetVertexArrayiv(GLuint vaobj, GLenum pname, GLint* param)
+{
+
+}
+
+void glGetVertexArrayIndexediv(GLuint vaobj, GLuint index, GLenum pname, GLint* param)
+{
+
+}
+
+void glGetVertexArrayIndexed64iv(GLuint vaobj, GLuint index, GLenum pname, GLint64* param)
+{
+
+}
+
+void glCreateSamplers(GLsizei n, GLuint* samplers)
+{
+    GLuint *p = samplers;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATESAMPLERS);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glCreateProgramPipelines(GLsizei n, GLuint* pipelines)
+{
+    GLuint *p = pipelines;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATEPROGRAMPIPELINES);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glCreateQueries(GLenum target, GLsizei n, GLuint* ids)
+{
+    GLuint *p = ids;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_CREATEQUERIES);
+        pb_push(target);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
+{
+
+}
+
+void glGetCompressedTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLsizei bufSize, void* pixels)
+{
+
+}
+
+void glGetnCompressedTexImage(GLenum target, GLint lod, GLsizei bufSize, void* pixels)
+{
+
+}
+
+void glGetnTexImage(GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
+{
+
+}
+
+void glGetnUniformdv(GLuint program, GLint location, GLsizei bufSize, GLdouble* params)
+{
+
+}
+
+void glGetnUniformfv(GLuint program, GLint location, GLsizei bufSize, GLfloat* params)
+{
+
+}
+
+void glGetnUniformiv(GLuint program, GLint location, GLsizei bufSize, GLint* params)
+{
+
+}
+
+void glGetnUniformuiv(GLuint program, GLint location, GLsizei bufSize, GLuint* params)
+{
+
+}
+
+void glReadnPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLsizei bufSize, void* data)
+{
+
+}
+
+void glGetnMapdv(GLenum target, GLenum query, GLsizei bufSize, GLdouble* v)
+{
+
+}
+
+void glGetnMapfv(GLenum target, GLenum query, GLsizei bufSize, GLfloat* v)
+{
+
+}
+
+void glGetnMapiv(GLenum target, GLenum query, GLsizei bufSize, GLint* v)
+{
+
+}
+
+void glGetnPixelMapfv(GLenum map, GLsizei bufSize, GLfloat* values)
+{
+
+}
+
+void glGetnPixelMapuiv(GLenum map, GLsizei bufSize, GLuint* values)
+{
+
+}
+
+void glGetnPixelMapusv(GLenum map, GLsizei bufSize, GLushort* values)
+{
+
+}
+
+void glGetnPolygonStipple(GLsizei bufSize, GLubyte* pattern)
+{
+
+}
+
+void glGetnColorTable(GLenum target, GLenum format, GLenum type, GLsizei bufSize, void* table)
+{
+
+}
+
+void glGetnConvolutionFilter(GLenum target, GLenum format, GLenum type, GLsizei bufSize, void* image)
+{
+
+}
+
+void glGetnSeparableFilter(GLenum target, GLenum format, GLenum type, GLsizei rowBufSize, void* row, GLsizei columnBufSize, void* column, void* span)
+{
+
+}
+
+void glGetnHistogram(GLenum target, GLboolean reset, GLenum format, GLenum type, GLsizei bufSize, void* values)
+{
+
+}
+
+void glGetnMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type, GLsizei bufSize, void* values)
+{
+
 }
 
 #ifdef _WIN32

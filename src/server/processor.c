@@ -35,7 +35,7 @@ static struct sgl_connection *connections = NULL;
 static bool match_connection(void *elem, void *data)
 {
     struct sgl_connection *con = elem;
-    int id = (long)data;
+    int id = (uintptr_t)data;
 
     if (con->id == id)
         sgl_context_destroy(con->ctx);
@@ -85,7 +85,7 @@ static void connection_rem(int id, struct net_context *net_ctx)
 {
     if (net_ctx != NULL)
         net_close(net_ctx, get_fd_from_id(id));
-    dynarr_free_element((void**)&connections, 0, match_connection, (void*)((long)id));
+    dynarr_free_element((void**)&connections, 0, match_connection, (void*)((uintptr_t)id));
 }
 
 static bool wait_for_submit(void *p) 
@@ -896,7 +896,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     normalized = *pb++,
                     stride = *pb++,
                     ptr = *pb++;
-                glVertexAttribPointer(index, size, type, normalized, stride, !is_value_likely_an_offset((void*)(long)ptr) ? uploaded : (void*)(long)ptr);
+                glVertexAttribPointer(index, size, type, normalized, stride, !is_value_likely_an_offset((void*)(uintptr_t)ptr) ? uploaded : (void*)(uintptr_t)ptr);
                 break;
             }
             case SGL_CMD_VIEWPORT: {
@@ -4782,7 +4782,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     type = *pb++,
                     stride = *pb++,
                     ptr = *pb++;
-                glVertexAttribIPointer(index, size, type, stride, !is_value_likely_an_offset((void*)(long)ptr) ? uploaded : (void*)(long)ptr);
+                glVertexAttribIPointer(index, size, type, stride, !is_value_likely_an_offset((void*)(uintptr_t)ptr) ? uploaded : (void*)(uintptr_t)ptr);
                 break;
             }
             case SGL_CMD_MAPBUFFERRANGE: {
@@ -4821,6 +4821,841 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 for (int i = 0; i < n; i++)
                     bufs[i] = *pb++;
                 glDrawBuffers(n, bufs);
+                break;
+            }
+            case SGL_CMD_DRAWARRAYSINDIRECT: {
+                int mode = *pb++,
+                    offset = *pb++;
+                glDrawArraysIndirect(mode, (void*)(uintptr_t)offset);
+                break;
+            }
+            case SGL_CMD_DRAWELEMENTSINDIRECT: {
+                int mode = *pb++,
+                    type = *pb++,
+                    offset = *pb++;
+                glDrawElementsIndirect(mode, type, (void*)(uintptr_t)offset);
+                break;
+            }
+            case SGL_CMD_GETSUBROUTINEUNIFORMLOCATION: {
+                int program = *pb++;
+                int shadertype = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetSubroutineUniformLocation(program, shadertype, name);
+                break;
+            }
+            case SGL_CMD_GETSUBROUTINEINDEX: {
+                int program = *pb++;
+                int shadertype = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetSubroutineIndex(program, shadertype, name);
+                break;
+            }
+            case SGL_CMD_GETACTIVESUBROUTINEUNIFORMIV: {
+                int program = *pb++;
+                int shadertype = *pb++;
+                int index = *pb++;
+                int pname = *pb++;
+
+                if (pname == GL_COMPATIBLE_SUBROUTINES) {
+                    glGetActiveSubroutineUniformiv(program, shadertype, index, GL_NUM_COMPATIBLE_SUBROUTINES, (int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                    glGetActiveSubroutineUniformiv(program, shadertype, index, GL_COMPATIBLE_SUBROUTINES, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
+                } else {
+                    glGetActiveSubroutineUniformiv(program, shadertype, index, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                }
+
+                break;
+            }
+            case SGL_CMD_GETACTIVESUBROUTINEUNIFORMNAME: {
+                int program = *pb++;
+                int shadertype = *pb++;
+                int index = *pb++;
+                int bufsize = *pb++;
+
+                glGetActiveSubroutineUniformName(program, shadertype, index, bufsize, 
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)
+                );
+
+                break;
+            }
+            case SGL_CMD_GETACTIVESUBROUTINENAME: {
+                int program = *pb++;
+                int shadertype = *pb++;
+                int index = *pb++;
+                int bufsize = *pb++;
+
+                glGetActiveSubroutineName(program, shadertype, index, bufsize, 
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)
+                );
+
+                break;
+            }
+            case SGL_CMD_UNIFORMSUBROUTINESUIV: {
+                int shadertype = *pb++;
+                int count = *pb++;
+                unsigned int indices[count];
+
+                for (int i = 0; i < count; i++)
+                    indices[i] = *pb++;
+
+                glUniformSubroutinesuiv(shadertype, count, indices);
+                break;
+            }
+            case SGL_CMD_GETUNIFORMSUBROUTINEUIV: {
+                int shadertype = *pb++;
+                int location = *pb++;
+
+                glGetUniformSubroutineuiv(shadertype, location, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETPROGRAMSTAGEIV: {
+                int program = *pb++;
+                int shadertype = *pb++;
+                int pname = *pb++;
+
+                glGetProgramStageiv(program, shadertype, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_PATCHPARAMETERFV: {
+                int pname = *pb++;
+                int count = *pb++;
+                float values[count];
+                for (int i = 0; i < count; i++)
+                    values[i] = *((float*)pb++);
+                glPatchParameterfv(pname, values);
+                break;
+            }
+            case SGL_CMD_DELETETRANSFORMFEEDBACKS: {
+                unsigned int buffer = *pb++;
+                glDeleteTransformFeedbacks(1, &buffer);
+                break;
+            }
+            case SGL_CMD_GENTRANSFORMFEEDBACKS: {
+                glGenTransformFeedbacks(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETQUERYINDEXEDIV: {
+                int target = *pb++;
+                int index = *pb++;
+                int pname = *pb++;
+                glGetQueryIndexediv(target, index, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_SHADERBINARY: {
+                int count = *pb++;
+                int binaryformat = *pb++;
+                int length = *pb++;
+
+                unsigned int shaders[count];
+                for (int i = 0; i < count; i++)
+                    shaders[i] = *pb++;
+
+                void *binary = pb;
+                pb += CEIL_DIV(length, 4);
+
+                glShaderBinary(count, shaders, binaryformat, binary, length);
+                break;
+            }
+            case SGL_CMD_GETSHADERPRECISIONFORMAT: {
+                int shadertype = *pb++;
+                int precisiontype = *pb++;
+                int range[2];
+                range[0] = *pb++;
+                range[1] = *pb++;
+                glGetShaderPrecisionFormat(shadertype, precisiontype, range, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
+            case SGL_CMD_GETPROGRAMBINARY: {
+                int program = *pb++;
+                int bufSize = *pb++;
+
+
+                break;
+            }
+            case SGL_CMD_PROGRAMBINARY: {
+                int program = *pb++;
+                int binaryFormat = *pb++;
+                int length = *pb++;
+                void *binary = pb;
+                pb += CEIL_DIV(length, 4);
+
+                glProgramBinary(program, binaryFormat, binary, length);
+                break;
+            }
+            case SGL_CMD_CREATESHADERPROGRAMV: {
+                int type = *pb++;
+                int count = *pb++;
+
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = 0;
+                break;
+            }
+            case SGL_CMD_DELETEPROGRAMPIPELINES: {
+                unsigned int buffer = *pb++;
+                glDeleteProgramPipelines(1, &buffer);
+                break;
+            }
+            case SGL_CMD_GENPROGRAMPIPELINES: {
+                glGenProgramPipelines(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETPROGRAMPIPELINEIV: {
+                int pipeline = *pb++;
+                int pname = *pb++;
+                glGetProgramPipelineiv(pipeline, pname, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX2FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix2fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX3FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix3fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX4FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix4fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX2DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX3DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX4DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX2X3FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix2x3fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX3X2FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix3x2fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX2X4FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix2x4fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX4X2FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix4x2fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX3X4FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix3x4fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX4X3FV: {
+                int program = *pb++,
+                    location = *pb++,
+                    count = *pb++,
+                    transpose = *pb++;
+                glProgramUniformMatrix4x3fv(program, location, count, transpose, uploaded);
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX2X3DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX3X2DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX2X4DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX4X2DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX3X4DV: {
+                break;
+            }
+            case SGL_CMD_PROGRAMUNIFORMMATRIX4X3DV: {
+                break;
+            }
+            case SGL_CMD_GETPROGRAMPIPELINEINFOLOG: {
+                int pipeline = *pb++;
+                int bufSize = *pb++;
+                glGetProgramPipelineInfoLog(pipeline, bufSize, 
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)
+                );
+                break;
+            }
+            case SGL_CMD_VERTEXATTRIBLPOINTER: {
+                int index = *pb++,
+                    size = *pb++,
+                    type = *pb++,
+                    stride = *pb++,
+                    ptr = *pb++;
+                glVertexAttribLPointer(index, size, type, stride, !is_value_likely_an_offset((void*)(uintptr_t)ptr) ? uploaded : (void*)(uintptr_t)ptr);
+                break;
+            }
+            case SGL_CMD_VIEWPORTARRAYV: {
+                int first = *pb++;
+                int count = *pb++;
+                glViewportArrayv(first, count, uploaded);
+                break;
+            }
+            case SGL_CMD_VIEWPORTINDEXEDFV: {
+                break;
+            }
+            case SGL_CMD_SCISSORARRAYV: {
+                int first = *pb++;
+                int count = *pb++;
+                glScissorArrayv(first, count, uploaded);
+                break;
+            }
+            case SGL_CMD_SCISSORINDEXEDV: {
+                glScissorIndexedv(*pb++, uploaded);
+                break;
+            }
+            case SGL_CMD_DEPTHRANGEARRAYV: {
+                int first = *pb++;
+                int count = *pb++;
+                glDepthRangeArrayv(first, count, uploaded);
+                break;
+            }
+            case SGL_CMD_GETFLOATI_V: {
+                float v[16];
+                int target = *pb++,
+                    index = *pb++;
+                glGetFloati_v(target, index, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(float) * 16);
+                break;
+            }
+            case SGL_CMD_GETDOUBLEI_V: {
+                double v[16];
+                int target = *pb++,
+                    index = *pb++;
+                glGetDoublei_v(target, index, v);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(double) * 16);
+                break;
+            }
+            case SGL_CMD_DRAWELEMENTSINSTANCEDBASEINSTANCE: {
+                int mode = *pb++;
+                int count = *pb++;
+                int type = *pb++;
+                int indices = *pb++;
+                int instancecount = *pb++;
+                int baseinstance = *pb++;
+                glDrawElementsInstancedBaseInstance(mode, count, type, (void*)(uintptr_t)indices, instancecount, baseinstance);
+                break;
+            }
+            case SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCE: {
+                int mode = *pb++;
+                int count = *pb++;
+                int type = *pb++;
+                int indices = *pb++;
+                int instancecount = *pb++;
+                int basevertex = *pb++;
+                int baseinstance = *pb++;
+                glDrawElementsInstancedBaseVertexBaseInstance(mode, count, type, (void*)(uintptr_t)indices, instancecount, basevertex, baseinstance);
+                break;
+            }
+            case SGL_CMD_GETINTERNALFORMATIV: {
+                break;
+            }
+            case SGL_CMD_GETACTIVEATOMICCOUNTERBUFFERIV: {
+                int program = *pb++;
+                int bufferIndex = *pb++;
+                int pname = *pb++;
+
+                if (pname == GL_ATOMIC_COUNTER_BUFFER_ACTIVE_ATOMIC_COUNTER_INDICES) {
+                    glGetActiveAtomicCounterBufferiv(program, bufferIndex, GL_ATOMIC_COUNTER_BUFFER_ACTIVE_ATOMIC_COUNTERS, (int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                    glGetActiveAtomicCounterBufferiv(program, bufferIndex, GL_ATOMIC_COUNTER_BUFFER_ACTIVE_ATOMIC_COUNTER_INDICES, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
+                } else {
+                    glGetActiveAtomicCounterBufferiv(program, bufferIndex, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                }
+
+                break;
+            }
+            case SGL_CMD_CLEARBUFFERDATA: {
+                int target = *pb++;
+                int internalformat = *pb++;
+                int format = *pb++;
+                int type = *pb++;
+                unsigned int data = *pb++;
+                glClearBufferData(target, internalformat, format, type, &data);
+                break;
+            }
+            case SGL_CMD_CLEARBUFFERSUBDATA: {
+                int target = *pb++;
+                int internalformat = *pb++;
+                int offset = *pb++;
+                int size = *pb++;
+                int format = *pb++;
+                int type = *pb++;
+                unsigned int data = *pb++;
+                glClearBufferSubData(target, internalformat, offset, size, format, type, &data);
+                break;
+            }
+            case SGL_CMD_GETFRAMEBUFFERPARAMETERIV: {
+                int target = *pb++;
+                int pname = *pb++;
+                glGetFramebufferParameteriv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_GETINTERNALFORMATI64V: {
+                break;
+            }
+            case SGL_CMD_INVALIDATEFRAMEBUFFER: {
+                int target = *pb++;
+                int numAttachments = *pb++;
+                glInvalidateFramebuffer(target, numAttachments, uploaded);
+                break;
+            }
+            case SGL_CMD_INVALIDATESUBFRAMEBUFFER: {
+                int target = *pb++;
+                int numAttachments = *pb++;
+                int x = *pb++;
+                int y = *pb++;
+                int width = *pb++;
+                int height = *pb++;
+                glInvalidateSubFramebuffer(target, numAttachments, uploaded, x, y, width, height);
+                break;
+            }
+            case SGL_CMD_MULTIDRAWARRAYSINDIRECT: {
+                break;
+            }
+            case SGL_CMD_MULTIDRAWELEMENTSINDIRECT: {
+                break;
+            }
+            case SGL_CMD_GETPROGRAMINTERFACEIV: {
+                int program = *pb++;
+                int programInterface = *pb++;
+                int pname = *pb++;
+                glGetProgramInterfaceiv(program, programInterface, pname, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_GETPROGRAMRESOURCEINDEX: {
+                int program = *pb++;
+                int programInterface = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetProgramResourceIndex(program, programInterface, name);
+                break;
+            }
+            case SGL_CMD_GETPROGRAMRESOURCENAME: {
+                int program = *pb++;
+                int programInterface = *pb++;
+                int index = *pb++;
+                int bufSize = *pb++;
+                glGetProgramResourceName(program, programInterface, index, bufSize, 
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)
+                );
+                break;
+            }
+            case SGL_CMD_GETPROGRAMRESOURCEIV: {
+                int program = *pb++;
+                int programInterface = *pb++;
+                int index = *pb++;
+                int propCount = *pb++;
+                int bufSize = *pb++;
+                glGetProgramResourceiv(program, programInterface, index, propCount, uploaded, bufSize,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)
+                );
+                break;
+            }
+            case SGL_CMD_GETPROGRAMRESOURCELOCATION: {
+                int program = *pb++;
+                int programInterface = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetProgramResourceLocation(program, programInterface, name);
+                break;
+            }
+            case SGL_CMD_GETPROGRAMRESOURCELOCATIONINDEX: {
+                int program = *pb++;
+                int programInterface = *pb++;
+                char *name = (char*)pb;
+                ADVANCE_PAST_STRING();
+
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetProgramResourceLocationIndex(program, programInterface, name);
+                break;
+            }
+            case SGL_CMD_DEBUGMESSAGECONTROL: {
+                break;
+            }
+            case SGL_CMD_DEBUGMESSAGEINSERT: {
+                break;
+            }
+            case SGL_CMD_DEBUGMESSAGECALLBACK: {
+                break;
+            }
+            case SGL_CMD_GETDEBUGMESSAGELOG: {
+                break;
+            }
+            case SGL_CMD_PUSHDEBUGGROUP: {
+                break;
+            }
+            case SGL_CMD_OBJECTLABEL: {
+                break;
+            }
+            case SGL_CMD_GETOBJECTLABEL: {
+                break;
+            }
+            case SGL_CMD_OBJECTPTRLABEL: {
+                break;
+            }
+            case SGL_CMD_GETOBJECTPTRLABEL: {
+                break;
+            }
+            case SGL_CMD_BUFFERSTORAGE: {
+                int target = *pb++,
+                    size = *pb++,
+                    use_uploaded = *pb++,
+                    usage = *pb++;
+                glBufferData(target, size, use_uploaded ? uploaded : NULL, usage);
+                break;
+            }
+            case SGL_CMD_CLEARTEXIMAGE: {
+                int texture = *pb++;
+                int level = *pb++;
+                int format = *pb++;
+                int type = *pb++;
+                unsigned int data = *pb++;
+                glClearTexImage(texture, level, format, type, &data);
+                break;
+            }
+            case SGL_CMD_CLEARTEXSUBIMAGE: {
+                int texture = *pb++;
+                int level = *pb++;
+                int xoffset = *pb++;
+                int yoffset = *pb++;
+                int zoffset = *pb++;
+                int width = *pb++;
+                int height = *pb++;
+                int depth = *pb++;
+                int format = *pb++;
+                int type = *pb++;
+                unsigned int data = *pb++;
+                glClearTexSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, &data);
+                break;
+            }
+            case SGL_CMD_BINDBUFFERSRANGE: {
+                int target = *pb++;
+                int first = *pb++;
+                int count = *pb++;
+                // to-do: possibly optimize by just setting these to point into pb
+                GLuint buffers[count];
+                GLintptr offsets[count];
+                GLsizeiptr sizes[count];
+                for (int i = 0; i < count; i++) {
+                    buffers[i] = *pb++;
+                    offsets[i] = *pb++;
+                    sizes[i] = *pb++;
+                }
+                glBindBuffersRange(target, first, count, buffers, offsets, sizes);
+                break;
+            }
+            case SGL_CMD_BINDTEXTURES: {
+                int first = *pb++;
+                int count = *pb++;
+                glBindTextures(first, count, uploaded);
+                break;
+            }
+            case SGL_CMD_BINDSAMPLERS: {
+                int first = *pb++;
+                int count = *pb++;
+                glBindSamplers(first, count, uploaded);
+                break;
+            }
+            case SGL_CMD_BINDIMAGETEXTURES: {
+                int first = *pb++;
+                int count = *pb++;
+                glBindImageTextures(first, count, uploaded);
+                break;
+            }
+            case SGL_CMD_BINDVERTEXBUFFERS: {
+                int first = *pb++;
+                int count = *pb++;
+                // to-do: possibly optimize by just setting these to point into pb
+                GLuint buffers[count];
+                GLintptr offsets[count];
+                GLsizei strides[count];
+                for (int i = 0; i < count; i++) {
+                    buffers[i] = *pb++;
+                    offsets[i] = *pb++;
+                    strides[i] = *pb++;
+                }
+                glBindVertexBuffers(first, count, buffers, offsets, strides);
+                break;
+            }
+            case SGL_CMD_CREATETRANSFORMFEEDBACKS: {
+                glCreateTransformFeedbacks(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETTRANSFORMFEEDBACKIV: {
+                break;
+            }
+            case SGL_CMD_GETTRANSFORMFEEDBACKI_V: {
+                break;
+            }
+            case SGL_CMD_GETTRANSFORMFEEDBACKI64_V: {
+                break;
+            }
+            case SGL_CMD_CREATEBUFFERS: {
+                glCreateBuffers(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_NAMEDBUFFERSTORAGE: {
+                break;
+            }
+            case SGL_CMD_NAMEDBUFFERDATA: {
+                break;
+            }
+            case SGL_CMD_NAMEDBUFFERSUBDATA: {
+                break;
+            }
+            case SGL_CMD_CLEARNAMEDBUFFERDATA: {
+                break;
+            }
+            case SGL_CMD_CLEARNAMEDBUFFERSUBDATA: {
+                break;
+            }
+            case SGL_CMD_MAPNAMEDBUFFER: {
+                break;
+            }
+            case SGL_CMD_MAPNAMEDBUFFERRANGE: {
+                break;
+            }
+            case SGL_CMD_GETNAMEDBUFFERPARAMETERIV: {
+                break;
+            }
+            case SGL_CMD_GETNAMEDBUFFERPARAMETERI64V: {
+                break;
+            }
+            case SGL_CMD_GETNAMEDBUFFERPOINTERV: {
+                break;
+            }
+            case SGL_CMD_GETNAMEDBUFFERSUBDATA: {
+                break;
+            }
+            case SGL_CMD_CREATEFRAMEBUFFERS: {
+                glCreateFramebuffers(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_NAMEDFRAMEBUFFERDRAWBUFFERS: {
+                break;
+            }
+            case SGL_CMD_INVALIDATENAMEDFRAMEBUFFERDATA: {
+                break;
+            }
+            case SGL_CMD_INVALIDATENAMEDFRAMEBUFFERSUBDATA: {
+                break;
+            }
+            case SGL_CMD_CLEARNAMEDFRAMEBUFFERIV: {
+                break;
+            }
+            case SGL_CMD_CLEARNAMEDFRAMEBUFFERUIV: {
+                break;
+            }
+            case SGL_CMD_CLEARNAMEDFRAMEBUFFERFV: {
+                break;
+            }
+            case SGL_CMD_GETNAMEDFRAMEBUFFERPARAMETERIV: {
+                break;
+            }
+            case SGL_CMD_GETNAMEDFRAMEBUFFERATTACHMENTPARAMETERIV: {
+                break;
+            }
+            case SGL_CMD_CREATERENDERBUFFERS: {
+                glCreateRenderbuffers(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETNAMEDRENDERBUFFERPARAMETERIV: {
+                break;
+            }
+            case SGL_CMD_CREATETEXTURES: {
+                glCreateTextures(*pb++, 1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_TEXTURESUBIMAGE1D: {
+                break;
+            }
+            case SGL_CMD_TEXTURESUBIMAGE3D: {
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXTURESUBIMAGE1D: {
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXTURESUBIMAGE2D: {
+                break;
+            }
+            case SGL_CMD_COMPRESSEDTEXTURESUBIMAGE3D: {
+                break;
+            }
+            case SGL_CMD_TEXTUREPARAMETERFV: {
+                break;
+            }
+            case SGL_CMD_TEXTUREPARAMETERIIV: {
+                break;
+            }
+            case SGL_CMD_TEXTUREPARAMETERIUIV: {
+                break;
+            }
+            case SGL_CMD_TEXTUREPARAMETERIV: {
+                break;
+            }
+            case SGL_CMD_GETTEXTUREIMAGE: {
+                break;
+            }
+            case SGL_CMD_GETCOMPRESSEDTEXTUREIMAGE: {
+                break;
+            }
+            case SGL_CMD_GETTEXTURELEVELPARAMETERFV: {
+                break;
+            }
+            case SGL_CMD_GETTEXTURELEVELPARAMETERIV: {
+                break;
+            }
+            case SGL_CMD_GETTEXTUREPARAMETERFV: {
+                break;
+            }
+            case SGL_CMD_GETTEXTUREPARAMETERIIV: {
+                break;
+            }
+            case SGL_CMD_GETTEXTUREPARAMETERIUIV: {
+                break;
+            }
+            case SGL_CMD_GETTEXTUREPARAMETERIV: {
+                break;
+            }
+            case SGL_CMD_CREATEVERTEXARRAYS: {
+                glCreateVertexArrays(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_VERTEXARRAYVERTEXBUFFERS: {
+                break;
+            }
+            case SGL_CMD_GETVERTEXARRAYIV: {
+                break;
+            }
+            case SGL_CMD_GETVERTEXARRAYINDEXEDIV: {
+                break;
+            }
+            case SGL_CMD_GETVERTEXARRAYINDEXED64IV: {
+                break;
+            }
+            case SGL_CMD_CREATESAMPLERS: {
+                glCreateSamplers(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_CREATEPROGRAMPIPELINES: {
+                glCreateProgramPipelines(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_CREATEQUERIES: {
+                glCreateQueries(*pb++, 1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETTEXTURESUBIMAGE: {
+                break;
+            }
+            case SGL_CMD_GETCOMPRESSEDTEXTURESUBIMAGE: {
+                break;
+            }
+            case SGL_CMD_GETNCOMPRESSEDTEXIMAGE: {
+                break;
+            }
+            case SGL_CMD_GETNTEXIMAGE: {
+                break;
+            }
+            case SGL_CMD_GETNUNIFORMDV: {
+                break;
+            }
+            case SGL_CMD_GETNUNIFORMFV: {
+                break;
+            }
+            case SGL_CMD_GETNUNIFORMIV: {
+                break;
+            }
+            case SGL_CMD_GETNUNIFORMUIV: {
+                break;
+            }
+            case SGL_CMD_READNPIXELS: {
+                break;
+            }
+            case SGL_CMD_GETNMAPDV: {
+                break;
+            }
+            case SGL_CMD_GETNMAPFV: {
+                break;
+            }
+            case SGL_CMD_GETNMAPIV: {
+                break;
+            }
+            case SGL_CMD_GETNPIXELMAPFV: {
+                break;
+            }
+            case SGL_CMD_GETNPIXELMAPUIV: {
+                break;
+            }
+            case SGL_CMD_GETNPIXELMAPUSV: {
+                break;
+            }
+            case SGL_CMD_GETNPOLYGONSTIPPLE: {
+                break;
+            }
+            case SGL_CMD_GETNCOLORTABLE: {
+                break;
+            }
+            case SGL_CMD_GETNCONVOLUTIONFILTER: {
+                break;
+            }
+            case SGL_CMD_GETNSEPARABLEFILTER: {
+                break;
+            }
+            case SGL_CMD_GETNHISTOGRAM: {
+                break;
+            }
+            case SGL_CMD_GETNMINMAX: {
+                break;
+            }
+            case SGL_CMD_GETSTRING: {
+                const unsigned char *string = glGetString(*pb++);
+                int length = strlen((char*)string);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, string, length);
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL, &length, sizeof(int));
                 break;
             }
             }

@@ -47,10 +47,12 @@
 #define SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES 3072
 #define SGL_VP_DOWNLOAD_BLOCK_SIZE (SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES / sizeof(int))
 
-#define SGL_DEFAULT_MAJOR 3
-#define SGL_DEFAULT_MINOR 3
+#define SGL_DEFAULT_MAJOR 4
+#define SGL_DEFAULT_MINOR 4
 
 #define SGL_SHARED_MEMORY_NAME "sharedgl_shared_memory"
+
+#define CEIL_DIV(num, den) ((num + den - 1) / den)
 
 inline bool is_value_likely_an_offset(const void *p)
 {

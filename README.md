@@ -61,7 +61,7 @@ options:
     -o                 enables fps overlay on clients (shows server side fps)
     -n                 enable networking instead of shared memory
     -x                 remove shared memory file
-    -g [MAJOR.MINOR]   report specific opengl version (default: 3.3)
+    -g [MAJOR.MINOR]   report specific opengl version (default: 4.4)
     -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)
     -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)
     -p [PORT]          if networking is enabled, specify which port to use (default: 3000)
@@ -74,6 +74,8 @@ options:
 | GL_VERSION_OVERRIDE | Digit.Digit | | Override the OpenGL version on the client side. Otherwise, the client uses the version reported by the server. Available for both Windows and Linux clients. |
 | GLX_VERSION_OVERRIDE | Digit.Digit | 1.4 | Override the GLX version on the client side. Only available for Linux clients. |
 | GLSL_VERSION_OVERRIDE | Digit.Digit | 3.3 | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
+| GL_VENDOR_OVERRIDE | String | `passthrough` | Override the vendor string on the client side. Available for both Windows and Linux clients. |
+| GL_RENDERER_OVERRIDE | String | `passthrough` | Override the renderer string on the client side. Available for both Windows and Linux clients. |
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
 | SGL_RUN_WITH_LOW_PRIORITY | Boolean | true | On older CPUs, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. This may not be needed on systems with newer CPUs. Only available for Windows clients. |
 
@@ -246,18 +248,17 @@ This list describes the amount of functions left from each standard to implement
     - [x] 3.2 (~14 remaining)
     - [x] 3.3 (~29 remaining)
 - [ ] OpenGL 4
-    - [ ] 4.0 (~24 remaining) (~46 total) 
-    - [ ] 4.1 (~36 remaining) (~89 total) 
-    - [ ] 4.2 (~4 remaining) (~12 total) 
-    - [ ] 4.3 (~24 remaining) (~44 total) 
-    - [ ] 4.4 (~8 remaining) (~9 total) 
-    - [ ] 4.5 (~51 remaining) (~122 total) 
+    - [x] 4.0 (~46 total) 
+    - [x] 4.1 (~89 total) 
+    - [x] 4.2 (~12 total) 
+    - [x] 4.3 (~44 total) 
+    - [x] 4.4 (~9 total) 
+    - [ ] 4.5 (~42 remaining) (~122 total) 
     - [x] 4.6 (~4 total) 
 
 # Limitations / Issues
 - Frame glitches possible when running multiple clients
 - Clients may reserve too much memory according to server's allocated memory
-- No Vsync
 - Resizing is possible, no proper implementation
 - New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run
 

@@ -192,7 +192,7 @@ void pb_memcpy(void *src, size_t length)
 {
     // length = length - (length % 4);
     memcpy(in_cur, src, length);
-    in_cur += (length / 4);
+    in_cur += CEIL_DIV(length, 4);
 }
 
 void *pb_ptr(size_t offs)
