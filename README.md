@@ -69,6 +69,8 @@ options:
 
 ### Environment variables
 
+Variables labeled with `host` get their values from the host/server when their override isn't set.
+
 | **Option** | **Legal values** | **Default** | **Description** |
 |-|-|-|-|
 | GL_VERSION_OVERRIDE | Digit.Digit | `host` | Override the OpenGL version on the client side. Available for both Windows and Linux clients. |
@@ -78,8 +80,6 @@ options:
 | GL_RENDERER_OVERRIDE | String | `host` | Override the renderer string on the client side. Available for both Windows and Linux clients. |
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
 | SGL_RUN_WITH_LOW_PRIORITY | Boolean | true | On older CPUs, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. This may not be needed on systems with newer CPUs. Only available for Windows clients. |
-
-Those labeled with `host` mean that their values are polled from the host/server when the override isn't set.
 
 ### Network
 
