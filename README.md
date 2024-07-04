@@ -71,13 +71,15 @@ options:
 
 | **Option** | **Legal values** | **Default** | **Description** |
 |-|-|-|-|
-| GL_VERSION_OVERRIDE | Digit.Digit | | Override the OpenGL version on the client side. Otherwise, the client uses the version reported by the server. Available for both Windows and Linux clients. |
+| GL_VERSION_OVERRIDE | Digit.Digit | `host` | Override the OpenGL version on the client side. Available for both Windows and Linux clients. |
 | GLX_VERSION_OVERRIDE | Digit.Digit | 1.4 | Override the GLX version on the client side. Only available for Linux clients. |
 | GLSL_VERSION_OVERRIDE | Digit.Digit | 3.3 | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
-| GL_VENDOR_OVERRIDE | String | `passthrough` | Override the vendor string on the client side. Available for both Windows and Linux clients. |
-| GL_RENDERER_OVERRIDE | String | `passthrough` | Override the renderer string on the client side. Available for both Windows and Linux clients. |
+| GL_VENDOR_OVERRIDE | String | `host` | Override the vendor string on the client side. Available for both Windows and Linux clients. |
+| GL_RENDERER_OVERRIDE | String | `host` | Override the renderer string on the client side. Available for both Windows and Linux clients. |
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
 | SGL_RUN_WITH_LOW_PRIORITY | Boolean | true | On older CPUs, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. This may not be needed on systems with newer CPUs. Only available for Windows clients. |
+
+Those labeled with `host` mean that their values are polled from the host/server when the override isn't set.
 
 ### Network
 
