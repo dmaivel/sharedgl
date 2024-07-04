@@ -22,6 +22,7 @@
 
 #define GLIMPL_MAX_OBJECTS 256
 #define GLIMPL_MAX_TEXTURES 8
+#define GLIMPL_MAX_COUNT_FOR_MATRIX_OP 256 // MSVC doesn't support VLAs
 
 // used by glGet*v
 #define GL_GET_MEMCPY_RETVAL_EX(name, data, type) \
@@ -130,6 +131,8 @@ struct gl_normal_index_pointer      glimpl_normal_ptr,
 struct gl_edge_flag_pointer         glimpl_edge_flag_ptr;
 
 struct gl_map_buffer                glimpl_map_buffer;
+
+float                               glimpl_global_matrix_double_to_float[GLIMPL_MAX_COUNT_FOR_MATRIX_OP];
 
 // #define NUM_EXTENSIONS 8
 // static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_bgra GL_EXT_framebuffer_sRGB GL_EXT_paletted_texture GL_EXT_texture_filter_anisotropic";
@@ -8281,82 +8284,73 @@ void glUniformMatrix2dv(GLint location, GLsizei count, GLboolean transpose, cons
      * im too lazy to actually support doubles so we cast to floats
      */
     int elem_count = count * 2 * 2;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix2fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix2fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix3dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 3 * 3;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix3fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix3fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix4dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 4 * 4;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix4fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix4fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix2x3dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 2 * 3;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix2x3fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix2x3fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix2x4dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 2 * 4;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix2x4fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix2x4fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix3x2dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 3 * 2;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix3x2fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix3x2fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix3x4dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 3 * 4;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix3x4fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix3x4fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix4x2dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 4 * 2;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix4x2fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix4x2fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glUniformMatrix4x3dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 4 * 3;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glUniformMatrix4x3fv(location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glUniformMatrix4x3fv(location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glGetUniformdv(GLuint program, GLint location, GLdouble* params)
@@ -8657,28 +8651,25 @@ void glProgramUniformMatrix4fv(GLuint program, GLint location, GLsizei count, GL
 void glProgramUniformMatrix2dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 2 * 2;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix2fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix2fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix3dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 3 * 3;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix3fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix3fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix4dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 4 * 4;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix4fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix4fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix2x3fv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
@@ -8768,55 +8759,49 @@ void glProgramUniformMatrix4x3fv(GLuint program, GLint location, GLsizei count, 
 void glProgramUniformMatrix2x3dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 2 * 3;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix2x3fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix2x3fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix3x2dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 3 * 2;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix3x2fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix3x2fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix2x4dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 2 * 4;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix2x4fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix2x4fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix4x2dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 4 * 2;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix4x2fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix4x2fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix3x4dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 3 * 4;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix3x4fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix3x4fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glProgramUniformMatrix4x3dv(GLuint program, GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
 {
     int elem_count = count * 4 * 3;
-    GLfloat valuef[elem_count];
     for (int i = 0; i < elem_count; i++)
-        valuef[i] = value[i];
-    glProgramUniformMatrix4x3fv(program, location, count, transpose, valuef);
+        glimpl_global_matrix_double_to_float[i] = value[i];
+    glProgramUniformMatrix4x3fv(program, location, count, transpose, glimpl_global_matrix_double_to_float);
 }
 
 void glGetProgramPipelineInfoLog(GLuint pipeline, GLsizei bufSize, GLsizei* length, GLchar* infoLog)
