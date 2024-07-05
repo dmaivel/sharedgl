@@ -268,12 +268,12 @@ BOOL APIENTRY DrvSwapBuffers(HDC hdc)
     static void *Frame = NULL;
 
     if (!Init) {
+        bmi.bmiHeader.biWidth = maxWidth;
+        bmi.bmiHeader.biHeight = -maxHeight;
+
         Frame = glimpl_fb_address();
         Init = 1;
     }
-
-    bmi.bmiHeader.biWidth = maxWidth;
-    bmi.bmiHeader.biHeight = -maxHeight;
 
     glimpl_swap_buffers(realWidth, realHeight, 1, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
     SetDIBitsToDevice(hdc, 0, 0, realWidth, realHeight, 0, 0, 0, realHeight, Frame, &bmi, DIB_RGB_COLORS);
