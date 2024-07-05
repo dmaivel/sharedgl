@@ -1295,24 +1295,8 @@ const GLubyte *glGetString(GLenum name)
             }
         }
 
-        char *gl_vendor_override = getenv("GL_VENDOR_OVERRIDE");
-        char *gl_renderer_override = getenv("GL_RENDERER_OVERRIDE");
-
-        if (gl_vendor_override) {
-            if (strlen(gl_vendor_override) >= 256)
-                gl_vendor_override[256] = 0;
-            strcpy(real_vendor, gl_vendor_override);
-        } else {
-            real_glGetString(GL_VENDOR, real_vendor + 13);
-        }
-
-        if (gl_renderer_override) {
-            if (strlen(gl_renderer_override) >= 256)
-                gl_renderer_override[256] = 0;
-            strcpy(real_renderer, gl_renderer_override);
-        } else {
-            real_glGetString(GL_RENDERER, real_renderer + 15);
-        }
+        real_glGetString(GL_VENDOR, real_vendor + 13);
+        real_glGetString(GL_RENDERER, real_renderer + 15);
     }
 
     switch (name) {
