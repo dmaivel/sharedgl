@@ -1,5 +1,6 @@
 #include <server/overlay.h>
 #include <stdbool.h>
+#include <string.h>
 #include <stdio.h>
 
 static const unsigned char IBM[4096] =
@@ -1068,6 +1069,12 @@ static void overlay_draw_text(int *display, int width, char *text, int x, int y,
 }
 
 static bool overlay_enabled = false;
+static char overlay_string[256] = "SharedGL using ";
+
+void overlay_set_renderer_string(char *string)
+{
+    strcpy(overlay_string + 15, string);
+}
 
 void overlay_enable()
 {
@@ -1106,7 +1113,7 @@ void overlay_stage2(struct overlay_context *ctx, int *frame, int width, size_t m
         sprintf(str, "FPS: %ld", ctx->fps);
         sprintf(mem, "MEM: %.2f %s", usage, is_mb ? "MB" : "KB");
 
-        overlay_draw_text(frame, width, "SharedGL Renderer", 0, 0, 0xffffff);
+        overlay_draw_text(frame, width, overlay_string, 0, 0, 0xffffff);
         overlay_draw_text(frame, width, mem, 0, 16, 0xffffff);
         overlay_draw_text(frame, width, str, 0, 32, 0xffffff);
     }

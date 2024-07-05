@@ -1271,8 +1271,8 @@ const GLubyte *glGetString(GLenum name)
     static char version[16] = "X.X.0";
     static char glsl_vr[5] = "X.X0";
 
-    static char real_vendor[256] = "";
-    static char real_renderer[256] = "";
+    static char real_vendor[256] = "SharedGL and ";
+    static char real_renderer[256] = "SharedGL using ";
 
     if (version[0] == 'X') {
         version[0] = '0' + (char)glimpl_major;
@@ -1303,7 +1303,7 @@ const GLubyte *glGetString(GLenum name)
                 gl_vendor_override[256] = 0;
             strcpy(real_vendor, gl_vendor_override);
         } else {
-            real_glGetString(GL_VENDOR, real_vendor);
+            real_glGetString(GL_VENDOR, real_vendor + 13);
         }
 
         if (gl_renderer_override) {
@@ -1311,7 +1311,7 @@ const GLubyte *glGetString(GLenum name)
                 gl_renderer_override[256] = 0;
             strcpy(real_renderer, gl_renderer_override);
         } else {
-            real_glGetString(GL_RENDERER, real_renderer);
+            real_glGetString(GL_RENDERER, real_renderer + 15);
         }
     }
 

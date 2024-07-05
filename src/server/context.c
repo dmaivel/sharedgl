@@ -6,6 +6,7 @@
 static bool is_vid_init = false;
 static int mw = 1920;
 static int mh = 1080;
+static bool is_overlay_string_init = false;
 
 void sgl_set_max_resolution(int width, int height)
 {
@@ -62,6 +63,12 @@ struct sgl_host_context *sgl_context_create()
     }
 
     sgl_set_current(context);
+
+    if (!is_overlay_string_init) {
+        overlay_set_renderer_string((char*)glGetString(GL_RENDERER));
+        is_overlay_string_init = true;
+    }
+
     return context;
 }
 
