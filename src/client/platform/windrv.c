@@ -8,11 +8,6 @@
 
 #include <stdbool.h>
 
-static HWND capturedWindow;
-static HDC capturedHdc;
-// static int capturedWidth;
-// static int capturedHeight;
-
 static PIXELFORMATDESCRIPTOR pfdTable[64] = { 0 };
 static int pfdCount = 0;
 
@@ -196,15 +191,6 @@ BOOL APIENTRY DrvCopyContext(DHGLRC dhrcSource, DHGLRC dhrcDest, UINT fuMask)
 
 PGLCLTPROCTABLE APIENTRY DrvSetContext(HDC hdc, DHGLRC dhglrc, PFN_SETPROCTABLE pfnSetProcTable)
 {
-    capturedHdc = hdc;
-    capturedWindow = WindowFromDC(capturedHdc);
-
-    // RECT Rect;
-    // if (GetClientRect(capturedWindow, &Rect)) {
-    //     capturedWidth = Rect.right - Rect.left;
-    //     capturedHeight = Rect.bottom - Rect.top;
-    // }
-
     return glimpl_GetProcTable();
 }
 
@@ -290,8 +276,8 @@ BOOL APIENTRY DrvSwapBuffers(HDC hdc)
     bmi.bmiHeader.biHeight = -maxHeight;
 
     glimpl_swap_buffers(realWidth, realHeight, 1, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
-    SetDIBitsToDevice(capturedHdc, 0, 0, realWidth, realHeight, 0, 0, 0, realHeight, Frame, &bmi, DIB_RGB_COLORS);
-    // StretchDIBits(capturedHdc, 0, 0, realWidth, realHeight, 0, 0, realWidth, realHeight, Frame, &bmi, DIB_RGB_COLORS, SRCCOPY);
+    SetDIBitsToDevice(hdc, 0, 0, realWidth, realHeight, 0, 0, 0, realHeight, Frame, &bmi, DIB_RGB_COLORS);
+    // StretchDIBits(hdc, 0, 0, realWidth, realHeight, 0, 0, realWidth, realHeight, Frame, &bmi, DIB_RGB_COLORS, SRCCOPY);
 
     return TRUE;
 }
