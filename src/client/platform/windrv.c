@@ -286,12 +286,12 @@ BOOL APIENTRY DrvSwapBuffers(HDC hdc)
         Init = 1;
     }
 
-    bmi.bmiHeader.biWidth = realWidth;
-    bmi.bmiHeader.biHeight = -realHeight;
+    bmi.bmiHeader.biWidth = maxWidth;
+    bmi.bmiHeader.biHeight = -maxHeight;
 
     glimpl_swap_buffers(realWidth, realHeight, 1, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
     SetDIBitsToDevice(capturedHdc, 0, 0, realWidth, realHeight, 0, 0, 0, realHeight, Frame, &bmi, DIB_RGB_COLORS);
-    // StretchDIBits(Hdc, 0, 0, Width, Height, 0, 0, Width, Height, Frame, &bmi, DIB_RGB_COLORS, SRCCOPY);
+    // StretchDIBits(capturedHdc, 0, 0, realWidth, realHeight, 0, 0, realWidth, realHeight, Frame, &bmi, DIB_RGB_COLORS, SRCCOPY);
 
     return TRUE;
 }
