@@ -8355,8 +8355,12 @@ void glUniformMatrix4x3dv(GLint location, GLsizei count, GLboolean transpose, co
 
 void glGetUniformdv(GLuint program, GLint location, GLdouble* params)
 {
-    // very wrong
-    glGetUniformfv(program, location, params);
+    pb_push(SGL_CMD_GETUNIFORMDV);
+    pb_push(program);
+    pb_push(location);
+
+    glimpl_submit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), sizeof(double));
 }
 
 GLint glGetSubroutineUniformLocation(GLuint program, GLenum shadertype, const GLchar* name)

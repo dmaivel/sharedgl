@@ -4837,6 +4837,12 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 glDrawElementsIndirect(mode, type, (void*)(uintptr_t)offset);
                 break;
             }
+            case SGL_CMD_GETUNIFORMDV: {
+                int program = *pb++,
+                    location = *pb++;
+                glGetUniformdv(program, location, p + SGL_OFFSET_REGISTER_RETVAL_V);
+                break;
+            }
             case SGL_CMD_GETSUBROUTINEUNIFORMLOCATION: {
                 int program = *pb++;
                 int shadertype = *pb++;
