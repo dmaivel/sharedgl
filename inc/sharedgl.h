@@ -54,6 +54,10 @@
 
 #define CEIL_DIV(num, den) ((num + den - 1) / den)
 
+#define PACK(a, b) (((a) << 16) | ((b) & 0xFFFF))
+#define UNPACK_A(packed) (((packed) >> 16) & 0xFFFF)
+#define UNPACK_B(packed) ((packed) & 0xFFFF)
+
 inline bool is_value_likely_an_offset(const void *p)
 {
     uintptr_t v = (uintptr_t)p;
@@ -65,7 +69,7 @@ inline bool is_value_likely_an_offset(const void *p)
  */
 enum {
     SGL_CMD_INVALID,
-    SGL_CMD_FLIP,
+    SGL_CMD_FLIP,               // USE SGL_CMD_REQUEST_FRAMEBUFFER INSTEAD
     SGL_CMD_SEND_DATA,
     SGL_CMD_GET_CONTEXT,
     SGL_CMD_SET_CONTEXT,
@@ -75,7 +79,7 @@ enum {
     SGL_CMD_VP_UPLOAD_STAY,
     SGL_CMD_VP_DOWNLOAD,        // UNLIKE VP_UPLOAD, WE USE BYTES INSTEAD OF INTS
     SGL_CMD_CREATE_CONTEXT,
-    SGL_CMD_REPORT_DIMS,
+    SGL_CMD_REPORT_DIMS,        // NOT USED
     SGL_CMD_HELLO_WORLD,
     SGL_CMD_GOODBYE_WORLD,
     SGL_CMD_REQUEST_FRAMEBUFFER,

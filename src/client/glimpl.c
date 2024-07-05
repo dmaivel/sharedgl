@@ -3,6 +3,8 @@
 #include <client/spinlock.h>
 #include <client/pb.h>
 
+#include <client/platform/icd.h>
+
 #include <sharedgl.h>
 #include <commongl.h>
 
@@ -360,14 +362,6 @@ void glimpl_goodbye()
 #endif
 }
 
-void glimpl_report(int width, int height)
-{
-    pb_push(SGL_CMD_REPORT_DIMS);
-    pb_push(width);
-    pb_push(height);
-    glimpl_submit();
-}
-
 void glimpl_swap_buffers(int width, int height, int vflip, int format)
 {
     if (GLIMPL_USES_SHARED_MEMORY) {
@@ -391,7 +385,7 @@ void glimpl_swap_buffers(int width, int height, int vflip, int format)
 
         net_send_udp(net_ctx, &packet, sizeof(packet), 0);
         
-        int expected = (width * height * 4) / SGL_SWAPBUFFERS_RESULT_SIZE + ((width * height * 4) % SGL_SWAPBUFFERS_RESULT_SIZE != 0);
+        int expected = CEIL_DIV((width * height * 4), SGL_SWAPBUFFERS_RESULT_SIZE);
 
         // wait for sync, timeout appears to disturb fifo upload
         struct sgl_packet_sync sync;
@@ -479,6 +473,8 @@ void glimpl_init()
         };
 
         pb_set_net(hooks, packet.fifo_size);
+
+        icd_set_max_dimensions(packet.max_width, packet.max_height);
     }
 
     char *gl_version_override = getenv("GL_VERSION_OVERRIDE");
@@ -509,6 +505,9 @@ void glimpl_init()
          */
         pb_push(SGL_CMD_CREATE_CONTEXT);
         glimpl_submit();
+        
+        int packed_dims = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+        icd_set_max_dimensions(UNPACK_A(packed_dims), UNPACK_B(packed_dims));
     }
 }
 
@@ -1724,6 +1723,7 @@ void glViewport(GLint x, GLint y, GLsizei width, GLsizei height)
     pb_push(y);
     pb_push(width);
     pb_push(height);
+    icd_resize(width, height);
 }
 
 void glMultMatrixd(const GLdouble* m)

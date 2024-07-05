@@ -1,5 +1,6 @@
 #include <sharedgl.h>
 
+#include <client/platform/icd.h>
 #include <client/platform/glx.h>
 #include <client/glimpl.h>
 
@@ -16,6 +17,11 @@ static const char *glx_extensions = "GLX_ARB_create_context GLX_ARB_create_conte
 static int glx_major = 1;
 static int glx_minor = 4;
 static const char *glx_majmin_string = "1.4";
+
+static int max_width, max_height, real_width, real_height;
+
+ICD_SET_MAX_DIMENSIONS_DEFINITION(max_width, max_height, real_width, real_height);
+ICD_RESIZE_DEFINITION(real_width, real_height);
 
 struct glx_swap_data {
     XVisualInfo vinfo;
@@ -54,7 +60,7 @@ struct glx_fb_config {
         // to-do: add more like stereo
 };
 
-int n_valid_fb_configs;
+static int n_valid_fb_configs;
 
 static struct glx_fb_config fb_configs[1729] = { 0 };
 
@@ -375,8 +381,6 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         XWindowAttributes attr;
         XGetWindowAttributes(dpy, drawable, &attr);
 
-        swap_data.width = attr.width;
-        swap_data.height = attr.height;
         swap_data.parent = XDefaultRootWindow(dpy);
         swap_data.nxvisuals = 0;
         swap_data.visual_template.screen = DefaultScreen(dpy);
@@ -387,22 +391,17 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         /*
          * create an ximage whose pointer points to our framebuffer
          */
-        swap_data.ximage = XCreateImage(dpy, swap_data.vinfo.visual, swap_data.vinfo.depth, ZPixmap, 0, glimpl_fb_address(), swap_data.width, swap_data.height, 8, swap_data.width*4);
+        swap_data.ximage = XCreateImage(dpy, swap_data.vinfo.visual, swap_data.vinfo.depth, ZPixmap, 0, glimpl_fb_address(), max_width, max_height, 8, max_width*4);
         swap_data.gcv.graphics_exposures = 0;
         swap_data.gc = XCreateGC(dpy, swap_data.parent, GCGraphicsExposures, &swap_data.gcv);
-
-        /*
-         * report current window dimensions, initialization done
-         */
-        glimpl_report(swap_data.width, swap_data.height);
         swap_data.initialized = true;
     }
 
     /* swap */
-    glimpl_swap_buffers(swap_data.width, swap_data.height, 1, GL_BGRA);
+    glimpl_swap_buffers(real_width, real_height, 1, GL_BGRA);
 
     /* display */
-    XPutImage(dpy, drawable, swap_data.gc, swap_data.ximage, 0, 0, 0, 0, swap_data.width, swap_data.height);
+    XPutImage(dpy, drawable, swap_data.gc, swap_data.ximage, 0, 0, 0, 0, real_width, real_height);
 
     /* sync */
     XSync(dpy, False);

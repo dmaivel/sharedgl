@@ -259,10 +259,8 @@ This list describes the amount of functions left from each standard to implement
     - [x] 4.6 (~4 total) 
 
 # Limitations / Issues
-- Frame glitches possible when running multiple clients
-- Clients may reserve too much memory according to server's allocated memory
-- Resizing is possible, no proper implementation
-- New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run
+- New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run (only tested on Linux clients).
+- Incomplete framebuffers when using network feature
 
 # Troubleshooting
 

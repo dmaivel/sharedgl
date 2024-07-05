@@ -124,8 +124,6 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
     size_t fifo_size = args.memory_size - SGL_OFFSET_COMMAND_START - framebuffer_size;
 
     void *p = args.base_address;
-    int reported_width = -1;
-    int reported_height = -1;
 
     struct sgl_host_context *ctx;
     bool begun = false;
@@ -240,7 +238,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                         /* framebuffer_size = */   framebuffer_size,
                         /* fifo_size = */          fifo_size,
                         /* gl_major = */           args.gl_major,
-                        /* gl_minor = */           args.gl_minor
+                        /* gl_minor = */           args.gl_minor,
+                        /* max_width= */           width,
+                        /* max_height= */          height
                     };
 
                     net_send_tcp(net_ctx, socket, &packet, sizeof(packet));
@@ -361,6 +361,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
              * Internal Implementation
              */
             case SGL_CMD_CREATE_CONTEXT:
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = PACK(width, height);
                 break;
             case SGL_CMD_GOODBYE_WORLD: {
                 int id = *pb++;

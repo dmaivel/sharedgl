@@ -30,6 +30,8 @@ struct PACKED sgl_packet_connect {
     uint64_t fifo_size;
     uint32_t gl_major;
     uint32_t gl_minor;
+    uint32_t max_width;
+    uint32_t max_height;
 };
 
 struct PACKED sgl_packet_swapbuffers_request {

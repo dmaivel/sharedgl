@@ -73,7 +73,6 @@ void sgl_context_destroy(struct sgl_host_context *ctx)
     free(ctx);
 }
 
-#define SGL_DEBUG_EMIT_FRAMES
 #ifdef SGL_DEBUG_EMIT_FRAMES
 SDL_Window *window;
 #endif
@@ -97,14 +96,14 @@ void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int v
 
     overlay_stage1(&overlay_ctx);
 
-    glReadPixels(0, 0, width, height, format, GL_UNSIGNED_BYTE, data); // GL_BGRA
+    glReadPixels(0, 0, mw, height, format, GL_UNSIGNED_BYTE, data); // GL_BGRA
     int *pdata = data;
 
     if (vflip) {
         for (int y = 0; y < height / 2; y++) {
-            for (int x = 0; x < width; x++) {
-                int *ptop = &pdata[y * width + x];
-                int *pbottom = &pdata[(height - y - 1) * width + x];
+            for (int x = 0; x < mw; x++) {
+                int *ptop = &pdata[y * mw + x];
+                int *pbottom = &pdata[(height - y - 1) * mw + x];
 
                 int vtop = *ptop;
                 int vbottom = *pbottom;
@@ -115,7 +114,7 @@ void *sgl_read_pixels(unsigned int width, unsigned int height, void *data, int v
         }
     }
 
-    overlay_stage2(&overlay_ctx, data, width, mem_usage);
+    overlay_stage2(&overlay_ctx, data, mw, mem_usage);
 
 #ifdef SGL_DEBUG_EMIT_FRAMES
     SDL_GL_SwapWindow(window);

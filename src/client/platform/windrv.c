@@ -4,18 +4,24 @@
 #include <client/glimpl.h>
 #include <client/platform/gldrv.h>
 #include <client/platform/windrv.h>
+#include <client/platform/icd.h>
 
 #include <stdbool.h>
 
 static HWND capturedWindow;
 static HDC capturedHdc;
-static int capturedWidth;
-static int capturedHeight;
+// static int capturedWidth;
+// static int capturedHeight;
 
 static PIXELFORMATDESCRIPTOR pfdTable[64] = { 0 };
 static int pfdCount = 0;
 
 static struct WGLCALLBACKS callbacks;
+
+static int maxWidth, maxHeight, realWidth, realHeight;
+
+ICD_SET_MAX_DIMENSIONS_DEFINITION(maxWidth, maxHeight, realWidth, realHeight);
+ICD_RESIZE_DEFINITION(realWidth, realHeight);
 
 #define MIN_INTERNAL( A, B )   ( (A)<(B) ? (A) : (B) )
 #define MAX_INTERNAL( A, B )   ( (A)>(B) ? (A) : (B) )
@@ -193,11 +199,11 @@ PGLCLTPROCTABLE APIENTRY DrvSetContext(HDC hdc, DHGLRC dhglrc, PFN_SETPROCTABLE 
     capturedHdc = hdc;
     capturedWindow = WindowFromDC(capturedHdc);
 
-    RECT Rect;
-    if (GetClientRect(capturedWindow, &Rect)) {
-        capturedWidth = Rect.right - Rect.left;
-        capturedHeight = Rect.bottom - Rect.top;
-    }
+    // RECT Rect;
+    // if (GetClientRect(capturedWindow, &Rect)) {
+    //     capturedWidth = Rect.right - Rect.left;
+    //     capturedHeight = Rect.bottom - Rect.top;
+    // }
 
     return glimpl_GetProcTable();
 }
@@ -276,17 +282,15 @@ BOOL APIENTRY DrvSwapBuffers(HDC hdc)
     static void *Frame = NULL;
 
     if (!Init) {
-        bmi.bmiHeader.biWidth = capturedWidth;
-        bmi.bmiHeader.biHeight = -capturedHeight;
-
-        glimpl_report(capturedWidth, capturedHeight);
-
         Frame = glimpl_fb_address();
         Init = 1;
     }
 
-    glimpl_swap_buffers(capturedWidth, capturedHeight, 1, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
-    SetDIBitsToDevice(capturedHdc, 0, 0, capturedWidth, capturedHeight, 0, 0, 0, capturedHeight, Frame, &bmi, DIB_RGB_COLORS);
+    bmi.bmiHeader.biWidth = realWidth;
+    bmi.bmiHeader.biHeight = -realHeight;
+
+    glimpl_swap_buffers(realWidth, realHeight, 1, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
+    SetDIBitsToDevice(capturedHdc, 0, 0, realWidth, realHeight, 0, 0, 0, realHeight, Frame, &bmi, DIB_RGB_COLORS);
     // StretchDIBits(Hdc, 0, 0, Width, Height, 0, 0, Width, Height, Frame, &bmi, DIB_RGB_COLORS, SRCCOPY);
 
     return TRUE;
