@@ -604,10 +604,11 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
 
     for (int t = 0; t < GLIMPL_MAX_TEXTURES; t++) {
         if (glimpl_tex_coord_ptr[t].in_use) {
-            pb_push(SGL_CMD_VP_UPLOAD);
-            pb_push(max_index * glimpl_tex_coord_ptr[t].size);
             switch (glimpl_tex_coord_ptr[t].type) {
             case GL_SHORT: {
+                pb_push(SGL_CMD_VP_UPLOAD);
+                pb_push(max_index * glimpl_tex_coord_ptr[t].size / 2);
+
                 const short *svertices = glimpl_tex_coord_ptr[t].pointer;
 
                 // assuming size = 2
@@ -623,6 +624,9 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
                 }
             }
             default: {
+                pb_push(SGL_CMD_VP_UPLOAD);
+                pb_push(max_index * glimpl_tex_coord_ptr[t].size);
+                
                 const float *fvertices = glimpl_tex_coord_ptr[t].pointer;
 
                 for (int i = 0; i < max_index; i++) {
