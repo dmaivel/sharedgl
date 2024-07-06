@@ -520,6 +520,40 @@ static struct gl_vertex_attrib_pointer *glimpl_get_enabled_vap()
     return NULL;
 }
 
+static inline size_t glimpl_get_pixel_size(GLenum format)
+{
+    switch (format) {
+    case GL_RGBA:
+    case GL_RGBA8:
+    case GL_BGRA:
+    case GL_COMPRESSED_SRGB_ALPHA:
+        return 4;
+    case GL_RGB:
+    case GL_BGR:
+    case GL_RGB8:
+        return 3;
+    case GL_LUMINANCE_ALPHA:
+    case GL_RG:
+    case GL_RG8:
+        return 2;
+    case GL_LUMINANCE:
+    case GL_ALPHA:
+    case GL_RED:
+    case GL_R8:
+        return 1;
+    case GL_RGB16F:
+    case GL_RGB16I:
+    case GL_RGB16UI:
+        return 6;
+    case GL_RGBA16F:
+    case GL_RGBA16I:
+    case GL_RGBA16UI:
+        return 8;
+    default:
+        return 1;
+    }
+}
+
 static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, GLenum format, const void* pixels)
 {
     if (pixels == NULL) {
@@ -527,47 +561,8 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
         return;
     }
 
-    size_t pixel_size;
-    size_t total_size;
+    size_t total_size = width * height * depth * glimpl_get_pixel_size(format);
 
-    switch (format) {
-    case GL_RGBA:
-    case GL_RGBA8:
-    case GL_BGRA:
-    case GL_COMPRESSED_SRGB_ALPHA:
-        pixel_size = 4;
-        break;
-    case GL_RGB:
-    case GL_BGR:
-    case GL_RGB8:
-        pixel_size = 3;
-        break;
-    case GL_LUMINANCE_ALPHA:
-    case GL_RG:
-    case GL_RG8:
-        pixel_size = 2;
-        break;
-    case GL_LUMINANCE:
-    case GL_ALPHA:
-    case GL_RED:
-    case GL_R8:
-        pixel_size = 1;
-        break;
-    case GL_RGB16F:
-    case GL_RGB16I:
-    case GL_RGB16UI:
-        pixel_size = 6;
-        break;
-    case GL_RGBA16F:
-    case GL_RGBA16I:
-    case GL_RGBA16UI:
-        pixel_size = 8;
-        break;
-    default:
-        return;
-    }
-
-    total_size = width * height * depth * pixel_size;
     pb_push(SGL_CMD_VP_UPLOAD);
     pb_push(CEIL_DIV(total_size, 4));
     pb_memcpy((void*)pixels, total_size);
@@ -595,18 +590,8 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
     if (glimpl_color_ptr.in_use) {
         int true_size = glimpl_color_ptr.size;
 
-        if (true_size > 4) {
-            switch (true_size) {
-            case GL_RGB:
-            case GL_BGR:
-                true_size = 3;
-                break;
-            case GL_RGBA:
-            case GL_BGRA:
-                true_size = 4;
-                break;
-            }
-        } 
+        if (true_size > 8)
+            true_size = glimpl_get_pixel_size(true_size);
 
         pb_push(SGL_CMD_VP_UPLOAD);
         pb_push(max_index);
