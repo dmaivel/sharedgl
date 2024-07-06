@@ -527,52 +527,50 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
         return;
     }
 
+    size_t pixel_size;
+    size_t total_size;
+
     switch (format) {
-    case GL_BGR:
-    case GL_RGB: {
-        unsigned char *p = (void*)pixels;
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(width * height * depth);
-        for (int i = 0; i < width * height * depth; i++)
-            pb_push(*p++);
-        break;
-    }
-    case GL_RGB8: {
-        unsigned int *p = (void*)pixels;
-        int size = width * height * depth * 3;
-
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(size);
-
-        pb_memcpy((void*)pixels, size);
-
-        break;
-    }
-    case GL_RGBA8:
     case GL_RGBA:
-    case GL_BGRA: 
-    case GL_COMPRESSED_SRGB_ALPHA: {
-        unsigned int *p = (void*)pixels;
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(width * height * depth);
-        for (int i = 0; i < width * height * depth; i++)
-            pb_push(*p++);
+    case GL_RGBA8:
+    case GL_BGRA:
+    case GL_COMPRESSED_SRGB_ALPHA:
+        pixel_size = 4;
         break;
-    }
-    case GL_LUMINANCE_ALPHA: {
-        unsigned char *p = (void*)pixels;
-        int size = width * height * depth * 2;
-        
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(size);
-        pb_memcpy((void*)pixels, size);
-
+    case GL_RGB:
+    case GL_BGR:
+    case GL_RGB8:
+        pixel_size = 3;
         break;
-    }
+    case GL_LUMINANCE_ALPHA:
+    case GL_RG:
+    case GL_RG8:
+        pixel_size = 2;
+        break;
+    case GL_LUMINANCE:
+    case GL_ALPHA:
+    case GL_RED:
+    case GL_R8:
+        pixel_size = 1;
+        break;
+    case GL_RGB16F:
+    case GL_RGB16I:
+    case GL_RGB16UI:
+        pixel_size = 6;
+        break;
+    case GL_RGBA16F:
+    case GL_RGBA16I:
+    case GL_RGBA16UI:
+        pixel_size = 8;
+        break;
     default:
-        fprintf(stderr, "glimpl_upload_texture: unknown format: %x\n", format);
-        break;
+        return;
     }
+
+    total_size = width * height * depth * pixel_size;
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(CEIL_DIV(total_size, 4));
+    pb_memcpy((void*)pixels, total_size);
 }
 
 static inline void glimpl_push_client_pointers(int mode, int max_index)
