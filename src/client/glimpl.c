@@ -588,11 +588,6 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
     }
 
     if (glimpl_color_ptr.in_use) {
-        int true_size = glimpl_color_ptr.size;
-
-        if (true_size > 8)
-            true_size = glimpl_get_pixel_size(true_size);
-
         pb_push(SGL_CMD_VP_UPLOAD);
         pb_push(max_index);
         const unsigned char *color = glimpl_color_ptr.pointer;
