@@ -45,10 +45,16 @@ static struct pfd_depth_info pfd_depths[4] = {
 };
 
 static HMODULE g_hModule = 0;
+static BOOL do_vflip = TRUE;
 
 void WinDrvSetModuleAddress(HMODULE module)
 {
     g_hModule = module;
+}
+
+void WinDrvSetVflip(BOOL flip)
+{
+    do_vflip = flip;
 }
 
 static const char *wgl_extensions = "WGL_ARB_create_context WGL_ARB_create_context_profile WGL_ARB_extensions_string WGL_ARB_pixel_format";
@@ -275,7 +281,7 @@ BOOL APIENTRY DrvSwapBuffers(HDC hdc)
         Init = 1;
     }
 
-    glimpl_swap_buffers(realWidth, realHeight, 1, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
+    glimpl_swap_buffers(realWidth, realHeight, do_vflip, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
     SetDIBitsToDevice(hdc, 0, 0, realWidth, realHeight, 0, 0, 0, realHeight, Frame, &bmi, DIB_RGB_COLORS);
     // StretchDIBits(hdc, 0, 0, realWidth, realHeight, 0, 0, realWidth, realHeight, Frame, &bmi, DIB_RGB_COLORS, SRCCOPY);
 

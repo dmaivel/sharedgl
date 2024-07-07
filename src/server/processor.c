@@ -5361,7 +5361,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     size = *pb++,
                     use_uploaded = *pb++,
                     usage = *pb++;
-                glBufferData(target, size, use_uploaded ? uploaded : NULL, usage);
+                glBufferStorage(target, size, use_uploaded ? uploaded : NULL, usage);
                 break;
             }
             case SGL_CMD_CLEARTEXIMAGE: {

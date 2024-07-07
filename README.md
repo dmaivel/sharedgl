@@ -78,6 +78,7 @@ Variables labeled with `host` get their values from the host/server when their o
 | GLSL_VERSION_OVERRIDE | Digit.Digit | 4.4 | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
 | SGL_RUN_WITH_LOW_PRIORITY | Boolean | true | On older CPUs, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. This may not be needed on systems with newer CPUs. Only available for Windows clients. |
+| SGL_WINED3D_DONT_VFLIP | Boolean | false | If running a DirectX application via WineD3D, ensure this variable is set to `true` in order for the application to render the framebuffer in the proper orientation. Only available for Windows clients. |
 
 ### Network
 

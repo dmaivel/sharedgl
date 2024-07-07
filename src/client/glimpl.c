@@ -136,32 +136,109 @@ struct gl_map_buffer                glimpl_map_buffer;
 
 float                               glimpl_global_matrix_double_to_float[GLIMPL_MAX_COUNT_FOR_MATRIX_OP];
 
-// #define NUM_EXTENSIONS 8
-// static const char *glimpl_extensions_full = "GL_ARB_framebuffer_object GL_ARB_shading_language_100 GL_ARB_texture_storage GL_ARB_vertex_array_object GL_EXT_bgra GL_EXT_framebuffer_sRGB GL_EXT_paletted_texture GL_EXT_texture_filter_anisotropic";
-// static const char glimpl_extensions_list[NUM_EXTENSIONS][64] = {
-//     "GL_ARB_framebuffer_object",
-//     "GL_ARB_shading_language_100",
-//     "GL_ARB_texture_storage",
-//     "GL_ARB_vertex_array_object",
-//     "GL_EXT_bgra",
-//     "GL_EXT_framebuffer_sRGB",
-//     "GL_EXT_paletted_texture",
-//     "GL_EXT_texture_filter_anisotropic"
-// };
+#define NUM_EXTENSIONS 81
+static const char *glimpl_extensions_full = "GL_ARB_ES2_compatibility "
+                                            "GL_ARB_ES3_compatibility "
+                                            "GL_ARB_color_buffer_float "
+                                            "GL_ARB_compressed_texture_pixel_storage "
+                                            "GL_ARB_compute_shader "
+                                            "GL_ARB_conservative_depth "
+                                            "GL_ARB_copy_buffer "
+                                            "GL_ARB_cull_distance "
+                                            "GL_ARB_derivative_control "
+                                            "GL_ARB_draw_buffers_blend "
+                                            "GL_ARB_draw_elements_base_vertex "
+                                            "GL_ARB_draw_indirect "
+                                            "GL_ARB_draw_instanced "
+                                            "GL_ARB_explicit_uniform_location "
+                                            "GL_ARB_fragment_shader "
+                                            "GL_ARB_framebuffer_object "
+                                            "GL_ARB_geometry_shader4 "
+                                            "GL_ARB_get_program_binary "
+                                            "GL_ARB_gpu_shader5 "
+                                            "GL_ARB_half_float_pixel "
+                                            "GL_ARB_internalformat_query "
+                                            "GL_ARB_internalformat_query2 "
+                                            "GL_ARB_map_buffer_alignment "
+                                            "GL_ARB_map_buffer_range "
+                                            "GL_ARB_multitexture "
+                                            "GL_ARB_program_interface_query "
+                                            "GL_ARB_sampler_objects "
+                                            "GL_ARB_separate_shader_objects "
+                                            "GL_ARB_shader_atomic_counters "
+                                            "GL_ARB_shader_bit_encoding "
+                                            "GL_ARB_shader_image_load_store "
+                                            "GL_ARB_shader_image_size "
+                                            "GL_ARB_shader_objects "
+                                            "GL_ARB_shader_precision "
+                                            "GL_ARB_shading_language_420pack "
+                                            "GL_ARB_shading_language_packing "
+                                            "GL_ARB_sync "
+                                            "GL_ARB_tessellation_shader "
+                                            "GL_ARB_texture_buffer_object "
+                                            "GL_ARB_texture_buffer_object_rgb32 "
+                                            "GL_ARB_texture_buffer_range "
+                                            "GL_ARB_texture_compression_bptc "
+                                            "GL_ARB_texture_compression_rgtc "
+                                            "GL_ARB_texture_cube_map_array "
+                                            "GL_ARB_texture_gather "
+                                            "GL_ARB_texture_multisample "
+                                            "GL_ARB_texture_non_power_of_two "
+                                            "GL_ARB_texture_rectangle "
+                                            "GL_ARB_texture_rg "
+                                            "GL_ARB_texture_storage "
+                                            "GL_ARB_texture_swizzle "
+                                            "GL_ARB_texture_view "
+                                            "GL_ARB_transform_feedback2 "
+                                            "GL_ARB_transform_feedback3 "
+                                            "GL_ARB_uniform_buffer_object "
+                                            "GL_ARB_vertex_array_object "
+                                            "GL_ARB_vertex_attrib_binding "
+                                            "GL_ARB_vertex_buffer_object "
+                                            "GL_ARB_vertex_shader "
+                                            "GL_ARB_viewport_array "
+                                            "GL_EXT_abgr "
+                                            "GL_EXT_bgra "
+                                            "GL_EXT_bindable_uniform "
+                                            "GL_EXT_draw_buffers2 "
+                                            "GL_EXT_framebuffer_blit "
+                                            "GL_EXT_framebuffer_multisample "
+                                            "GL_EXT_framebuffer_object "
+                                            "GL_EXT_framebuffer_sRGB "
+                                            "GL_EXT_geometry_shader4 "
+                                            "GL_EXT_gpu_shader4 "
+                                            "GL_EXT_packed_depth_stencil "
+                                            "GL_EXT_polygon_offset_clamp "
+                                            "GL_EXT_shader_integer_mix "
+                                            "GL_EXT_texture_compression_s3tc "
+                                            "GL_EXT_texture_filter_anisotropic "
+                                            "GL_EXT_texture_sRGB "
+                                            "GL_EXT_texture_sRGB_decode "
+                                            "GL_NV_texture_barrier "
+                                            "WGL_ARB_extensions_string "
+                                            "WGL_ARB_framebuffer_sRGB "
+                                            "WGL_ARB_pixel_format";
 
-#define NUM_EXTENSIONS 52
-static const char *glimpl_extensions_full = "GL_ARB_color_buffer_float GL_ARB_compressed_texture_pixel_storage GL_ARB_conservative_depth GL_ARB_copy_buffer GL_ARB_draw_buffers_blend GL_ARB_ES2_compatibility GL_ARB_ES3_compatibility GL_ARB_explicit_uniform_location GL_ARB_framebuffer_object GL_ARB_get_program_binary GL_ARB_half_float_pixel GL_ARB_internalformat_query GL_ARB_internalformat_query2 GL_ARB_map_buffer_alignment GL_ARB_map_buffer_range GL_ARB_multitexture GL_ARB_program_interface_query GL_ARB_separate_shader_objects GL_ARB_shader_precision GL_ARB_shading_language_420pack GL_ARB_shading_language_packing GL_ARB_sync GL_ARB_texture_buffer_object_rgb32 GL_ARB_texture_buffer_range GL_ARB_texture_compression_rgtc GL_ARB_texture_rectangle GL_ARB_texture_rg GL_ARB_texture_storage GL_ARB_texture_view GL_ARB_transform_feedback2 GL_ARB_transform_feedback3 GL_ARB_vertex_array_object GL_ARB_vertex_attrib_binding GL_ARB_viewport_array GL_EXT_abgr GL_EXT_bgra GL_EXT_bindable_uniform GL_EXT_draw_buffers2 GL_EXT_framebuffer_blit GL_EXT_framebuffer_multisample GL_EXT_framebuffer_object GL_EXT_framebuffer_sRGB GL_EXT_geometry_shader4 GL_EXT_gpu_shader4 GL_EXT_packed_depth_stencil GL_EXT_texture_compression_s3tc GL_EXT_texture_filter_anisotropic GL_EXT_texture_sRGB GL_NV_texture_barrier WGL_ARB_extensions_string WGL_ARB_framebuffer_sRGB WGL_ARB_pixel_format";
 static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
-    "GL_ARB_color_buffer_float",
-    "GL_ARB_compressed_texture_pixel_storage",
-    "GL_ARB_conservative_depth",
-    "GL_ARB_copy_buffer",
-    "GL_ARB_draw_buffers_blend",
     "GL_ARB_ES2_compatibility",
     "GL_ARB_ES3_compatibility",
+    "GL_ARB_color_buffer_float",
+    "GL_ARB_compressed_texture_pixel_storage",
+    "GL_ARB_compute_shader",
+    "GL_ARB_conservative_depth",
+    "GL_ARB_copy_buffer",
+    "GL_ARB_cull_distance",
+    "GL_ARB_derivative_control",
+    "GL_ARB_draw_buffers_blend",
+    "GL_ARB_draw_elements_base_vertex",
+    "GL_ARB_draw_indirect",
+    "GL_ARB_draw_instanced",
     "GL_ARB_explicit_uniform_location",
+    "GL_ARB_fragment_shader",
     "GL_ARB_framebuffer_object",
+    "GL_ARB_geometry_shader4",
     "GL_ARB_get_program_binary",
+    "GL_ARB_gpu_shader5",
     "GL_ARB_half_float_pixel",
     "GL_ARB_internalformat_query",
     "GL_ARB_internalformat_query2",
@@ -169,22 +246,39 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_map_buffer_range",
     "GL_ARB_multitexture",
     "GL_ARB_program_interface_query",
+    "GL_ARB_sampler_objects",
     "GL_ARB_separate_shader_objects",
+    "GL_ARB_shader_atomic_counters",
+    "GL_ARB_shader_bit_encoding",
+    "GL_ARB_shader_image_load_store",
+    "GL_ARB_shader_image_size",
+    "GL_ARB_shader_objects",
     "GL_ARB_shader_precision",
     "GL_ARB_shading_language_420pack",
     "GL_ARB_shading_language_packing",
     "GL_ARB_sync",
+    "GL_ARB_tessellation_shader",
+    "GL_ARB_texture_buffer_object",
     "GL_ARB_texture_buffer_object_rgb32",
     "GL_ARB_texture_buffer_range",
+    "GL_ARB_texture_compression_bptc",
     "GL_ARB_texture_compression_rgtc",
+    "GL_ARB_texture_cube_map_array",
+    "GL_ARB_texture_gather",
+    "GL_ARB_texture_multisample",
+    "GL_ARB_texture_non_power_of_two",
     "GL_ARB_texture_rectangle",
     "GL_ARB_texture_rg",
     "GL_ARB_texture_storage",
+    "GL_ARB_texture_swizzle",
     "GL_ARB_texture_view",
     "GL_ARB_transform_feedback2",
     "GL_ARB_transform_feedback3",
+    "GL_ARB_uniform_buffer_object",
     "GL_ARB_vertex_array_object",
     "GL_ARB_vertex_attrib_binding",
+    "GL_ARB_vertex_buffer_object",
+    "GL_ARB_vertex_shader",
     "GL_ARB_viewport_array",
     "GL_EXT_abgr",
     "GL_EXT_bgra",
@@ -197,13 +291,16 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_EXT_geometry_shader4",
     "GL_EXT_gpu_shader4",
     "GL_EXT_packed_depth_stencil",
+    "GL_EXT_polygon_offset_clamp",
+    "GL_EXT_shader_integer_mix",
     "GL_EXT_texture_compression_s3tc",
     "GL_EXT_texture_filter_anisotropic",
     "GL_EXT_texture_sRGB",
+    "GL_EXT_texture_sRGB_decode",
     "GL_NV_texture_barrier",
     "WGL_ARB_extensions_string",
     "WGL_ARB_framebuffer_sRGB",
-    "WGL_ARB_pixel_format"
+    "WGL_ARB_pixel_format",
 };
 
 static struct net_context *net_ctx = NULL;
@@ -1858,6 +1955,12 @@ void glScissor(GLint x, GLint y, GLsizei width, GLsizei height)
     pb_push(y);
     pb_push(width);
     pb_push(height);
+
+    /* 
+     * icd hack for WineD3D bc it doesn't appear to call glViewport
+     */
+    if (x == 0 && y == 0 && width > 64 && height > 64)
+        icd_resize(width, height);
 }
 
 void glTexParameterf(GLenum target, GLenum pname, GLfloat param)
@@ -3103,6 +3206,11 @@ void glActiveTexture(GLenum texture)
     pb_push(texture);
 }
 
+void glActiveTextureARB(GLenum texture)
+{
+    glActiveTexture(texture);
+}
+
 void glSampleCoverage(GLfloat value, GLboolean invert)
 {
     pb_push(SGL_CMD_SAMPLECOVERAGE);
@@ -3116,6 +3224,11 @@ void glClientActiveTexture(GLenum texture)
     pb_push(texture);
 
     glimpl_client_active_texture = texture - (GLenum)GL_TEXTURE0;
+}
+
+void glClientActiveTextureARB(GLenum texture)
+{
+    glClientActiveTexture(texture);
 }
 
 void glMultiTexCoord1d(GLenum target, GLdouble s)
