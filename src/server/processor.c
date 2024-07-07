@@ -5196,6 +5196,11 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_GETINTERNALFORMATIV: {
+                int target = *pb++;
+                int internalformat = *pb++;
+                int pname = *pb++;
+                int bufSize = *pb++;
+                glGetInternalformativ(target, internalformat, pname, bufSize, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETACTIVEATOMICCOUNTERBUFFERIV: {
@@ -5239,6 +5244,11 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_GETINTERNALFORMATI64V: {
+                int target = *pb++;
+                int internalformat = *pb++;
+                int pname = *pb++;
+                int bufSize = *pb++;
+                glGetInternalformati64v(target, internalformat, pname, bufSize, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_INVALIDATEFRAMEBUFFER: {

@@ -8933,7 +8933,14 @@ void glDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, G
 
 void glGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 {
-    fprintf(stderr, "glGetInternalformativ: stub\n");
+    pb_push(SGL_CMD_GETINTERNALFORMATIV);
+    pb_push(target);
+    pb_push(internalformat);
+    pb_push(pname);
+    pb_push(bufSize);
+    
+    glimpl_submit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), bufSize * sizeof(int));
 }
 
 void glGetActiveAtomicCounterBufferiv(GLuint program, GLuint bufferIndex, GLenum pname, GLint* params)
@@ -8994,7 +9001,14 @@ void glGetFramebufferParameteriv(GLenum target, GLenum pname, GLint* params)
 
 void glGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)
 {
-    fprintf(stderr, "glGetInternalformati64v: stub\n");
+    pb_push(SGL_CMD_GETINTERNALFORMATI64V);
+    pb_push(target);
+    pb_push(internalformat);
+    pb_push(pname);
+    pb_push(bufSize);
+    
+    glimpl_submit();
+    memcpy(params, pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), bufSize * sizeof(GLint64));
 }
 
 void glInvalidateFramebuffer(GLenum target, GLsizei numAttachments, const GLenum* attachments)
