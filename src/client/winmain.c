@@ -7,14 +7,6 @@
 
 static char env_value[16];
 
-VOID Main()
-{
-#ifdef OVERRIDE_OPENGL32
-    WglInit();
-#endif
-    glimpl_init();
-}
-
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) 
 {
     if (reason == DLL_PROCESS_ATTACH) {
@@ -36,10 +28,10 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved)
          */
         result = GetEnvironmentVariableA("SGL_WINED3D_DONT_VFLIP", env_value, 16);
         if (strcmp(env_value, "true") == 0)
-            WinDrvSetVflip(FALSE);
-        
-        WinDrvSetModuleAddress(module);
-        Main();
+            windrv_set_vflip(FALSE);
+
+        windrv_set_module_address(module);
+        glimpl_init();
     }
     if (reason == DLL_PROCESS_DETACH)
         glimpl_goodbye();

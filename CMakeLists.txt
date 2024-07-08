@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(sharedgl VERSION 0.7.0 LANGUAGES C CXX)
+project(sharedgl VERSION 0.7.0 LANGUAGES C)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 
@@ -10,7 +10,6 @@ IF(WIN32)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gz")
 ELSE()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
-    set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -march=native")
 ENDIF(WIN32)
 
 file(GLOB GLOBBED_SERVER_SOURCES CONFIGURE_DEPENDS "src/server/*.c" "src/network/*.c")
@@ -22,8 +21,6 @@ IF(UNIX)
 ELSEIF(WIN32)
     file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/winmain.c" "src/client/pb.c" "src/client/spinlock.c" "src/client/glimpl.c" "src/network/*.c")
     file(GLOB GLOBBED_CLIENT_P_SOURCES CONFIGURE_DEPENDS "src/client/platform/windrv.c")
-
-    file(GLOB GLOBBED_DXUMD_SOURCES CONFIGURE_DEPENDS "src/sgldxumd/*.cpp")
 ENDIF(UNIX)
 
 # server

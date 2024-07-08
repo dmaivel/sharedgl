@@ -68,7 +68,7 @@ struct net_context {
 
 #define NET_PROTOCOL_TO_SOCKET(p) (p == NET_UDP ? SOCK_DGRAM : SOCK_STREAM)
 
-char *error_messages[] = {
+static char *error_messages[] = {
     "failed to create socket",
     "failed to bind to port",
     "wsa startup failed",
@@ -144,7 +144,7 @@ void time_init() {
     timer_start = t.QuadPart;
 }
 
-int64_t time_ms()
+static int64_t time_ms()
 {
     LARGE_INTEGER t;
     QueryPerformanceCounter(&t);
@@ -153,7 +153,7 @@ int64_t time_ms()
 #else
 void time_init() {}
 
-int64_t time_ms() 
+static int64_t time_ms() 
 {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -172,8 +172,8 @@ char *net_init_server(struct net_context **ctx, int port)
      * this will only be useful if the server gets windows compatibility
      */
 #ifdef _WIN32
-    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != NO_ERROR)
+    int wsa_result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (wsa_result != NO_ERROR)
         return error_messages[ERR_WSA_STARTUP_FAILED];
 #endif
 
@@ -225,8 +225,8 @@ char *net_init_client(struct net_context **ctx, char *hostname, int port)
     nctx->is_server = false;
 
 #ifdef _WIN32
-    int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (iResult != NO_ERROR)
+    int wsa_result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (wsa_result != NO_ERROR)
         return error_messages[ERR_WSA_STARTUP_FAILED];
 #endif
 

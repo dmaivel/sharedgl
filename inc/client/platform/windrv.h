@@ -2,8 +2,8 @@
 #ifndef _WINDRV_H_
 #define _WINDRV_H_
 
-void WinDrvSetModuleAddress(HMODULE module);
-void WinDrvSetVflip(BOOL flip);
+void windrv_set_module_address(HMODULE module);
+void windrv_set_vflip(BOOL flip);
 
 #endif
 #endif

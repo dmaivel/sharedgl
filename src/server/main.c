@@ -21,7 +21,7 @@
 static void *shm_ptr;
 static size_t shm_size;
 
-int *internal_cmd_ptr;
+static int *internal_cmd_ptr;
 
 static const char *usage =
     "usage: sglrenderer [-h] [-v] [-o] [-n] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [-m SIZE] [-p PORT]\n"
@@ -29,7 +29,7 @@ static const char *usage =
     "options:\n"
     "    -h                 display help information\n"
     "    -v                 display virtual machine arguments\n"
-    "    -o                 enables fps overlay on clients (shows server side fps)\n"
+    "    -o                 enables fps overlay on clients\n"
     "    -n                 enable network server instead of using shared memory\n"
     "    -x                 remove shared memory file\n"
     "    -g [MAJOR.MINOR]   report specific opengl version (default: %d.%d)\n"

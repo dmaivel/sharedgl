@@ -58,7 +58,7 @@ usage: sglrenderer [-h] [-v] [-o] [-n] [-x] [-g MAJOR.MINOR] [-r WIDTHxHEIGHT] [
 options:
     -h                 display help information
     -v                 display virtual machine arguments
-    -o                 enables fps overlay on clients (shows server side fps)
+    -o                 enables fps overlay on clients
     -n                 enable networking instead of shared memory
     -x                 remove shared memory file
     -g [MAJOR.MINOR]   report specific opengl version (default: 4.4)

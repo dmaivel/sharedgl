@@ -93,14 +93,13 @@ static bool wait_for_submit(void *p)
     return *(int*)(p + SGL_OFFSET_REGISTER_SUBMIT) == 1;
 }
 
-int scramble_arr[1000];
-
 /*
  * used for generating an out-of-order sequence of frames to be uploaded
  * for the UDP protocol. Otherwise, mostly the upper half of the window
  * recieves all the updates while the lower half of the window takes some
  * time to update
  */
+static int scramble_arr[1000];
 static void scramble(int *arr, int n) 
 {
     for (int i = 0; i < n; i++)

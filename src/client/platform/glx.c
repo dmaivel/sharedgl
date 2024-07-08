@@ -64,23 +64,23 @@ static int n_valid_fb_configs;
 
 static struct glx_fb_config fb_configs[1729] = { 0 };
 
-int fb_valid_color_sizes[] = {
+static int fb_valid_color_sizes[] = {
     0, 1, 8, 16, 24, 32
 };
 
-int fb_valid_render_types[] = {
+static int fb_valid_render_types[] = {
     GLX_RGBA_BIT, GLX_COLOR_INDEX_BIT
 };
 
-int fb_valid_doublebuffer_types[] = {
+static int fb_valid_doublebuffer_types[] = {
     False, True
 };
 
-int fb_valid_drawable_types[] = {
+static int fb_valid_drawable_types[] = {
     GLX_WINDOW_BIT
 };
 
-int fb_valid_visual_types[] = {
+static int fb_valid_visual_types[] = {
     GLX_TRUE_COLOR, GLX_DIRECT_COLOR, GLX_PSEUDO_COLOR, GLX_STATIC_COLOR, GLX_GRAY_SCALE, GLX_STATIC_GRAY
 };
 
@@ -435,5 +435,4 @@ void glximpl_init()
     }
 
     glx_generate_fb_configs();
-    // fprintf(stderr, "glximpl_init: n_valid_fb_configs = %d\n", n_valid_fb_configs);
 }

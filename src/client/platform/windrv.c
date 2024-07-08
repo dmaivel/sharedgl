@@ -8,15 +8,15 @@
 
 #include <stdbool.h>
 
-static PIXELFORMATDESCRIPTOR pfdTable[64] = { 0 };
-static int pfdCount = 0;
+static PIXELFORMATDESCRIPTOR pfd_table[64] = { 0 };
+static int pfd_count = 0;
 
 static struct WGLCALLBACKS callbacks;
 
-static int maxWidth, maxHeight, realWidth, realHeight;
+static int max_width, max_height, real_width, real_height;
 
-ICD_SET_MAX_DIMENSIONS_DEFINITION(maxWidth, maxHeight, realWidth, realHeight);
-ICD_RESIZE_DEFINITION(realWidth, realHeight);
+ICD_SET_MAX_DIMENSIONS_DEFINITION(max_width, max_height, real_width, real_height);
+ICD_RESIZE_DEFINITION(real_width, real_height);
 
 #define MIN_INTERNAL( A, B )   ( (A)<(B) ? (A) : (B) )
 #define MAX_INTERNAL( A, B )   ( (A)>(B) ? (A) : (B) )
@@ -44,15 +44,15 @@ static struct pfd_depth_info pfd_depths[4] = {
     { 24, 8 }
 };
 
-static HMODULE g_hModule = 0;
+static HMODULE module_handle = 0;
 static BOOL do_vflip = TRUE;
 
-void WinDrvSetModuleAddress(HMODULE module)
+void windrv_set_module_address(HMODULE module)
 {
-    g_hModule = module;
+    module_handle = module;
 }
 
-void WinDrvSetVflip(BOOL flip)
+void windrv_set_vflip(BOOL flip)
 {
     do_vflip = flip;
 }
@@ -101,65 +101,65 @@ BOOL wglChoosePixelFormatARB(HDC hdc,
     return TRUE;
 }
 
-static void pfdAdd(
+static void pfd_add(
     bool doublebuffer, bool gdi, unsigned int accum,
     int rbits, int gbits, int bbits, int abits,
     int rshift, int gshift, int bshift, int ashift,
     int depthbits, int stencilbits)
 {
-    pfdTable[pfdCount].nSize = sizeof(pfdTable[pfdCount]);
-    pfdTable[pfdCount].nVersion = 1;
-    pfdTable[pfdCount].dwFlags = PFD_SUPPORT_OPENGL | PFD_SUPPORT_COMPOSITION | PFD_DRAW_TO_WINDOW;
+    pfd_table[pfd_count].nSize = sizeof(pfd_table[pfd_count]);
+    pfd_table[pfd_count].nVersion = 1;
+    pfd_table[pfd_count].dwFlags = PFD_SUPPORT_OPENGL | PFD_SUPPORT_COMPOSITION | PFD_DRAW_TO_WINDOW;
 
     if (doublebuffer)
-        pfdTable[pfdCount].dwFlags |= PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE;
+        pfd_table[pfd_count].dwFlags |= PFD_DOUBLEBUFFER | PFD_SWAP_EXCHANGE;
 
     if (gdi)
-        pfdTable[pfdCount].dwFlags |= PFD_SUPPORT_GDI;
+        pfd_table[pfd_count].dwFlags |= PFD_SUPPORT_GDI;
 
-    pfdTable[pfdCount].iPixelType = PFD_TYPE_RGBA;
-    pfdTable[pfdCount].iLayerType = PFD_MAIN_PLANE;
+    pfd_table[pfd_count].iPixelType = PFD_TYPE_RGBA;
+    pfd_table[pfd_count].iLayerType = PFD_MAIN_PLANE;
 
-    pfdTable[pfdCount].cColorBits = rbits + gbits + bbits + abits;
-    pfdTable[pfdCount].cRedBits = rbits;
-    pfdTable[pfdCount].cRedShift = rshift;
-    pfdTable[pfdCount].cGreenBits = gbits;
-    pfdTable[pfdCount].cGreenShift = gshift;
-    pfdTable[pfdCount].cBlueBits = bbits;
-    pfdTable[pfdCount].cBlueShift = bshift;
-    pfdTable[pfdCount].cAlphaBits = abits;
-    pfdTable[pfdCount].cAlphaShift = ashift;
-    pfdTable[pfdCount].cAccumBits = 4*accum;
-    pfdTable[pfdCount].cAccumRedBits = accum;
-    pfdTable[pfdCount].cAccumGreenBits = accum;
-    pfdTable[pfdCount].cAccumBlueBits = accum;
-    pfdTable[pfdCount].cAccumAlphaBits = accum;
-    pfdTable[pfdCount].cDepthBits = depthbits;
-    pfdTable[pfdCount].cStencilBits = stencilbits;
-    pfdTable[pfdCount].cAuxBuffers = 0;
-    pfdTable[pfdCount].iLayerType = 0;
-    pfdTable[pfdCount].bReserved = 0;
-    pfdTable[pfdCount].dwLayerMask = 0;
-    pfdTable[pfdCount].dwVisibleMask = 0;
-    pfdTable[pfdCount].dwDamageMask = 0;
+    pfd_table[pfd_count].cColorBits = rbits + gbits + bbits + abits;
+    pfd_table[pfd_count].cRedBits = rbits;
+    pfd_table[pfd_count].cRedShift = rshift;
+    pfd_table[pfd_count].cGreenBits = gbits;
+    pfd_table[pfd_count].cGreenShift = gshift;
+    pfd_table[pfd_count].cBlueBits = bbits;
+    pfd_table[pfd_count].cBlueShift = bshift;
+    pfd_table[pfd_count].cAlphaBits = abits;
+    pfd_table[pfd_count].cAlphaShift = ashift;
+    pfd_table[pfd_count].cAccumBits = 4*accum;
+    pfd_table[pfd_count].cAccumRedBits = accum;
+    pfd_table[pfd_count].cAccumGreenBits = accum;
+    pfd_table[pfd_count].cAccumBlueBits = accum;
+    pfd_table[pfd_count].cAccumAlphaBits = accum;
+    pfd_table[pfd_count].cDepthBits = depthbits;
+    pfd_table[pfd_count].cStencilBits = stencilbits;
+    pfd_table[pfd_count].cAuxBuffers = 0;
+    pfd_table[pfd_count].iLayerType = 0;
+    pfd_table[pfd_count].bReserved = 0;
+    pfd_table[pfd_count].dwLayerMask = 0;
+    pfd_table[pfd_count].dwVisibleMask = 0;
+    pfd_table[pfd_count].dwDamageMask = 0;
 
-    pfdCount++;
+    pfd_count++;
 }
 
 /*
  * accounts for accum
  */
-static void pfdAdd2(
+static void pfd_add2(
     bool doublebuffer, bool gdi, unsigned int accum,
     int rbits, int gbits, int bbits, int abits,
     int rshift, int gshift, int bshift, int ashift,
     int depthbits, int stencilbits)
 {
     for (int i = 0; i < 2; i++)
-        pfdAdd(doublebuffer, gdi, i * accum, rbits, gbits, bbits, abits, rshift, gshift, bshift, ashift, depthbits, stencilbits);
+        pfd_add(doublebuffer, gdi, i * accum, rbits, gbits, bbits, abits, rshift, gshift, bshift, ashift, depthbits, stencilbits);
 }
 
-static void pfdInit()
+static void pfd_init()
 {
     /*
      * optional doublebuffer
@@ -168,7 +168,7 @@ static void pfdInit()
     for (int i = 0; i < 2; i++) {
         for (int color = 0; color < 4; color++)
             for (int depth = 0; depth < 4; depth++)
-                pfdAdd2(i, false, 16, 
+                pfd_add2(i, false, 16, 
                     pfd_colors[color].rbits, pfd_colors[color].gbits, pfd_colors[color].bbits, pfd_colors[color].abits,
                     pfd_colors[color].rshift, pfd_colors[color].gshift, pfd_colors[color].bshift, pfd_colors[color].ashift, 
                     pfd_depths[depth].depthbits, pfd_depths[depth].stencilbits);
@@ -223,7 +223,7 @@ PROC APIENTRY DrvGetProcAddress(LPCSTR lpszProc)
      * commented out || (lpszProc[0] == 'w' && lpszProc[1] == 'g' && lpszProc[2] == 'l'), some apps dont like that part
      */
     if ((lpszProc[0] == 'g' && lpszProc[1] == 'l'))
-        return GetProcAddress(g_hModule, lpszProc);
+        return GetProcAddress(module_handle, lpszProc);
 
     return NULL;
 }
@@ -270,20 +270,20 @@ BOOL APIENTRY DrvSwapBuffers(HDC hdc)
         .bmiHeader.biYPelsPerMeter = 0
     };
 
-    static int Init = 0;
-    static void *Frame = NULL;
+    static int init = 0;
+    static void *framebuffer = NULL;
 
-    if (!Init) {
-        bmi.bmiHeader.biWidth = maxWidth;
-        bmi.bmiHeader.biHeight = -maxHeight;
+    if (!init) {
+        bmi.bmiHeader.biWidth = max_width;
+        bmi.bmiHeader.biHeight = -max_height;
 
-        Frame = glimpl_fb_address();
-        Init = 1;
+        framebuffer = glimpl_fb_address();
+        init = 1;
     }
 
-    glimpl_swap_buffers(realWidth, realHeight, do_vflip, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
-    SetDIBitsToDevice(hdc, 0, 0, realWidth, realHeight, 0, 0, 0, realHeight, Frame, &bmi, DIB_RGB_COLORS);
-    // StretchDIBits(hdc, 0, 0, realWidth, realHeight, 0, 0, realWidth, realHeight, Frame, &bmi, DIB_RGB_COLORS, SRCCOPY);
+    glimpl_swap_buffers(real_width, real_height, do_vflip, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
+    SetDIBitsToDevice(hdc, 0, 0, real_width, real_height, 0, 0, 0, real_height, framebuffer, &bmi, DIB_RGB_COLORS);
+    // StretchDIBits(hdc, 0, 0, real_width, real_height, 0, 0, real_width, real_height, framebuffer, &bmi, DIB_RGB_COLORS, SRCCOPY);
 
     return TRUE;
 }
@@ -303,18 +303,18 @@ BOOL APIENTRY DrvSwapLayerBuffers(HDC hdc, UINT fuPlanes)
 
 LONG APIENTRY DrvDescribePixelFormat(HDC hdc, INT iPixelFormat, ULONG cjpfd, PIXELFORMATDESCRIPTOR *ppfd)
 {
-    if (!pfdCount)
-        pfdInit();
+    if (!pfd_count)
+        pfd_init();
 
     --iPixelFormat;
 
-    if (iPixelFormat >= pfdCount || iPixelFormat < 0 || cjpfd != sizeof(PIXELFORMATDESCRIPTOR))
-        return pfdCount;
+    if (iPixelFormat >= pfd_count || iPixelFormat < 0 || cjpfd != sizeof(PIXELFORMATDESCRIPTOR))
+        return pfd_count;
 
     if (ppfd != NULL)
-        memcpy(ppfd, &pfdTable[iPixelFormat], sizeof(PIXELFORMATDESCRIPTOR));
+        memcpy(ppfd, &pfd_table[iPixelFormat], sizeof(PIXELFORMATDESCRIPTOR));
  
-    return pfdCount;    
+    return pfd_count;    
 }
 
 BOOL APIENTRY DrvSetPixelFormat(HDC hdc, LONG iPixelFormat)
