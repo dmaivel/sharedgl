@@ -683,6 +683,34 @@ static inline size_t glimpl_get_pixel_size(GLenum format)
     }
 }
 
+static inline void glimpl_upload_buffer(const void *data, size_t size)
+{
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push(CEIL_DIV(size, 4));
+    pb_memcpy((void*)data, size);
+}
+
+static inline void glimpl_download_buffer(void *dst, size_t size)
+{
+    int blocks = CEIL_DIV(size, SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES);
+    size_t count = size;
+
+    void *retval_v = pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+
+    for (int i = 0; i < blocks; i++) {
+        size_t true_count = count > SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES ? SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES : count;
+
+        pb_push(SGL_CMD_VP_DOWNLOAD);
+        pb_push(true_count);
+        
+        glimpl_submit();
+
+        memcpy((char*)dst + (i * SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES), retval_v, true_count);
+
+        count -= SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES;
+    }
+}
+
 static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, GLenum format, const void* pixels)
 {
     if (pixels == NULL) {
@@ -692,9 +720,7 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
 
     size_t total_size = width * height * depth * glimpl_get_pixel_size(format);
 
-    pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(CEIL_DIV(total_size, 4));
-    pb_memcpy((void*)pixels, total_size);
+    glimpl_upload_buffer(pixels, total_size);
 }
 
 static inline void glimpl_push_client_pointers(int mode, int max_index)
@@ -866,13 +892,6 @@ static inline void glimpl_draw_elements(int mode, int type, int start, int end, 
 
 #undef GET_MAX_INDEX
 
-static inline void glimpl_upload_buffer(const void *data, size_t size)
-{
-    pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(CEIL_DIV(size, 4));
-    pb_memcpy((void*)data, size);
-}
-
 static void glimpl_texture_subimage(int cmd, int n_dims, GLuint texture, GLint level, GLint xoffset, GLint yoffset, 
         GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
 {
@@ -990,23 +1009,7 @@ static void *glimpl_map_buffer_range(int cmd, GLenum buffer, GLintptr offset, GL
 
     glimpl_submit();
 
-    int blocks = length / SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES + (length % SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES != 0);
-    size_t count = length;
-
-    void *retval_v = pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
-
-    for (int i = 0; i < blocks; i++) {
-        size_t true_count = count > SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES ? SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES : count;
-
-        pb_push(SGL_CMD_VP_DOWNLOAD);
-        pb_push(true_count);
-        
-        glimpl_submit();
-
-        memcpy((char*)glimpl_map_buffer.mem + (i * SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES), retval_v, true_count);
-
-        count -= SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES;
-    }
+    glimpl_download_buffer(glimpl_map_buffer.mem, length);
 
     return glimpl_map_buffer.mem;
 }

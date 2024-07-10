@@ -58,6 +58,12 @@
 #define UNPACK_A(packed) (((packed) >> 16) & 0xFFFF)
 #define UNPACK_B(packed) ((packed) & 0xFFFF)
 
+#ifdef _WIN32
+#   define FORCEINLINE __forceinline
+#else
+#   define FORCEINLINE __attribute__((always_inline))
+#endif
+
 inline bool is_value_likely_an_offset(const void *p)
 {
     uintptr_t v = (uintptr_t)p;
