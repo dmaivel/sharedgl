@@ -188,7 +188,7 @@ void pb_copy(void *data, int s, size_t length)
  *  for (int i = 0; i < length / 4; i++)
  *      pb_push(*pdata++);
  */
-void pb_memcpy(void *src, size_t length)
+void pb_memcpy(const void *src, size_t length)
 {
     // length = length - (length % 4);
     memcpy(in_cur, src, length);

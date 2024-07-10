@@ -37,7 +37,7 @@ int pb_read(int s);
 int64_t pb_read64(int s);
 void pb_write(int s, int c);
 void pb_copy(void *data, int s, size_t length);
-void pb_memcpy(void *src, size_t length);
+void pb_memcpy(const void *src, size_t length);
 
 void *pb_ptr(size_t offs);
 

@@ -10,7 +10,6 @@ SharedGL is an OpenGL implementation that enables 3D acceleration for Windows an
 1. [Getting started](#getting-started)
 2. [Usage](#usage)
    - [Environment variables](#environment-variables)
-   - [Shared memory or network](#shared-memory-or-network)
    - [Windows in a VM](#windows-in-a-vm)
    - [Linux](#linux)
       - [Linux in a VM](#linux-in-a-vm)
@@ -25,7 +24,7 @@ SharedGL is an OpenGL implementation that enables 3D acceleration for Windows an
 
 # Getting started
 
-The following libraries are required for building the server and client on linux:
+The following libraries are required for building the server (and client) on Linux:
 - libepoxy
 - SDL2
 - libx11
@@ -47,8 +46,6 @@ cmake --build . --target sharedgl-core --config Release
 
 For detailed build instructions for Windows, visit the [Windows section](#windows-in-a-vm).
 
-If on linux, some applications may require an explicit `libGLX`, so run `ln -s libGL.so.1 libGLX.so.0` in `build` to make a symlink.
-
 # Usage
 The server must be started on the host before running any clients. Note that the server can only be ran on Linux.
 
@@ -61,7 +58,7 @@ options:
     -o                 enables fps overlay on clients
     -n                 enable networking instead of shared memory
     -x                 remove shared memory file
-    -g [MAJOR.MINOR]   report specific opengl version (default: 4.4)
+    -g [MAJOR.MINOR]   report specific opengl version (default: 4.6)
     -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)
     -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)
     -p [PORT]          if networking is enabled, specify which port to use (default: 3000)
@@ -75,14 +72,10 @@ Variables labeled with `host` get their values from the host/server when their o
 |-|-|-|-|
 | GL_VERSION_OVERRIDE | Digit.Digit | `host` | Override the OpenGL version on the client side. Available for both Windows and Linux clients. |
 | GLX_VERSION_OVERRIDE | Digit.Digit | 1.4 | Override the GLX version on the client side. Only available for Linux clients. |
-| GLSL_VERSION_OVERRIDE | Digit.Digit | 4.4 | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
+| GLSL_VERSION_OVERRIDE | Digit.Digit |  | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
 | SGL_RUN_WITH_LOW_PRIORITY | Boolean | true | On older CPUs, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. This may not be needed on systems with newer CPUs. Only available for Windows clients. |
 | SGL_WINED3D_DONT_VFLIP | Boolean | false | If running a DirectX application via WineD3D, ensure this variable is set to `true` in order for the application to render the framebuffer in the proper orientation. Only available for Windows clients. |
-
-### Network
-
-Starting from version `0.5.0`, network capabilities are offered. If you wish to accelerate graphics over another machine or do not wish to install any kernel drivers, use the network feature. See [networking](#networking) for more information.
 
 ## Windows (in a VM)
 
@@ -165,11 +158,13 @@ Some applications may require adding the library to the `LD_PRELOAD` environment
 
 Note that the Linux library does not need to be used in a virtual machine, allowing users to debug the library entirely on the host.
 
+Some applications may require an explicit `libGLX`, so run `ln -s libGL.so.1 libGLX.so.0` in `build` to make a symlink.
+
 ### Linux in a VM
 
 [Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
 
-For virtual linux clients, an additional kernel module needs to be compiled in the virtual machine, resulting in a binary `sharedgl.ko` which needs to be loaded. Loading/installing can be done by running the provided script (`./kernel/linux/install.sh`), following compilation. If the module doesn't load on boot, it is recommended that you add `sharedgl` to your modprobe config.
+For virtual Linux clients, an additional kernel module needs to be compiled in the virtual machine, resulting in a binary `sharedgl.ko` which needs to be loaded. Loading/installing can be done by running the provided script (`./kernel/linux/install.sh`), following compilation. If the module doesn't load on boot, it is recommended that you add `sharedgl` to your modprobe config.
 
 ```bash
 # within 'sharedgl' directory
@@ -198,18 +193,18 @@ If the network feature feels too slow, you may want to modify `SGL_FIFO_UPLOAD_C
 + #define SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT 15360
 ```
 
-Note that this change will require rebuilding the client and server.
+Note that changing this file will require rebuilding the client and server.
 
 # Virtual machines
-
-> [!NOTE]\
-> If the networking feature is used exclusively, this step can be skipped.
 
 Before starting the virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Before starting the virtual machine, start the server using `-v`, which will start the server and print the necessary configurations:
 
 ```bash
-$ ./sglrenderer -v
+$ ./sglrenderer -v [OTHER PARAMETERS]
 ```
+
+> [!IMPORTANT]\
+> Once these configurations are in place, running the server with `-v` is not required. If you make changes to the amount of memory to reserve using the `-m` argument, you must reflect that change in the virtual machine configuration.
 
 **libvirt:**
 ```xml
@@ -248,13 +243,13 @@ This list describes the amount of functions left from each standard to implement
     - [x] 3.1 (~15 total) 
     - [x] 3.2 (~14 remaining)
     - [x] 3.3 (~29 remaining)
-- [ ] OpenGL 4
+- [x] OpenGL 4
     - [x] 4.0 (~46 total) 
     - [x] 4.1 (~89 total) 
     - [x] 4.2 (~12 total) 
     - [x] 4.3 (~44 total) 
     - [x] 4.4 (~9 total) 
-    - [ ] 4.5 (~42 remaining) (~122 total) 
+    - [x] 4.5 (~122 total) 
     - [x] 4.6 (~4 total) 
 
 # Limitations / Issues
@@ -272,7 +267,7 @@ This list describes the amount of functions left from each standard to implement
 4. Application doesn't run in the virtual machine? (Process exists but stalls)
     - Make sure the server is running
         - If you start the server and it still won't run, shut down the VM, run `sudo ./sglrenderer -x`, start the server, start the VM
-    - Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for linux)
+    - Make sure the drivers are installed (VirtIO IVSHMEM for Windows, custom kernel must be compiled for Linux)
 5. Server reports, `err: failed to open shared memory 'sharedgl_shared_memory'`
     - This (usually) happens when the shared memory file is created before the server runs, meaning the file was created with different privileges. You may either:
         - Run the server as `sudo`
@@ -283,42 +278,42 @@ This list describes the amount of functions left from each standard to implement
 # Showcase
 
 <details>
-<summary>Click to reveal: Running SuperTuxKart in a windows virtual machine</summary>
+<summary>Click to reveal: Running SuperTuxKart in a Windows virtual machine</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/c302f546-2c05-4cb7-b415-8f01ad1dce7a
 
 </details>
 
 <details>
-<summary>Click to reveal: Running DirectX sample using WineD3D in a windows virtual machine</summary>
+<summary>Click to reveal: Running DirectX sample using WineD3D in a Windows virtual machine</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/f2ae2825-79d6-4c1b-813f-c826586642e2
 
 </details>
 
 <details>
-<summary>Click to reveal: Running minetest in a windows virtual machine (old)</summary>
+<summary>Click to reveal: Running minetest in a Windows virtual machine (old)</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/26c6216d-72f7-45b4-9c4f-1734de0d1c6d
 
 </details>
 
 <details>
-<summary>Click to reveal: Running glxgears in a windows virtual machine (old)</summary>
+<summary>Click to reveal: Running glxgears in a Windows virtual machine (old)</summary>
     
 https://github.com/dmaivel/sharedgl/assets/38770072/a774db97-807e-46b9-a453-fa2ee3f4ea84
 
 </details>
 
 <details>
-<summary>Click to reveal: Running glxgears in a linux virtual machine (old)</summary>
+<summary>Click to reveal: Running glxgears in a Linux virtual machine (old)</summary>
 
 https://github.com/dmaivel/sharedgl/assets/38770072/0d46bf46-5693-4842-a81f-2f186c396e26
 
 </details>
 
 <details>
-<summary>Click to reveal: Running a compute shader in a linux virtual machine (old)</summary>
+<summary>Click to reveal: Running a compute shader in a Linux virtual machine (old)</summary>
     
 https://github.com/dmaivel/sharedgl/assets/38770072/ded179b8-23dc-491d-ba34-4108e014f296
 

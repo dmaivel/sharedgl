@@ -48,7 +48,7 @@
 #define SGL_VP_DOWNLOAD_BLOCK_SIZE (SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES / sizeof(int))
 
 #define SGL_DEFAULT_MAJOR 4
-#define SGL_DEFAULT_MINOR 4
+#define SGL_DEFAULT_MINOR 6
 
 #define SGL_SHARED_MEMORY_NAME "sharedgl_shared_memory"
 

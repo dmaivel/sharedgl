@@ -846,18 +846,6 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 glTexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, uploaded);
                 break;
             }
-            case SGL_CMD_TEXTURESUBIMAGE2D: {
-                int texture = *pb++,
-                    level = *pb++,
-                    xoffset = *pb++,
-                    yoffset = *pb++,
-                    width = *pb++,
-                    height = *pb++,
-                    format = *pb++,
-                    type = *pb++;
-                glTextureSubImage2D(texture, level, xoffset, yoffset, width, height, format, type, uploaded);
-                break;
-            }
             case SGL_CMD_TRANSLATED: /* to-do: don't discard doubles */
             case SGL_CMD_TRANSLATEF: {
                 float x = *((float*)pb++),
@@ -4564,7 +4552,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int buffer = *pb++,
                     drawbuffer = *pb++;
                 int value[4];
-                for (int i = 0; i < (buffer == GL_COLOR ? 4 : 1); i++)
+                for (int i = 0; i < 4; i++)
                     value[i] = *pb++;
                 glClearBufferiv(buffer, drawbuffer, value);
                 break;
@@ -4573,7 +4561,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int buffer = *pb++,
                     drawbuffer = *pb++;
                 unsigned int value[4];
-                for (int i = 0; i < (buffer == GL_COLOR ? 4 : 1); i++)
+                for (int i = 0; i < 4; i++)
                     value[i] = *pb++;
                 glClearBufferuiv(buffer, drawbuffer, value);
                 break;
@@ -4582,7 +4570,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int buffer = *pb++,
                     drawbuffer = *pb++;
                 float value[4];
-                for (int i = 0; i < (buffer == GL_COLOR ? 4 : 1); i++)
+                for (int i = 0; i < 4; i++)
                     value[i] = *((float*)pb++);
                 glClearBufferfv(buffer, drawbuffer, value);
                 break;
@@ -5239,7 +5227,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_GETFRAMEBUFFERPARAMETERIV: {
                 int target = *pb++;
                 int pname = *pb++;
-                glGetFramebufferParameteriv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL);
+                glGetFramebufferParameteriv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETINTERNALFORMATI64V: {
@@ -5441,12 +5429,23 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_GETTRANSFORMFEEDBACKIV: {
+                int xfb = *pb++;
+                int pname = *pb++;
+                glGetTransformFeedbackiv(xfb, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETTRANSFORMFEEDBACKI_V: {
+                int xfb = *pb++;
+                int pname = *pb++;
+                int index = *pb++;
+                glGetTransformFeedbacki_v(xfb, pname, index, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETTRANSFORMFEEDBACKI64_V: {
+                int xfb = *pb++;
+                int pname = *pb++;
+                int index = *pb++;
+                glGetTransformFeedbacki64_v(xfb, pname, index, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_CREATEBUFFERS: {
@@ -5454,27 +5453,64 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_NAMEDBUFFERSTORAGE: {
-                break;
+                int target = *pb++,
+                    size = *pb++,
+                    use_uploaded = *pb++,
+                    usage = *pb++;
+                glNamedBufferStorage(target, size, use_uploaded ? uploaded : NULL, usage);
             }
             case SGL_CMD_NAMEDBUFFERDATA: {
+                int buffer = *pb++,
+                    size = *pb++,
+                    use_uploaded = *pb++,
+                    usage = *pb++;
+                glNamedBufferData(buffer, size, use_uploaded ? uploaded : NULL, usage);
                 break;
             }
             case SGL_CMD_NAMEDBUFFERSUBDATA: {
-                break;
+                int target = *pb++,
+                    offset = *pb++,
+                    size = *pb++;
+                glNamedBufferSubData(target, offset, size, uploaded);
             }
             case SGL_CMD_CLEARNAMEDBUFFERDATA: {
+                int target = *pb++;
+                int internalformat = *pb++;
+                int format = *pb++;
+                int type = *pb++;
+                unsigned int data = *pb++;
+                glClearNamedBufferData(target, internalformat, format, type, &data);
                 break;
             }
             case SGL_CMD_CLEARNAMEDBUFFERSUBDATA: {
+                int target = *pb++;
+                int internalformat = *pb++;
+                int offset = *pb++;
+                int size = *pb++;
+                int format = *pb++;
+                int type = *pb++;
+                unsigned int data = *pb++;
+                glClearNamedBufferSubData(target, internalformat, offset, size, format, type, &data);
                 break;
             }
             case SGL_CMD_MAPNAMEDBUFFER: {
                 break;
             }
             case SGL_CMD_MAPNAMEDBUFFERRANGE: {
+                int target = *pb++,
+                    offset = *pb++,
+                    length = *pb++,
+                    access = *pb++;
+                map_buffer = glMapNamedBufferRange(target, offset, length, access);
+                map_buffer_offset = 0;
                 break;
             }
             case SGL_CMD_GETNAMEDBUFFERPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                int params;
+                glGetNamedBufferParameteriv(target, pname, &params);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL_V) = params;
                 break;
             }
             case SGL_CMD_GETNAMEDBUFFERPARAMETERI64V: {
@@ -5491,34 +5527,79 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_NAMEDFRAMEBUFFERDRAWBUFFERS: {
+                int framebuffer = *pb++;
+                int n = *pb++;
+                unsigned int bufs[n];
+                for (int i = 0; i < n; i++)
+                    bufs[i] = *pb++;
+                glNamedFramebufferDrawBuffers(framebuffer, n, bufs);
                 break;
             }
             case SGL_CMD_INVALIDATENAMEDFRAMEBUFFERDATA: {
+                int framebuffer = *pb++;
+                int n_attachments = *pb++;
+                glInvalidateNamedFramebufferData(framebuffer, n_attachments, uploaded);
                 break;
             }
             case SGL_CMD_INVALIDATENAMEDFRAMEBUFFERSUBDATA: {
+                int framebuffer = *pb++;
+                int n_attachments = *pb++;
+                int x = *pb++;
+                int y = *pb++;
+                int width = *pb++;
+                int height = *pb++;
+                glInvalidateNamedFramebufferSubData(framebuffer, n_attachments, uploaded, x, y, width, height);
                 break;
             }
             case SGL_CMD_CLEARNAMEDFRAMEBUFFERIV: {
+                int framebuffer = *pb++,
+                    buffer = *pb++,
+                    drawbuffer = *pb++;
+                int value[4];
+                for (int i = 0; i < 4; i++)
+                    value[i] = *pb++;
+                glClearNamedFramebufferiv(framebuffer, buffer, drawbuffer, value);
                 break;
             }
             case SGL_CMD_CLEARNAMEDFRAMEBUFFERUIV: {
+                int framebuffer = *pb++,
+                    buffer = *pb++,
+                    drawbuffer = *pb++;
+                unsigned int value[4];
+                for (int i = 0; i < 4; i++)
+                    value[i] = *pb++;
+                glClearNamedFramebufferuiv(framebuffer, buffer, drawbuffer, value);
                 break;
             }
             case SGL_CMD_CLEARNAMEDFRAMEBUFFERFV: {
+                int framebuffer = *pb++,
+                    buffer = *pb++,
+                    drawbuffer = *pb++;
+                float value[4];
+                for (int i = 0; i < 4; i++)
+                    value[i] = *((float*)pb++);
+                glClearNamedFramebufferfv(framebuffer, buffer, drawbuffer, value);
                 break;
             }
             case SGL_CMD_GETNAMEDFRAMEBUFFERPARAMETERIV: {
-                break;
+                int target = *pb++,
+                    pname = *pb++;
+                glGetNamedFramebufferParameteriv(target, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
             }
             case SGL_CMD_GETNAMEDFRAMEBUFFERATTACHMENTPARAMETERIV: {
-                break;
+                int target = *pb++,
+                    attachment = *pb++,
+                    pname = *pb++;
+                glGetNamedFramebufferAttachmentParameteriv(target, attachment, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
             }
             case SGL_CMD_CREATERENDERBUFFERS: {
                 glCreateRenderbuffers(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
                 break;
             }
             case SGL_CMD_GETNAMEDRENDERBUFFERPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetNamedRenderbufferParameteriv(target, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
                 break;
             }
             case SGL_CMD_CREATETEXTURES: {
@@ -5526,30 +5607,123 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_TEXTURESUBIMAGE1D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    width = *pb++,
+                    format = *pb++,
+                    type = *pb++;
+                glTextureSubImage1D(target, level, xoffset, width, format, type, uploaded);
+                break;
+            }
+            case SGL_CMD_TEXTURESUBIMAGE2D: {
+                int texture = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    format = *pb++,
+                    type = *pb++;
+                glTextureSubImage2D(texture, level, xoffset, yoffset, width, height, format, type, uploaded);
                 break;
             }
             case SGL_CMD_TEXTURESUBIMAGE3D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    format = *pb++,
+                    type = *pb++;
+                glTextureSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, uploaded);
                 break;
             }
             case SGL_CMD_COMPRESSEDTEXTURESUBIMAGE1D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    format = *pb++,
+                    imageSize = *pb++;
+                glCompressedTextureSubImage1D(target, level, xoffset, width, format, imageSize, uploaded);
                 break;
             }
             case SGL_CMD_COMPRESSEDTEXTURESUBIMAGE2D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    format = *pb++,
+                    imageSize = *pb++;
+                glCompressedTextureSubImage2D(target, level, xoffset, yoffset, width, height, format, imageSize, uploaded);
                 break;
             }
             case SGL_CMD_COMPRESSEDTEXTURESUBIMAGE3D: {
+                int target = *pb++,
+                    level = *pb++,
+                    xoffset = *pb++,
+                    yoffset = *pb++,
+                    zoffset = *pb++,
+                    width = *pb++,
+                    height = *pb++,
+                    depth = *pb++,
+                    format = *pb++,
+                    imageSize = *pb++;
+                glCompressedTextureSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, uploaded);
                 break;
             }
             case SGL_CMD_TEXTUREPARAMETERFV: {
+                int target = *pb++,
+                    pname = *pb++;
+                float params[4];
+                params[0] = *((float*)pb++);
+                params[1] = *((float*)pb++);
+                params[2] = *((float*)pb++);
+                params[3] = *((float*)pb++);
+                glTextureParameterfv(target, pname, params);
                 break;
             }
             case SGL_CMD_TEXTUREPARAMETERIIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                int params[4];
+                params[0] = *pb++;
+                params[1] = *pb++;
+                params[2] = *pb++;
+                params[3] = *pb++;
+                glTextureParameterIiv(target, pname, params);
                 break;
             }
             case SGL_CMD_TEXTUREPARAMETERIUIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                unsigned int params[4];
+                params[0] = *pb++;
+                params[1] = *pb++;
+                params[2] = *pb++;
+                params[3] = *pb++;
+                glTextureParameterIuiv(target, pname, params);
                 break;
             }
             case SGL_CMD_TEXTUREPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                int params[4];
+                params[0] = *pb++;
+                params[1] = *pb++;
+                params[2] = *pb++;
+                params[3] = *pb++;
+                glTextureParameteriv(target, pname, params);
                 break;
             }
             case SGL_CMD_GETTEXTUREIMAGE: {
@@ -5559,21 +5733,41 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_GETTEXTURELEVELPARAMETERFV: {
+                int target = *pb++,
+                    level = *pb++,
+                    pname = *pb++;
+                glGetTextureLevelParameterfv(target, level, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETTEXTURELEVELPARAMETERIV: {
+                int target = *pb++,
+                    level = *pb++,
+                    pname = *pb++;
+                glGetTextureLevelParameteriv(target, level, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETTEXTUREPARAMETERFV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTextureParameterfv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETTEXTUREPARAMETERIIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTextureParameterIiv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETTEXTUREPARAMETERIUIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTextureParameterIuiv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETTEXTUREPARAMETERIV: {
+                int target = *pb++,
+                    pname = *pb++;
+                glGetTextureParameteriv(target, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_CREATEVERTEXARRAYS: {
@@ -5581,15 +5775,39 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_VERTEXARRAYVERTEXBUFFERS: {
+                int vaobj = *pb++;
+                int first = *pb++;
+                int count = *pb++;
+                // to-do: possibly optimize by just setting these to point into pb
+                GLuint buffers[count];
+                GLintptr offsets[count];
+                GLsizei strides[count];
+                for (int i = 0; i < count; i++) {
+                    buffers[i] = *pb++;
+                    offsets[i] = *pb++;
+                    strides[i] = *pb++;
+                }
+                glVertexArrayVertexBuffers(vaobj, first, count, buffers, offsets, strides);
                 break;
             }
             case SGL_CMD_GETVERTEXARRAYIV: {
+                int vaobj = *pb++;
+                int pname = *pb++;
+                glGetVertexArrayiv(vaobj, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETVERTEXARRAYINDEXEDIV: {
+                int vaobj = *pb++;
+                int index = *pb++;
+                int pname = *pb++;
+                glGetVertexArrayIndexediv(vaobj, index, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_GETVERTEXARRAYINDEXED64IV: {
+                int vaobj = *pb++;
+                int index = *pb++;
+                int pname = *pb++;
+                glGetVertexArrayIndexed64iv(vaobj, index, pname, p + SGL_OFFSET_REGISTER_RETVAL_V);
                 break;
             }
             case SGL_CMD_CREATESAMPLERS: {
