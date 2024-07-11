@@ -132,15 +132,15 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 
     struct net_context *net_ctx = NULL;
 
-    if ((signed)fifo_size < 0) {
+    if ((intptr_t)fifo_size < 0) {
         PRINT_LOG("framebuffer too big, try increasing memory!\n");
         return;
     }
 
     memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
 
-    *(int*)(p + SGL_OFFSET_REGISTER_FBSTART) = SGL_OFFSET_COMMAND_START + fifo_size;
-    *(int*)(p + SGL_OFFSET_REGISTER_MEMSIZE) = args.memory_size;
+    *(uint64_t*)(p + SGL_OFFSET_REGISTER_FBSTART) = SGL_OFFSET_COMMAND_START + fifo_size;
+    *(uint64_t*)(p + SGL_OFFSET_REGISTER_MEMSIZE) = args.memory_size;
     *(int*)(p + SGL_OFFSET_REGISTER_GLMAJ) = args.gl_major;
     *(int*)(p + SGL_OFFSET_REGISTER_GLMIN) = args.gl_minor;
     *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
@@ -917,31 +917,39 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_COLORPOINTER: {
                 int size = *pb++,
                     type = *pb++,
-                    stride = *pb++;
-                glColorPointer(size, type, stride, uploaded);
+                    stride = *pb++,
+                    use_upload = *pb++,
+                    offs = *pb++;
+                glColorPointer(size, type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glColorPointer(0x%x, 0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", size, type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
             }
             case SGL_CMD_NORMALPOINTER: {
                 int type = *pb++,
-                    stride = *pb++;
-                glNormalPointer(type, stride, uploaded);
+                    stride = *pb++,
+                    use_upload = *pb++,
+                    offs = *pb++;
+                glNormalPointer(type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glNormalPointer(0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
             }
             case SGL_CMD_TEXCOORDPOINTER: {
                 int size = *pb++,
                     type = *pb++,
-                    stride = *pb++;
-                glTexCoordPointer(size, type, stride, uploaded);
+                    stride = *pb++,
+                    use_upload = *pb++,
+                    offs = *pb++;
+                glTexCoordPointer(size, type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glTexCoordPointer(0x%x, 0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", size, type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
             }
             case SGL_CMD_VERTEXPOINTER: {
                 int size = *pb++,
                     type = *pb++,
-                    stride = *pb++;
-                glVertexPointer(size, type, stride, uploaded);
+                    stride = *pb++,
+                    use_upload = *pb++,
+                    offs = *pb++;
+                glVertexPointer(size, type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glVertexPointer(0x%x, 0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", size, type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
             }

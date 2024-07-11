@@ -59,7 +59,7 @@ void pb_set(int fd)
 {
     ptr = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     
-    int alloc_size = *(int*)(ptr + SGL_OFFSET_REGISTER_MEMSIZE);
+    uintptr_t alloc_size = *(uintptr_t*)(ptr + SGL_OFFSET_REGISTER_MEMSIZE);
     munmap(ptr, 0x1000);
     ptr = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
@@ -193,6 +193,23 @@ void pb_memcpy(const void *src, size_t length)
     // length = length - (length % 4);
     memcpy(in_cur, src, length);
     in_cur += CEIL_DIV(length, 4);
+}
+
+void pb_memcpy_unaligned(const void *src, size_t length)
+{
+    // length = length - (length % 4);
+    memcpy(in_cur, src, length);
+    in_cur = (int*)((char*)in_cur + length);
+}
+
+static inline uintptr_t align_to_4(uintptr_t ptr)
+{
+    return (ptr + 3) & ~3;
+}
+
+void pb_realign()
+{
+    in_cur = (int*)align_to_4((uintptr_t)in_cur);
 }
 
 void *pb_ptr(size_t offs)

@@ -35,7 +35,7 @@
 #define SGL_OFFSET_REGISTER_CLAIM_ID (sizeof(int) * 4)
 #define SGL_OFFSET_REGISTER_CONNECT (sizeof(int) * 5)
 #define SGL_OFFSET_REGISTER_FBSTART (sizeof(int) * 6)
-#define SGL_OFFSET_REGISTER_MEMSIZE (sizeof(int) * 10)
+#define SGL_OFFSET_REGISTER_MEMSIZE (sizeof(int) * 8)
 #define SGL_OFFSET_REGISTER_GLMAJ (sizeof(int) * 11)
 #define SGL_OFFSET_REGISTER_GLMIN (sizeof(int) * 12)
 #define SGL_OFFSET_REGISTER_RETVAL_V (sizeof(int) * 13)
@@ -64,7 +64,7 @@
 #   define FORCEINLINE __attribute__((always_inline))
 #endif
 
-inline bool is_value_likely_an_offset(const void *p)
+static inline bool is_value_likely_an_offset(const void *p)
 {
     uintptr_t v = (uintptr_t)p;
     return v < 0x100000;

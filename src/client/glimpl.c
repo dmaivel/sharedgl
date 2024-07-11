@@ -540,7 +540,7 @@ void *glimpl_fb_address()
     /* fake framebuffer used with network feature only */
     if (fake_framebuffer)
         return fake_framebuffer;
-    return pb_ptr(pb_read(SGL_OFFSET_REGISTER_FBSTART));
+    return pb_ptr(pb_read64(SGL_OFFSET_REGISTER_FBSTART));
 }
 
 void glimpl_init()
@@ -683,6 +683,33 @@ static inline size_t glimpl_get_pixel_size(GLenum format)
     }
 }
 
+static inline size_t glimpl_type_size(GLenum type)
+{
+	switch(type) {
+    case GL_BYTE:
+    case GL_UNSIGNED_BYTE:
+        return sizeof(GLbyte);
+    case GL_SHORT:
+    case GL_UNSIGNED_SHORT:
+        return sizeof(GLshort);
+    case GL_INT_2_10_10_10_REV:
+    case GL_INT:
+    case GL_UNSIGNED_INT_2_10_10_10_REV:
+    case GL_UNSIGNED_INT:
+        return sizeof(GLint);
+    case GL_FLOAT:
+        return sizeof(GLfloat);
+    case GL_DOUBLE:
+        return sizeof(GLdouble);
+    case GL_FIXED:
+        return sizeof(GLfixed);
+    case GL_HALF_FLOAT:
+        return sizeof(GLshort);
+	}
+
+	return 1;
+}
+
 static inline void glimpl_upload_buffer(const void *data, size_t size)
 {
     pb_push(SGL_CMD_VP_UPLOAD);
@@ -723,75 +750,59 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
     glimpl_upload_buffer(pixels, total_size);
 }
 
-static inline void glimpl_push_client_pointers(int mode, int max_index)
+static inline bool glimpl_push_client_pointer(int count, int size, int type, int stride, const void *pointer)
+{
+    const unsigned char *data = pointer;
+    size_t sizeof_type = glimpl_type_size(type);
+
+    if (is_value_likely_an_offset(pointer))
+        return false;
+
+    pb_push(SGL_CMD_VP_UPLOAD);
+    pb_push((count * size) / CEIL_DIV(sizeof(int), sizeof_type));
+
+    if (stride == 0)
+        pb_memcpy(data, count * size * sizeof_type);
+    else {
+        for (int i = 0; i < count; i++) {
+            void *real_data = ((char*)data + i * stride);
+            pb_memcpy_unaligned(real_data, size * sizeof_type);
+        }
+        pb_realign();
+    }
+
+    return true;
+}
+
+static inline void glimpl_push_client_pointers(int mode, int count)
 {
     if (glimpl_normal_ptr.in_use) {
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_vertex_ptr.size);
-        const float *fvertices = glimpl_normal_ptr.pointer;
-
-        for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
-                pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_normal_ptr.stride / sizeof(float)) - glimpl_vertex_ptr.size; j++)
-                fvertices++;
-        }
+        bool status = glimpl_push_client_pointer(count, glimpl_vertex_ptr.size, 
+                            glimpl_normal_ptr.type, glimpl_normal_ptr.stride, glimpl_normal_ptr.pointer);
 
         pb_push(SGL_CMD_NORMALPOINTER);
         pb_push(glimpl_normal_ptr.type);
         pb_push(0);
+        pb_push(status);
+        pb_push(status ? 0 : (int)(uintptr_t)glimpl_normal_ptr.pointer);
     }
 
     if (glimpl_color_ptr.in_use) {
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index);
-        const unsigned char *color = glimpl_color_ptr.pointer;
-        for (int i = 0; i < max_index; i++) {
-            pb_push(*(unsigned int*)color);
-            color += (glimpl_color_ptr.stride);
-        }
+        bool status = glimpl_push_client_pointer(count, glimpl_color_ptr.size, 
+                            glimpl_color_ptr.type, glimpl_color_ptr.stride, glimpl_color_ptr.pointer);
 
         pb_push(SGL_CMD_COLORPOINTER);
         pb_push(glimpl_color_ptr.size);
         pb_push(glimpl_color_ptr.type);
         pb_push(0);
+        pb_push(status);
+        pb_push(status ? 0 : (int)(uintptr_t)glimpl_color_ptr.pointer);
     }
 
     for (int t = 0; t < GLIMPL_MAX_TEXTURES; t++) {
         if (glimpl_tex_coord_ptr[t].in_use) {
-            switch (glimpl_tex_coord_ptr[t].type) {
-            case GL_SHORT: {
-                pb_push(SGL_CMD_VP_UPLOAD);
-                pb_push(max_index * glimpl_tex_coord_ptr[t].size / 2);
-
-                const short *svertices = glimpl_tex_coord_ptr[t].pointer;
-
-                // assuming size = 2
-                for (int i = 0; i < max_index; i++) {
-                    for (int j = 0; j < glimpl_tex_coord_ptr[t].size; j += 2) {
-                        pb_push((svertices[0] << 16) | svertices[1]);
-                        svertices++;
-                        svertices++;
-                    }
-                    for (int j = 0; j < (glimpl_tex_coord_ptr[t].stride / sizeof(short)) - glimpl_tex_coord_ptr[t].size; j++)
-                        svertices++;
-                    // svertices += glimpl_tex_coord_ptr[t].stride / sizeof(short);
-                }
-            }
-            default: {
-                pb_push(SGL_CMD_VP_UPLOAD);
-                pb_push(max_index * glimpl_tex_coord_ptr[t].size);
-                
-                const float *fvertices = glimpl_tex_coord_ptr[t].pointer;
-
-                for (int i = 0; i < max_index; i++) {
-                    for (int j = 0; j < glimpl_tex_coord_ptr[t].size; j++)
-                        pb_pushf(*fvertices++);
-                    for (int j = 0; j < (glimpl_tex_coord_ptr[t].stride / sizeof(float)) - glimpl_tex_coord_ptr[t].size; j++)
-                        fvertices++;
-                }
-            }
-            }
+            bool status = glimpl_push_client_pointer(count, glimpl_tex_coord_ptr[t].size, 
+                                glimpl_tex_coord_ptr[t].type, glimpl_tex_coord_ptr[t].stride, glimpl_tex_coord_ptr[t].pointer);
 
             pb_push(SGL_CMD_CLIENTACTIVETEXTURE);
             pb_push(GL_TEXTURE0 + t);
@@ -803,25 +814,21 @@ static inline void glimpl_push_client_pointers(int mode, int max_index)
             pb_push(glimpl_tex_coord_ptr[t].size);
             pb_push(glimpl_tex_coord_ptr[t].type);
             pb_push(0);
+            pb_push(status);
+            pb_push(status ? 0 : (int)(uintptr_t)glimpl_tex_coord_ptr[t].pointer);
         }
     }
 
     if (glimpl_vertex_ptr.in_use) {
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(max_index * glimpl_vertex_ptr.size);
-        const float *fvertices = glimpl_vertex_ptr.pointer;
-
-        for (int i = 0; i < max_index; i++) {
-            for (int j = 0; j < glimpl_vertex_ptr.size; j++)
-                pb_pushf(*fvertices++);
-            for (int j = 0; j < (glimpl_vertex_ptr.stride / sizeof(float)) - glimpl_vertex_ptr.size; j++)
-                fvertices++;
-        }
+        bool status = glimpl_push_client_pointer(count, glimpl_vertex_ptr.size,
+                            glimpl_vertex_ptr.type,  glimpl_vertex_ptr.stride, glimpl_vertex_ptr.pointer);
 
         pb_push(SGL_CMD_VERTEXPOINTER);
         pb_push(glimpl_vertex_ptr.size);
         pb_push(glimpl_vertex_ptr.type);
         pb_push(0);
+        pb_push(status);
+        pb_push(status ? 0 : (int)(uintptr_t)glimpl_vertex_ptr.pointer);
     }
 }
 
@@ -1352,8 +1359,7 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
-    struct gl_vertex_attrib_pointer *vap = glimpl_get_enabled_vap();
-
+    // struct gl_vertex_attrib_pointer *vap = glimpl_get_enabled_vap();
     // if (vap) {
     //     if (vap->client_managed) {
     //         if (!is_value_likely_an_offset(vap->ptr)) {

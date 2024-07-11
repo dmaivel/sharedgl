@@ -39,6 +39,9 @@ void pb_write(int s, int c);
 void pb_copy(void *data, int s, size_t length);
 void pb_memcpy(const void *src, size_t length);
 
+void pb_memcpy_unaligned(const void *src, size_t length);
+void pb_realign();
+
 void *pb_ptr(size_t offs);
 
 /*

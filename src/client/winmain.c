@@ -16,10 +16,10 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved)
          * more CPU time, which is crucial because the kernel driver is how data
          * between the VM and host move.
          *
-         * appears to benefit systems with a single core the most
+         * appears to benefit systems with a single VCPU the most
          */
         DWORD result = GetEnvironmentVariableA("SGL_RUN_WITH_LOW_PRIORITY", env_value, 16);
-        if (result == 0 || strcmp(env_value, "true") == 0)
+        if (strcmp(env_value, "true") == 0)
             SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
 
         /*

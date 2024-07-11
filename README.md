@@ -74,7 +74,7 @@ Variables labeled with `host` get their values from the host/server when their o
 | GLX_VERSION_OVERRIDE | Digit.Digit | 1.4 | Override the GLX version on the client side. Only available for Linux clients. |
 | GLSL_VERSION_OVERRIDE | Digit.Digit |  | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
-| SGL_RUN_WITH_LOW_PRIORITY | Boolean | true | On older CPUs, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. This may not be needed on systems with newer CPUs. Only available for Windows clients. |
+| SGL_RUN_WITH_LOW_PRIORITY | Boolean | false | On single core setups, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. Only set to `true` if the VM has only a single VCPU. Only available for Windows clients. |
 | SGL_WINED3D_DONT_VFLIP | Boolean | false | If running a DirectX application via WineD3D, ensure this variable is set to `true` in order for the application to render the framebuffer in the proper orientation. Only available for Windows clients. |
 
 ## Windows (in a VM)
@@ -241,8 +241,8 @@ This list describes the amount of functions left from each standard to implement
 - [x] OpenGL 3
     - [x] 3.0 (~84 total) 
     - [x] 3.1 (~15 total) 
-    - [x] 3.2 (~14 remaining)
-    - [x] 3.3 (~29 remaining)
+    - [x] 3.2 (~19 total)
+    - [x] 3.3 (~58 total)
 - [x] OpenGL 4
     - [x] 4.0 (~46 total) 
     - [x] 4.1 (~89 total) 
