@@ -8,7 +8,7 @@
 #endif
 
 #include <stdint.h>
-#include <inttypes.h>
+#include <stdbool.h>
 
 struct pb_net_hooks {
     int(*_pb_read)(int s);
@@ -23,9 +23,9 @@ struct pb_net_hooks {
 void pb_set_net(struct pb_net_hooks hooks, size_t internal_alloc_size);
 
 #ifndef _WIN32
-void pb_set(int pb);
+void pb_set(int pb, bool direct_access);
 #else
-void pb_set(void);
+void pb_set(bool direct_access);
 void pb_unset(void);
 #endif
 
@@ -36,9 +36,8 @@ void pb_pushf(float c);
 int pb_read(int s);
 int64_t pb_read64(int s);
 void pb_write(int s, int c);
-void pb_copy(void *data, int s, size_t length);
-void pb_memcpy(const void *src, size_t length);
 
+void pb_memcpy(const void *src, size_t length);
 void pb_memcpy_unaligned(const void *src, size_t length);
 void pb_realign();
 

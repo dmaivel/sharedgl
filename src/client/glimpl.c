@@ -2,6 +2,7 @@
 #include <client/memory.h>
 #include <client/spinlock.h>
 #include <client/pb.h>
+#include <client/scratch.h>
 
 #include <client/platform/icd.h>
 
@@ -546,6 +547,11 @@ void *glimpl_fb_address()
 void glimpl_init()
 {
     char *network = getenv("SGL_NET_OVER_SHARED");
+    char *direct_access = getenv("SGL_SHARED_MEMORY_DIRECT");
+
+    bool use_direct_access = direct_access == NULL;
+    if (direct_access != NULL)
+        use_direct_access = strcmp(direct_access, "true") == 0;
 
     if (network == NULL) {
 #ifndef _WIN32
@@ -557,9 +563,9 @@ void glimpl_init()
             exit(1);
         }
 
-        pb_set(fd);
+        pb_set(fd, use_direct_access);
 #else
-        pb_set();
+        pb_set(use_direct_access);
 #endif
         pb_reset();
     }
@@ -638,6 +644,8 @@ void glimpl_init()
         int packed_dims = pb_read(SGL_OFFSET_REGISTER_RETVAL);
         icd_set_max_dimensions(UNPACK_A(packed_dims), UNPACK_B(packed_dims));
     }
+
+    glimpl_map_buffer.mem = scratch_buffer_get(0x1000);
 }
 
 static struct gl_vertex_attrib_pointer *glimpl_get_enabled_vap()
@@ -905,8 +913,6 @@ static void glimpl_texture_subimage(int cmd, int n_dims, GLuint texture, GLint l
     const int offsets[3] = { xoffset, yoffset, zoffset };
     const int dims[3] = { width, height, depth };
 
-    glimpl_submit();
-
     glimpl_upload_texture(width, n_dims > 1 ? height : 1, n_dims > 2 ? depth : 1, format, pixels);
 
     pb_push(cmd);
@@ -918,8 +924,6 @@ static void glimpl_texture_subimage(int cmd, int n_dims, GLuint texture, GLint l
         pb_push(dims[i]);
     pb_push(format);
     pb_push(type);
-    
-    glimpl_submit();
 }
 
 static void glimpl_compressed_texture_subimage(int cmd, int n_dims, GLuint texture, GLint level, GLint xoffset, GLint yoffset, 
@@ -928,8 +932,6 @@ static void glimpl_compressed_texture_subimage(int cmd, int n_dims, GLuint textu
     const int offsets[3] = { xoffset, yoffset, zoffset };
     const int dims[3] = { width, height, depth };
 
-    glimpl_submit();
-    
     glimpl_upload_buffer((void*)data, imageSize);
 
     pb_push(cmd);
@@ -941,14 +943,10 @@ static void glimpl_compressed_texture_subimage(int cmd, int n_dims, GLuint textu
         pb_push(dims[i]);
     pb_push(format);
     pb_push(imageSize);
-
-    glimpl_submit();
 }
 
 static void glimpl_buffer_store_data(int cmd, GLuint buffer, GLsizeiptr size, const void *data, GLenum usage)
 {
-    glimpl_submit();
-
     if (data != NULL)
         glimpl_upload_buffer(data, size);
     
@@ -957,22 +955,16 @@ static void glimpl_buffer_store_data(int cmd, GLuint buffer, GLsizeiptr size, co
     pb_push(size);
     pb_push(data != NULL);
     pb_push(usage);
-
-    glimpl_submit();
 }
 
 static void glimpl_buffer_subdata(int cmd, GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data)
 {
-    glimpl_submit();
-
     glimpl_upload_buffer(data, size);
     
     pb_push(cmd);
     pb_push(buffer);
     pb_push(offset);
     pb_push(size);
-
-    glimpl_submit();
 }
 
 static void glimpl_buffer_clear_data(int cmd, bool is_subdata, GLenum buffer, GLenum internalformat, GLintptr offset, 
@@ -995,13 +987,13 @@ static void glimpl_buffer_clear_data(int cmd, bool is_subdata, GLenum buffer, GL
 static void *glimpl_map_buffer_range(int cmd, GLenum buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
     if (glimpl_map_buffer.in_use) {
-        fprintf(stderr, "glMapBufferRange: map buffer already in use, returning NULL\n");
+        fprintf(stderr, "glimpl_map_buffer_range: map buffer already in use, returning NULL\n");
         return NULL;
     }
 
     glimpl_map_buffer = (struct gl_map_buffer){
         /* target = */  buffer,
-        /* mem = */     calloc(length, 1),
+        /* mem = */     scratch_buffer_get(length), // calloc(length, 1), // glimpl_map_buffer.mem,
         /* offset = */  offset,
         /* length = */  length,
         /* access = */  access,
@@ -3775,7 +3767,6 @@ GLboolean glUnmapBuffer(GLenum target)
     pb_memcpy(glimpl_map_buffer.mem, glimpl_map_buffer.length + ((glimpl_map_buffer.length % 4 != 0) * sizeof(int)));
 
     if (glimpl_map_buffer.in_use) {
-        free(glimpl_map_buffer.mem);
         glimpl_map_buffer.in_use = false;
     }
 

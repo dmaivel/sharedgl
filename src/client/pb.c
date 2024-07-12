@@ -1,9 +1,8 @@
 #include <sharedgl.h>
 #include <client/pb.h>
+
 #include <stdio.h>
 #include <string.h>
-
-#include <inttypes.h>
 
 #ifndef _WIN32
 #define __USE_GNU
@@ -52,10 +51,12 @@ static int *cur;
 static void *in_base;
 static int *in_cur;
 
+static bool using_direct_access = false;
+
 static struct pb_net_hooks net_hooks = { NULL };
 
 #ifndef _WIN32
-void pb_set(int fd)
+void pb_set(int fd, bool direct_access)
 {
     ptr = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     
@@ -65,11 +66,18 @@ void pb_set(int fd)
 
     base = ptr + 0x1000;
 
-    in_base = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    in_cur = in_base;
+    if (direct_access) {
+        using_direct_access = true;
+        in_base = base;
+        in_cur = base;
+    }
+    else {
+        in_base = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        in_cur = in_base;
+    }
 }
 #else
-void pb_set(void)
+void pb_set(bool direct_access)
 {
     HDEVINFO device_info;
     PSP_DEVICE_INTERFACE_DETAIL_DATA inf_data;
@@ -115,8 +123,14 @@ void pb_set(void)
     ptr = map.pointer;
     base = (PVOID)((DWORD64)map.pointer + (DWORD64)0x1000);
 
-    in_base = VirtualAlloc(NULL, map.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    in_cur = in_base;
+    if (direct_access) {
+        in_base = base;
+        in_cur = in_base;
+    }
+    else {
+        in_base = VirtualAlloc(NULL, map.size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+        in_cur = in_base;
+    }
 }
 
 void pb_unset(void)
@@ -143,19 +157,16 @@ void pb_reset()
 {
     cur = base;
     in_cur = in_base;
-    // pb_ctx.current_offset = pb_ctx.reset_offset;
 }
 
 void pb_push(int c)
 {
     *in_cur++ = c;
-    // pb_ctx.current_offset += sizeof(c);
 }
 
 void pb_pushf(float c)
 {
     *in_cur++ = *(int*)&c;
-    // pb_ctx.current_offset += sizeof(c);
 }
 
 int pb_read(int s)
@@ -175,11 +186,6 @@ int64_t pb_read64(int s)
 void pb_write(int s, int c)
 {
     *(int*)((size_t)ptr + s) = c;
-}
-
-void pb_copy(void *data, int s, size_t length)
-{
-    memcpy(data, (void*)((size_t)ptr + s), length);
 }
 
 /*
@@ -231,5 +237,6 @@ size_t pb_size()
 
 void pb_copy_to_shared()
 {
-    memcpy(base, in_base, (size_t)in_cur - (size_t)in_base);
+    if (!using_direct_access)
+        memcpy(base, in_base, (size_t)in_cur - (size_t)in_base);
 }

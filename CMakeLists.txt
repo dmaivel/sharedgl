@@ -19,7 +19,7 @@ IF(UNIX)
     file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/*.c" "src/network/*.c")
     file(GLOB GLOBBED_CLIENT_P_SOURCES CONFIGURE_DEPENDS "src/client/platform/*.c")
 ELSEIF(WIN32)
-    file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/winmain.c" "src/client/pb.c" "src/client/spinlock.c" "src/client/glimpl.c" "src/network/*.c")
+    file(GLOB GLOBBED_CLIENT_SOURCES CONFIGURE_DEPENDS "src/client/winmain.c" "src/client/pb.c" "src/client/spinlock.c" "src/client/glimpl.c" "src/client/scratch.c" "src/network/*.c")
     file(GLOB GLOBBED_CLIENT_P_SOURCES CONFIGURE_DEPENDS "src/client/platform/windrv.c")
 ENDIF(UNIX)
 
