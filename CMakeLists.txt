@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(sharedgl VERSION 0.7.1 LANGUAGES C)
+project(sharedgl VERSION 0.7.2 LANGUAGES C)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 
