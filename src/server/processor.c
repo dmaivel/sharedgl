@@ -5466,6 +5466,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     use_uploaded = *pb++,
                     usage = *pb++;
                 glNamedBufferStorage(target, size, use_uploaded ? uploaded : NULL, usage);
+                break;
             }
             case SGL_CMD_NAMEDBUFFERDATA: {
                 int buffer = *pb++,
@@ -5480,6 +5481,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     offset = *pb++,
                     size = *pb++;
                 glNamedBufferSubData(target, offset, size, uploaded);
+                break;
             }
             case SGL_CMD_CLEARNAMEDBUFFERDATA: {
                 int target = *pb++;
@@ -5593,12 +5595,14 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int target = *pb++,
                     pname = *pb++;
                 glGetNamedFramebufferParameteriv(target, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
+                break;
             }
             case SGL_CMD_GETNAMEDFRAMEBUFFERATTACHMENTPARAMETERIV: {
                 int target = *pb++,
                     attachment = *pb++,
                     pname = *pb++;
                 glGetNamedFramebufferAttachmentParameteriv(target, attachment, pname, (int*)(p + SGL_OFFSET_REGISTER_RETVAL_V));
+                break;
             }
             case SGL_CMD_CREATERENDERBUFFERS: {
                 glCreateRenderbuffers(1, (unsigned int*)(p + SGL_OFFSET_REGISTER_RETVAL));
