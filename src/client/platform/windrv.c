@@ -6,6 +6,7 @@
 #include <client/platform/windrv.h>
 #include <client/platform/icd.h>
 
+#include <stdlib.h>
 #include <stdbool.h>
 
 static PIXELFORMATDESCRIPTOR pfd_table[64] = { 0 };
@@ -20,6 +21,12 @@ ICD_RESIZE_DEFINITION(real_width, real_height);
 
 #define MIN_INTERNAL( A, B )   ( (A)<(B) ? (A) : (B) )
 #define MAX_INTERNAL( A, B )   ( (A)>(B) ? (A) : (B) )
+
+typedef HGLRC(WINAPI * 	wglCreateContext_t )(HDC);
+typedef BOOL(WINAPI * 	wglDeleteContext_t )(HGLRC);
+
+static wglCreateContext_t g_pfnwglCreateContext = NULL;
+static wglDeleteContext_t g_pfnwglDeleteContext = NULL;
 
 struct pfd_color_info {
     int rbits, gbits, bbits, abits;
@@ -44,6 +51,11 @@ static struct pfd_depth_info pfd_depths[4] = {
     { 24, 8 }
 };
 
+struct wgl_extension_entry {
+   const char *name;
+   PROC proc;
+};
+
 static HMODULE module_handle = 0;
 static BOOL do_vflip = TRUE;
 
@@ -57,7 +69,24 @@ void windrv_set_vflip(BOOL flip)
     do_vflip = flip;
 }
 
-static const char *wgl_extensions = "WGL_ARB_create_context WGL_ARB_create_context_profile WGL_ARB_extensions_string WGL_ARB_pixel_format";
+// removed WGL_ARB_pixel_format
+static const char *wgl_extensions = "WGL_ARB_create_context WGL_ARB_create_context_profile WGL_ARB_extensions_string WGL_ARB_framebuffer_sRGB";
+
+static HGLRC wgl_create_context(HDC hdc)
+{
+    if (g_pfnwglCreateContext == NULL)
+        g_pfnwglCreateContext = (wglCreateContext_t)GetProcAddress(GetModuleHandleA("opengl32.dll"), "wglCreateContext");
+
+    return g_pfnwglCreateContext(hdc);
+}
+
+static BOOL wgl_delete_context(HGLRC hglrc)
+{
+    if (g_pfnwglDeleteContext == NULL)
+        g_pfnwglDeleteContext = (wglDeleteContext_t)GetProcAddress(GetModuleHandleA("opengl32.dll"), "wglDeleteContext");
+
+    return g_pfnwglDeleteContext(hglrc);
+}
 
 const char* wglGetExtensionsStringARB(HDC hdc)
 {
@@ -66,7 +95,7 @@ const char* wglGetExtensionsStringARB(HDC hdc)
 
 HGLRC wglCreateContextAttribsARB(HDC hDC, HGLRC hShareContext, const int *attribList)
 {
-    return (HGLRC)1;
+    return wgl_create_context(hDC);
 }
 
 BOOL wglGetPixelFormatAttribivARB(HDC hdc,
@@ -100,6 +129,24 @@ BOOL wglChoosePixelFormatARB(HDC hdc,
     *nNumFormats = 1;
     return TRUE;
 }
+
+#define WGL_EXTENSION_ENTRY(P) { #P, (PROC) P }
+
+static const struct wgl_extension_entry wgl_extension_entries[] = {
+
+   /* WGL_ARB_extensions_string */
+   WGL_EXTENSION_ENTRY( wglGetExtensionsStringARB ),
+
+   /* WGL_ARB_pixel_format */
+//    WGL_EXTENSION_ENTRY( wglChoosePixelFormatARB ),
+//    WGL_EXTENSION_ENTRY( wglGetPixelFormatAttribfvARB ),
+//    WGL_EXTENSION_ENTRY( wglGetPixelFormatAttribivARB ),
+
+   /* WGL_ARB_create_context */
+   WGL_EXTENSION_ENTRY( wglCreateContextAttribsARB ),
+
+   { NULL, NULL }
+};
 
 static void pfd_add(
     bool doublebuffer, bool gdi, unsigned int accum,
@@ -187,7 +234,7 @@ DHGLRC APIENTRY DrvCreateLayerContext(HDC hdc, INT iLayerPlane)
 
 BOOL APIENTRY DrvDeleteContext(DHGLRC dhglrc)
 {
-    return TRUE;
+    return wgl_delete_context(dhglrc);
 }
 
 BOOL APIENTRY DrvCopyContext(DHGLRC dhrcSource, DHGLRC dhrcDest, UINT fuMask)
@@ -217,13 +264,13 @@ BOOL APIENTRY DrvShareLists(DHGLRC dhglrc1, DHGLRC dhglrc2)
 
 PROC APIENTRY DrvGetProcAddress(LPCSTR lpszProc)
 {
-    /*
-     * WGL extensions, GL functions
-     * a table for WGL extensions makes sense, but we export every function so a table isn't needed
-     * commented out || (lpszProc[0] == 'w' && lpszProc[1] == 'g' && lpszProc[2] == 'l'), some apps dont like that part
-     */
-    if ((lpszProc[0] == 'g' && lpszProc[1] == 'l'))
+    if (lpszProc[0] == 'g' && lpszProc[1] == 'l')
         return GetProcAddress(module_handle, lpszProc);
+
+    if (lpszProc[0] == 'w' && lpszProc[1] == 'g' && lpszProc[2] == 'l')
+        for (struct wgl_extension_entry *entry = wgl_extension_entries; entry->name; entry++)
+            if (strcmp(lpszProc, entry->name) == 0)
+                return entry->proc;
 
     return NULL;
 }
@@ -324,5 +371,10 @@ BOOL APIENTRY DrvSetPixelFormat(HDC hdc, LONG iPixelFormat)
 
     return TRUE;
 }
+
+// BOOL APIENTRY DrvMakeCurrent(HDC hDC, HGLRC hRC)
+// {
+//     return TRUE;
+// }
 
 #endif

@@ -140,7 +140,7 @@ struct gl_map_buffer                glimpl_map_buffer;
 
 float                               glimpl_global_matrix_double_to_float[GLIMPL_MAX_COUNT_FOR_MATRIX_OP];
 
-#define NUM_EXTENSIONS 81
+#define NUM_EXTENSIONS 78
 static const char *glimpl_extensions_full = "GL_ARB_ES2_compatibility "
                                             "GL_ARB_ES3_compatibility "
                                             "GL_ARB_color_buffer_float "
@@ -218,10 +218,7 @@ static const char *glimpl_extensions_full = "GL_ARB_ES2_compatibility "
                                             "GL_EXT_texture_filter_anisotropic "
                                             "GL_EXT_texture_sRGB "
                                             "GL_EXT_texture_sRGB_decode "
-                                            "GL_NV_texture_barrier "
-                                            "WGL_ARB_extensions_string "
-                                            "WGL_ARB_framebuffer_sRGB "
-                                            "WGL_ARB_pixel_format";
+                                            "GL_NV_texture_barrier ";
 
 static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_ES2_compatibility",
@@ -301,10 +298,7 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_EXT_texture_filter_anisotropic",
     "GL_EXT_texture_sRGB",
     "GL_EXT_texture_sRGB_decode",
-    "GL_NV_texture_barrier",
-    "WGL_ARB_extensions_string",
-    "WGL_ARB_framebuffer_sRGB",
-    "WGL_ARB_pixel_format",
+    "GL_NV_texture_barrier"
 };
 
 /* fake variables to be used with network feature only */
