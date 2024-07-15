@@ -72,6 +72,9 @@
 #define GL_GET_MEMCPY_RETVAL(data, type) \
     GL_GET_MEMCPY_RETVAL_EX(pname, data, type)
 
+// #define STUB() fprintf(stderr, "%s: stub\n", __FUNCTION__);
+#define STUB()
+
 struct gl_vertex_attrib_pointer {
     int index;
     int size;
@@ -790,7 +793,7 @@ static inline void glimpl_push_client_pointers(int mode, int count)
 
         pb_push(SGL_CMD_NORMALPOINTER);
         pb_push(glimpl_normal_ptr.type);
-        pb_push(0);
+        pb_push(status ? 0 : glimpl_normal_ptr.stride);
         pb_push(status);
         pb_push(status ? 0 : (int)(uintptr_t)glimpl_normal_ptr.pointer);
     }
@@ -802,7 +805,7 @@ static inline void glimpl_push_client_pointers(int mode, int count)
         pb_push(SGL_CMD_COLORPOINTER);
         pb_push(glimpl_color_ptr.size);
         pb_push(glimpl_color_ptr.type);
-        pb_push(0);
+        pb_push(status ? 0 : glimpl_color_ptr.stride);
         pb_push(status);
         pb_push(status ? 0 : (int)(uintptr_t)glimpl_color_ptr.pointer);
     }
@@ -821,7 +824,7 @@ static inline void glimpl_push_client_pointers(int mode, int count)
             pb_push(SGL_CMD_TEXCOORDPOINTER);
             pb_push(glimpl_tex_coord_ptr[t].size);
             pb_push(glimpl_tex_coord_ptr[t].type);
-            pb_push(0);
+            pb_push(status ? 0 : glimpl_tex_coord_ptr[t].stride);
             pb_push(status);
             pb_push(status ? 0 : (int)(uintptr_t)glimpl_tex_coord_ptr[t].pointer);
         }
@@ -834,7 +837,7 @@ static inline void glimpl_push_client_pointers(int mode, int count)
         pb_push(SGL_CMD_VERTEXPOINTER);
         pb_push(glimpl_vertex_ptr.size);
         pb_push(glimpl_vertex_ptr.type);
-        pb_push(0);
+        pb_push(status ? 0 : glimpl_vertex_ptr.stride);
         pb_push(status);
         pb_push(status ? 0 : (int)(uintptr_t)glimpl_vertex_ptr.pointer);
     }
@@ -1584,6 +1587,7 @@ void glGetShaderiv(GLuint shader, GLenum pname, GLint* params)
 
 void glGetObjectParameterivARB(void *obj, GLenum pname, GLint* params)
 {
+    STUB();
     /* stub */
     *params = GL_TRUE;
 }
@@ -1717,9 +1721,7 @@ void glGetDoublev(GLenum pname, GLdouble* data)
 
 void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void* pixels)
 {
-    /*
-     * le epic troll: don't do anything
-     */
+    STUB();
 }
 
 void glLightModelfv(GLenum pname, const GLfloat* params)
@@ -2267,9 +2269,7 @@ GLenum glGetError(void)
 
 void glReadPixels(GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, void* pixels)
 {
-    /*
-     * le epic troll: don't do anything
-     */
+    STUB();
 }
 
 GLboolean glIsEnabled(GLenum cap)
@@ -6748,13 +6748,15 @@ void glMap1f(GLenum target, GLfloat u1, GLfloat u2, GLint stride, GLint order, c
  */
 
 void glMap2d(GLenum target, GLdouble u1, GLdouble u2, GLint ustride, GLint uorder, GLdouble v1, GLdouble v2, GLint vstride, GLint vorder, const GLdouble* points)
-{
+{ 
+    STUB();
     glMap1d(target, u1, u2, ustride, uorder, points);
     glMap1d(target, v1, v2, vstride, vorder, points);
 }
 
 void glMap2f(GLenum target, GLfloat u1, GLfloat u2, GLint ustride, GLint uorder, GLfloat v1, GLfloat v2, GLint vstride, GLint vorder, const GLfloat* points)
-{
+{ 
+    STUB();
     glMap1f(target, u1, u2, ustride, uorder, points);
     glMap1f(target, v1, v2, vstride, vorder, points);
 }
@@ -6797,9 +6799,7 @@ void glPixelMapusv(GLenum map, GLsizei mapsize, const GLushort* values)
 
 void glDrawPixels(GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels)
 {
-    /*
-     * le epic troll part 3: to-do: do something
-     */
+    STUB();
 }
 
 void glGetClipPlane(GLenum plane, GLdouble* equation)
@@ -6870,23 +6870,17 @@ void glGetLightiv(GLenum light, GLenum pname, GLint* params)
 
 void glGetMapdv(GLenum target, GLenum query, GLdouble* v)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetMapfv(GLenum target, GLenum query, GLfloat* v)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetMapiv(GLenum target, GLenum query, GLint* v)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetMaterialfv(GLenum face, GLenum pname, GLfloat* params)
@@ -6937,30 +6931,22 @@ void glGetMaterialiv(GLenum face, GLenum pname, GLint* params)
 
 void glGetPixelMapfv(GLenum map, GLfloat* values)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetPixelMapuiv(GLenum map, GLuint* values)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetPixelMapusv(GLenum map, GLushort* values)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetPolygonStipple(GLubyte* mask)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetTexEnvfv(GLenum target, GLenum pname, GLfloat* params)
@@ -7210,6 +7196,7 @@ void glGetCompressedTexImage(GLenum target, GLint level, void* img)
     /*
      * to-do: do
      */
+    STUB();
 }
 
 void glLoadTransposeMatrixf(const GLfloat* m)
@@ -7317,16 +7304,12 @@ void glBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, const void
 
 void glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, void* data)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void* glMapBuffer(GLenum target, GLenum access)
 {
-    /*
-     * stub
-     */
+    STUB();
     return NULL;
 }
 
@@ -7337,9 +7320,7 @@ void glGetBufferParameteriv(GLenum target, GLenum pname, GLint* params)
 
 void glGetBufferPointerv(GLenum target, GLenum pname, void* *params)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glDrawBuffers(GLsizei n, const GLenum* bufs)
@@ -8210,127 +8191,127 @@ void glDeleteSamplers(GLsizei count, const GLuint* samplers)
 
 void glSamplerParameteriv(GLuint sampler, GLenum pname, const GLint* param)
 {
-
+    STUB();
 }
 
 void glSamplerParameterfv(GLuint sampler, GLenum pname, const GLfloat* param)
 {
-
+    STUB();
 }
 
 void glSamplerParameterIiv(GLuint sampler, GLenum pname, const GLint* param)
 {
-
+    STUB();
 }
 
 void glSamplerParameterIuiv(GLuint sampler, GLenum pname, const GLuint* param)
 {
-
+    STUB();
 }
 
 void glGetSamplerParameteriv(GLuint sampler, GLenum pname, GLint* params)
 {
-
+    STUB();
 }
 
 void glGetSamplerParameterIiv(GLuint sampler, GLenum pname, GLint* params)
 {
-
+    STUB();
 }
 
 void glGetSamplerParameterfv(GLuint sampler, GLenum pname, GLfloat* params)
 {
-
+    STUB();
 }
 
 void glGetSamplerParameterIuiv(GLuint sampler, GLenum pname, GLuint* params)
 {
-
+    STUB();
 }
 
 void glGetQueryObjecti64v(GLuint id, GLenum pname, GLint64* params)
 {
-
+    STUB();
 }
 
 void glVertexAttribP2uiv(GLuint index, GLenum type, GLboolean normalized, const GLuint* value)
 {
-
+    STUB();
 }
 
 void glVertexAttribP3uiv(GLuint index, GLenum type, GLboolean normalized, const GLuint* value)
 {
-
+    STUB();
 }
 
 void glVertexAttribP4uiv(GLuint index, GLenum type, GLboolean normalized, const GLuint* value)
 {
-
+    STUB();
 }
 
 void glVertexP2uiv(GLenum type, const GLuint* value)
 {
-
+    STUB();
 }
 
 void glVertexP3uiv(GLenum type, const GLuint* value)
 {
-
+    STUB();
 }
 
 void glVertexP4uiv(GLenum type, const GLuint* value)
 {
-
+    STUB();
 }
 
 void glTexCoordP2uiv(GLenum type, const GLuint* coords)
 {
-
+    STUB();
 }
 
 void glTexCoordP3uiv(GLenum type, const GLuint* coords)
 {
-
+    STUB();
 }
 
 void glTexCoordP4uiv(GLenum type, const GLuint* coords)
 {
-
+    STUB();
 }
 
 void glMultiTexCoordP2uiv(GLenum texture, GLenum type, const GLuint* coords)
 {
-
+    STUB();
 }
 
 void glMultiTexCoordP3uiv(GLenum texture, GLenum type, const GLuint* coords)
 {
-
+    STUB();
 }
 
 void glMultiTexCoordP4uiv(GLenum texture, GLenum type, const GLuint* coords)
 {
-
+    STUB();
 }
 
 void glNormalP3uiv(GLenum type, const GLuint* coords)
 {
-
+    STUB();
 }
 
 void glColorP3uiv(GLenum type, const GLuint* color)
 {
-
+    STUB();
 }
 
 void glColorP4uiv(GLenum type, const GLuint* color)
 {
-
+    STUB();
 }
 
 void glSecondaryColorP3uiv(GLenum type, const GLuint* color)
 {
-    
+    STUB();
 }
 
 void glVertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer)
@@ -9254,17 +9235,17 @@ GLint glGetProgramResourceLocationIndex(GLuint program, GLenum programInterface,
 
 void glDebugMessageControl(GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint* ids, GLboolean enabled)
 {
-
+    STUB();
 }
 
 void glDebugMessageInsert(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* buf)
 {
-
+    STUB();
 }
 
 void glDebugMessageCallback(GLDEBUGPROC callback, const void* userParam)
 {
-
+    STUB();
 }
 
 GLuint glGetDebugMessageLog(GLuint count, GLsizei bufSize, GLenum* sources, GLenum* types, GLuint* ids, GLenum* severities, GLsizei* lengths, GLchar* messageLog)
@@ -9274,27 +9255,27 @@ GLuint glGetDebugMessageLog(GLuint count, GLsizei bufSize, GLenum* sources, GLen
 
 void glPushDebugGroup(GLenum source, GLuint id, GLsizei length, const GLchar* message)
 {
-
+    STUB();
 }
 
 void glObjectLabel(GLenum identifier, GLuint name, GLsizei length, const GLchar* label)
 {
-
+    STUB();
 }
 
 void glGetObjectLabel(GLenum identifier, GLuint name, GLsizei bufSize, GLsizei* length, GLchar* label)
 {
-
+    STUB();
 }
 
 void glObjectPtrLabel(const void* ptr, GLsizei length, const GLchar* label)
 {
-
+    STUB();
 }
 
 void glGetObjectPtrLabel(const void* ptr, GLsizei bufSize, GLsizei* length, GLchar* label)
 {
-
+    STUB();
 }
 
 // 4.4
@@ -9488,6 +9469,7 @@ void* glMapNamedBuffer(GLuint buffer, GLenum access)
      * stub, refer to glMapBuffer
      * to-do: print stubs to stderr?
      */
+    STUB();
     return NULL;
 }
 
@@ -9511,6 +9493,7 @@ void glGetNamedBufferPointerv(GLuint buffer, GLenum pname, void* *params)
     /*
      * stub, refer to glGetBufferPointerv
      */
+    STUB();
     return;
 }
 
@@ -9519,6 +9502,7 @@ void glGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, vo
     /*
      * stub, refer to glGetBufferSubData
      */
+    STUB();
     return;
 }
 
@@ -9674,6 +9658,7 @@ void glGetTextureImage(GLuint texture, GLint level, GLenum format, GLenum type, 
     /*
      * stub, refer to glGetTexImage
      */
+    STUB();
 }
 
 void glGetCompressedTextureImage(GLuint texture, GLint level, GLsizei bufSize, void* pixels)
@@ -9681,6 +9666,7 @@ void glGetCompressedTextureImage(GLuint texture, GLint level, GLsizei bufSize, v
     /*
      * stub, refer to glGetCompressedTexImage
      */
+    STUB();
 }
 
 void glGetTextureLevelParameterfv(GLuint texture, GLint level, GLenum pname, GLfloat* params)
@@ -9897,37 +9883,27 @@ void glGetnPolygonStipple(GLsizei bufSize, GLubyte* pattern)
 
 void glGetnColorTable(GLenum target, GLenum format, GLenum type, GLsizei bufSize, void* table)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetnConvolutionFilter(GLenum target, GLenum format, GLenum type, GLsizei bufSize, void* image)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetnSeparableFilter(GLenum target, GLenum format, GLenum type, GLsizei rowBufSize, void* row, GLsizei columnBufSize, void* column, void* span)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetnHistogram(GLenum target, GLboolean reset, GLenum format, GLenum type, GLsizei bufSize, void* values)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 void glGetnMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type, GLsizei bufSize, void* values)
 {
-    /*
-     * stub
-     */
+    STUB();
 }
 
 #ifdef _WIN32
