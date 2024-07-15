@@ -981,11 +981,32 @@ static void glimpl_buffer_clear_data(int cmd, bool is_subdata, GLenum buffer, GL
     pb_push(*(unsigned int*)data); // to-do: technically should look at type first, dont care
 }
 
+static void glimpl_get_buffer_parameter(int cmd, GLuint buffer, GLenum pname, GLint* params)
+{
+    pb_push(cmd);
+    pb_push(buffer);
+    pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
 static void *glimpl_map_buffer_range(int cmd, GLenum buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
+    bool ranged = true;
     if (glimpl_map_buffer.in_use) {
         fprintf(stderr, "glimpl_map_buffer_range: map buffer already in use, returning NULL\n");
         return NULL;
+    }
+
+    /*
+     * length is 0 when this function is called by glMapBuffer, glMapNamedBuffer
+     */
+    if (length == 0) {
+        bool is_named = cmd == SGL_CMD_MAPNAMEDBUFFER;
+        int get_param_cmd = !is_named ? SGL_CMD_GETBUFFERPARAMETERIV : SGL_CMD_GETNAMEDBUFFERPARAMETERIV;
+        glimpl_get_buffer_parameter(get_param_cmd, buffer, GL_BUFFER_SIZE, (GLint*)&length);
+        ranged = false;
     }
 
     glimpl_map_buffer = (struct gl_map_buffer){
@@ -997,27 +1018,27 @@ static void *glimpl_map_buffer_range(int cmd, GLenum buffer, GLintptr offset, GL
         /* in_use = */  true
     };
 
+    /*
+     * this function supports both glMapBuffer and glMapBufferRange; as such, these functions have
+     * different parameters to be pushed
+     */
     pb_push(cmd);
-    pb_push(buffer);
-    pb_push(offset);
-    pb_push(length);
-    pb_push(access);
+    if (ranged) {
+        pb_push(buffer);
+        pb_push(offset);
+        pb_push(length);
+        pb_push(access);
+    }
+    else {
+        pb_push(buffer);
+        pb_push(access);
+    }
 
     glimpl_submit();
 
     glimpl_download_buffer(glimpl_map_buffer.mem, length);
 
     return glimpl_map_buffer.mem;
-}
-
-static void glimpl_get_buffer_parameter(int cmd, GLuint buffer, GLenum pname, GLint* params)
-{
-    pb_push(cmd);
-    pb_push(buffer);
-    pb_push(pname);
-
-    glimpl_submit();
-    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
 static void glimpl_invalidate_framebuffer(int cmd, bool is_subframebuffer, GLenum framebuffer, GLsizei n_attachments, 
@@ -7303,8 +7324,7 @@ void glGetBufferSubData(GLenum target, GLintptr offset, GLsizeiptr size, void* d
 
 void* glMapBuffer(GLenum target, GLenum access)
 {
-    STUB();
-    return NULL;
+    return glimpl_map_buffer_range(SGL_CMD_MAPBUFFER, target, 0, 0, access);
 }
 
 void glGetBufferParameteriv(GLenum target, GLenum pname, GLint* params)
@@ -9459,12 +9479,7 @@ void glClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr of
 
 void* glMapNamedBuffer(GLuint buffer, GLenum access)
 {
-    /*
-     * stub, refer to glMapBuffer
-     * to-do: print stubs to stderr?
-     */
-    STUB();
-    return NULL;
+    return glimpl_map_buffer_range(SGL_CMD_MAPNAMEDBUFFER, buffer, 0, 0, access);
 }
 
 void* glMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)

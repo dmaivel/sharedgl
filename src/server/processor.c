@@ -4781,6 +4781,13 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 glVertexAttribIPointer(index, size, type, stride, !is_value_likely_an_offset((void*)(uintptr_t)ptr) ? uploaded : (void*)(uintptr_t)ptr);
                 break;
             }
+            case SGL_CMD_MAPBUFFER: {
+                int target = *pb++,
+                    access = *pb++;
+                map_buffer = glMapBuffer(target, access);
+                map_buffer_offset = 0;
+                break;
+            }
             case SGL_CMD_MAPBUFFERRANGE: {
                 int target = *pb++,
                     offset = *pb++,
@@ -5504,6 +5511,10 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_MAPNAMEDBUFFER: {
+                int target = *pb++,
+                    access = *pb++;
+                map_buffer = glMapNamedBuffer(target, access);
+                map_buffer_offset = 0;
                 break;
             }
             case SGL_CMD_MAPNAMEDBUFFERRANGE: {
