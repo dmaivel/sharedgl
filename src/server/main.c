@@ -34,7 +34,7 @@ static const char *usage =
     "    -x                 remove shared memory file\n"
     "    -g [MAJOR.MINOR]   report specific opengl version (default: %d.%d)\n"
     "    -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)\n"
-    "    -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)\n"
+    "    -m [SIZE]          max amount of megabytes program may allocate (default: 32mib)\n"
     "    -p [PORT]          if networking is enabled, specify which port to use (default: 3000)\n";
 
 static void generate_virtual_machine_arguments(size_t m)
@@ -91,7 +91,7 @@ int main(int argc, char **argv)
     int major = SGL_DEFAULT_MAJOR;
     int minor = SGL_DEFAULT_MINOR;
 
-    shm_size = 16;
+    shm_size = 32;
 
     signal(SIGSEGV, arg_parser_protector);
 

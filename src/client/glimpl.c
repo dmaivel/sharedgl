@@ -904,6 +904,24 @@ static inline void glimpl_draw_elements(int mode, int type, int start, int end, 
 
 #undef GET_MAX_INDEX
 
+static void glimpl_texture_image(int cmd, int n_dims, GLuint texture, GLint level, GLint internalformat,
+        GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels)
+{
+    const int dims[3] = { width, height, depth };
+
+    glimpl_upload_texture(width, n_dims > 1 ? height : 1, n_dims > 2 ? depth : 1, format, pixels);
+
+    pb_push(cmd);
+    pb_push(texture);
+    pb_push(level);
+    pb_push(internalformat);
+    for (int i = 0; i < n_dims; i++)
+        pb_push(dims[i]);
+    pb_push(border);
+    pb_push(format);
+    pb_push(type);
+}
+
 static void glimpl_texture_subimage(int cmd, int n_dims, GLuint texture, GLint level, GLint xoffset, GLint yoffset, 
         GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
 {
@@ -1843,20 +1861,8 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar** string, const G
 
 void glTexImage1D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLint border, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_submit();
-
-    glimpl_upload_texture(width, 1, 1, internalformat, pixels);
-
-    pb_push(SGL_CMD_TEXIMAGE1D);
-    pb_push(target);
-    pb_push(level);
-    pb_push(internalformat);
-    pb_push(width);
-    pb_push(border);
-    pb_push(format);
-    pb_push(type);
-    
-    glimpl_submit();
+    glimpl_texture_image(SGL_CMD_TEXIMAGE1D, 1, 
+            target, level, internalformat, width, 0, 0, border, format, type, pixels);
 }
 
 void glTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void* pixels)
@@ -1867,22 +1873,8 @@ void glTexSubImage1D(GLenum target, GLint level, GLint xoffset, GLsizei width, G
 
 void glTexImage3D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_submit();
-
-    glimpl_upload_texture(width, height, depth, internalformat, pixels);
-
-    pb_push(SGL_CMD_TEXIMAGE3D);
-    pb_push(target);
-    pb_push(level);
-    pb_push(internalformat);
-    pb_push(width);
-    pb_push(height);
-    pb_push(depth);
-    pb_push(border);
-    pb_push(format);
-    pb_push(type);
-    
-    glimpl_submit();
+    glimpl_texture_image(SGL_CMD_TEXIMAGE3D, 3, 
+            target, level, internalformat, width, height, depth, border, format, type, pixels);
 }
 
 void glTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
@@ -1893,21 +1885,8 @@ void glTexSubImage3D(GLenum target, GLint level, GLint xoffset, GLint yoffset, G
 
 void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void* pixels)
 {
-    glimpl_submit();
-
-    glimpl_upload_texture(width, height, 1, internalformat, pixels);
-
-    pb_push(SGL_CMD_TEXIMAGE2D);
-    pb_push(target);
-    pb_push(level);
-    pb_push(internalformat);
-    pb_push(width);
-    pb_push(height);
-    pb_push(border);
-    pb_push(format);
-    pb_push(type);
-    
-    glimpl_submit();
+    glimpl_texture_image(SGL_CMD_TEXIMAGE2D, 2, 
+            target, level, internalformat, width, height, 0, border, format, type, pixels);
 }
 
 void glTexSubImage2D(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels)

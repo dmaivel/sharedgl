@@ -60,7 +60,7 @@ options:
     -x                 remove shared memory file
     -g [MAJOR.MINOR]   report specific opengl version (default: 4.6)
     -r [WIDTHxHEIGHT]  set max resolution (default: 1920x1080)
-    -m [SIZE]          max amount of megabytes program may allocate (default: 16mib)
+    -m [SIZE]          max amount of megabytes program may allocate (default: 32mib)
     -p [PORT]          if networking is enabled, specify which port to use (default: 3000)
 ```
 
