@@ -11,10 +11,11 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-/*
- * this is for detecting packet losses
- */
-#define RECOVER_AFTER_N_MISSES 3
+#include <client/scratch.h>
+
+#if !(defined(__x86_64__) || defined(_M_X64) || defined(i386) || defined(__i386__) || defined(__i386) || defined(_M_IX86))
+#define _mm_pause() asm volatile("yield");
+#endif
 
 #define ADVANCE_PAST_STRING() \
     while (!(((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \
@@ -114,29 +115,211 @@ static void scramble(int *arr, int n)
     }
 }
 
+static FORCEINLINE void wait_shm(void *p, int *client_id)
+{
+    /*
+     * not only wait for a submit from a specific client,
+     * but also ensure that the client we are waiting for
+     * still exists, in case it didn't notify the server
+     * of its exit
+     */
+    while (!wait_for_submit(p)) {
+        int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
+
+        /*
+         * a client has notified the server of its attempt
+         * to connect
+         */
+        if (creg != 0) {
+            /*
+             * add connection to the dynamic array
+             */
+            connection_add(creg, 0);
+
+            PRINT_LOG("client %d connected\n", creg);
+
+            /*
+             * prevent the same client from connecting more
+             * than once and break from the loop
+             */
+            *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
+            continue;
+        }
+
+        /*
+         * some sort of "sync"
+         */
+        _mm_pause();
+    }
+
+    *client_id = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
+    *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
+}
+
+static void sgl_net_accept_connection(void *p, struct net_context *net_ctx, struct sgl_cmd_processor_args args, 
+        size_t framebuffer_size, size_t fifo_size, int width, int height)
+{
+    net_socket socket = net_accept(net_ctx);
+    int id = *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID);
+
+    connection_add(id, socket);
+
+    struct sgl_packet_connect packet = {
+        /* client_id = */          id,
+        /* framebuffer_size = */   framebuffer_size,
+        /* fifo_size = */          fifo_size,
+        /* gl_major = */           args.gl_major,
+        /* gl_minor = */           args.gl_minor,
+        /* max_width= */           width,
+        /* max_height= */          height
+    };
+
+    net_send_tcp(net_ctx, socket, &packet, sizeof(packet));
+
+    *((int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID)) += 1;
+
+    PRINT_LOG("client %d connected\n", id);
+}
+
+static void sgl_net_send_framebuffer(void *p, struct net_context *net_ctx, size_t fifo_size)
+{
+    struct sgl_packet_swapbuffers_request packet;
+    struct sgl_packet_sync sync = { 0 };
+    size_t left_over;
+    int expected;
+    int last_index;
+    size_t left_over_size;
+
+    net_recv_udp(net_ctx, &packet, sizeof(packet), 0);
+
+    left_over = packet.width * packet.height * 4;
+    expected = left_over / SGL_SWAPBUFFERS_RESULT_SIZE + (left_over % SGL_SWAPBUFFERS_RESULT_SIZE != 0);
+    
+    connection_current(packet.client_id);
+    sgl_read_pixels(packet.width, packet.height, p + SGL_OFFSET_COMMAND_START + fifo_size, packet.vflip, packet.format, 0); // to-do: show memory for overlay
+
+    /*
+    * send sync packet, otherwise most frames are lost
+    */
+    net_send_tcp(net_ctx, get_fd_from_id(packet.client_id), &sync, sizeof(sync));
+
+    /*
+    * generate an out-of-sequence order of frames. this way, we update as much of the window
+    * as possible, tackling packet loss from UDP
+    */
+    scramble(scramble_arr, expected);
+    last_index = expected - 1;
+    left_over_size = left_over % SGL_SWAPBUFFERS_RESULT_SIZE;
+
+    if (left_over_size == 0)
+        left_over_size = SGL_SWAPBUFFERS_RESULT_SIZE;
+
+    for (int i = 0; i < expected; i++) {
+        int index = scramble_arr[i];
+        size_t size = index != last_index ? SGL_SWAPBUFFERS_RESULT_SIZE : left_over_size;
+
+        struct sgl_packet_swapbuffers_result result = {
+            /* client_id = */   packet.client_id,
+            /* index = */       index,
+            /* size = */        size,
+            /* result = */      { 0 }
+        };
+
+        memcpy(result.result, p + SGL_OFFSET_COMMAND_START + fifo_size + (index * SGL_SWAPBUFFERS_RESULT_SIZE), size);
+
+        net_send_udp(net_ctx, &result, sizeof(result), 0);
+    }
+}
+
+static void sgl_net_get_fifo_upload(void *p, int *client_id, bool *ready_to_render, struct net_context *net_ctx, size_t fifo_size)
+{
+    for (int i = NET_SOCKET_FIRST_FD; i < net_fd_count(net_ctx); i++) {
+        if (!net_did_event_happen_here(net_ctx, i))
+            continue;
+            
+        struct sgl_packet_fifo_upload initial_upload_packet, *the_rest_of_the_packets = NULL;
+        if (!net_recv_tcp_timeout(net_ctx, i, &initial_upload_packet, sizeof(initial_upload_packet), 500)) {
+            int id = get_id_from_fd(i);
+            PRINT_LOG("client %d timed out, disconnected\n", id);
+            connection_rem(id, net_ctx);
+            memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
+            break;
+        }
+
+        if (initial_upload_packet.expected_chunks > 1) {
+            the_rest_of_the_packets = malloc(sizeof(struct sgl_packet_fifo_upload) * (initial_upload_packet.expected_chunks - 1));
+            for (int j = 0; j < initial_upload_packet.expected_chunks - 1; j++)
+                net_recv_tcp(net_ctx, i, &the_rest_of_the_packets[j], sizeof(initial_upload_packet));
+        }
+
+        size_t offset = 0;
+        for (int i = 0; i < initial_upload_packet.expected_chunks; i++) {
+            struct sgl_packet_fifo_upload *packet = i == 0 ? &initial_upload_packet : &the_rest_of_the_packets[i - 1];
+            size_t size = sizeof(uint32_t) * packet->count;
+
+            memcpy(p + SGL_OFFSET_COMMAND_START + offset, packet->commands, size);
+            offset += size;
+        }
+
+        if (the_rest_of_the_packets != NULL)
+            free(the_rest_of_the_packets);
+
+        *ready_to_render = true;
+        *client_id = initial_upload_packet.client_id;
+
+        // break here so we can handle other clients after
+        break;
+    }
+}
+
+static FORCEINLINE void wait_net(void *p, int *client_id, struct net_context *net_ctx, struct sgl_cmd_processor_args args, 
+        size_t framebuffer_size, size_t fifo_size, int width, int height)
+{
+    bool ready_to_render = false;
+    while (!ready_to_render) {
+        enum net_poll_reason reason = net_poll(net_ctx); // to-do: check failure
+
+        if (reason & NET_POLL_INCOMING_CONNECTION)
+            sgl_net_accept_connection(p, net_ctx, args, framebuffer_size, fifo_size, width, height);
+
+        /* 
+        * incoming udp packets to the server could only mean that
+        * a client has requested a framebuffer update
+        */
+        if (reason & NET_POLL_INCOMING_UDP)
+            sgl_net_send_framebuffer(p, net_ctx, fifo_size);
+
+        /*
+        * incoming tcp packets to the server could only mean that
+        * a client is uploading its fifo buffer 
+        */
+        if (reason & NET_POLL_INCOMING_TCP)
+            sgl_net_get_fifo_upload(p, client_id, &ready_to_render, net_ctx, fifo_size);
+    }
+}
+
 void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 {
     int width, height;
-    sgl_get_max_resolution(&width, &height);
+    int cmd;
+    struct net_context *net_ctx = NULL;
+    bool network_expecting_retval = true;
+    bool begun = false;
+    void *uploaded = NULL;
+    void *map_buffer;
+    void *download_target = NULL;
+    size_t download_offset = 0;
 
+    sgl_get_max_resolution(&width, &height);
     size_t framebuffer_size = width * height * 4;
     size_t fifo_size = args.memory_size - SGL_OFFSET_COMMAND_START - framebuffer_size;
-
-    void *p = args.base_address;
-
-    struct sgl_host_context *ctx;
-    bool begun = false;
-
-    void *uploaded = NULL;
-    int cmd;
-
-    struct net_context *net_ctx = NULL;
 
     if ((intptr_t)fifo_size < 0) {
         PRINT_LOG("framebuffer too big, try increasing memory!\n");
         return;
     }
 
+    void *p = args.base_address;
     memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
 
     *(uint64_t*)(p + SGL_OFFSET_REGISTER_FBSTART) = SGL_OFFSET_COMMAND_START + fifo_size;
@@ -147,6 +330,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
     *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID) = 1;
     *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
     *(int*)(p + SGL_OFFSET_REGISTER_LOCK) = 0;
+    *(int*)(p + SGL_OFFSET_REGISTER_SWAP_BUFFERS_SYNC) = 0;
 
     if (args.internal_cmd_ptr)
         *args.internal_cmd_ptr = &cmd;
@@ -165,183 +349,14 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 
     PRINT_LOG("--------------------------------------------------------\n");
 
-    bool network_expecting_retval = true;
-
-    void *map_buffer;
-    size_t map_buffer_offset = 0;
-    int vp_upload_count;
-
     while (1) {
         int client_id = 0;
-        int timeout = 0;
         
-        /*
-         * shared memory connection handler
-         */
-        if (!args.network_over_shared) {
-            /*
-             * not only wait for a submit from a specific client,
-             * but also ensure that the client we are waiting for
-             * still exists, in case it didn't notify the server
-             * of its exit
-             */
-            while (!wait_for_submit(p)) {
-                int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
-
-                /*
-                 * a client has notified the server of its attempt
-                 * to connect
-                 */
-                if (creg != 0) {
-                    /*
-                    * add connection to the dynamic array
-                    */
-                    connection_add(creg, 0);
-
-                    PRINT_LOG("client %d connected\n", creg);
-
-                    /*
-                     * prevent the same client from connecting more
-                     * than once and break from the loop
-                     */
-                    *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
-                    continue;
-                }
-
-                /*
-                 * some sort of "sync"
-                 */
-                usleep(1);
-                // _mm_pause();
-            }
-
-            client_id = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
-            *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
-        }
-        /*
-         * network-based connection handler and packet translation
-         */
-        else {
-            bool ready_to_render = false;
-            while (!ready_to_render) {
-                enum net_poll_reason reason = net_poll(net_ctx); // to-do: check failure
-
-                if (reason & NET_POLL_INCOMING_CONNECTION) {
-                    net_socket socket = net_accept(net_ctx);
-                    int id = *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID);
-
-                    connection_add(id, socket);
-
-                    struct sgl_packet_connect packet = {
-                        /* client_id = */          id,
-                        /* framebuffer_size = */   framebuffer_size,
-                        /* fifo_size = */          fifo_size,
-                        /* gl_major = */           args.gl_major,
-                        /* gl_minor = */           args.gl_minor,
-                        /* max_width= */           width,
-                        /* max_height= */          height
-                    };
-
-                    net_send_tcp(net_ctx, socket, &packet, sizeof(packet));
-
-                    *((int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID)) += 1;
-
-                    PRINT_LOG("client %d connected\n", id);
-                }
-
-                /* 
-                 * incoming udp packets to the server could only mean that
-                 * a client has requested a framebuffer update
-                 */
-                if (reason & NET_POLL_INCOMING_UDP) {
-                    struct sgl_packet_swapbuffers_request packet;
-                    net_recv_udp(net_ctx, &packet, sizeof(packet), 0);
-                    
-                    connection_current(packet.client_id);
-                    sgl_read_pixels(packet.width, packet.height, p + SGL_OFFSET_COMMAND_START + fifo_size, packet.vflip, packet.format, 0); // to-do: show memory for overlay
-
-                    /*
-                     * send sync packet, otherwise most frames are lost
-                     */
-                    struct sgl_packet_sync sync = { 0 };
-                    net_send_tcp(net_ctx, get_fd_from_id(packet.client_id), &sync, sizeof(sync));
-
-                    size_t left_over = packet.width * packet.height * 4;
-                    int expected = left_over / SGL_SWAPBUFFERS_RESULT_SIZE + (left_over % SGL_SWAPBUFFERS_RESULT_SIZE != 0);
-
-                    /*
-                     * generate an out-of-sequence order of frames. this way, we update as much of the window
-                     * as possible, tackling packet loss from UDP
-                     */
-                    scramble(scramble_arr, expected);
-                    int last_index = expected - 1;
-                    size_t left_over_size = left_over % SGL_SWAPBUFFERS_RESULT_SIZE;
-
-                    if (left_over_size == 0)
-                        left_over_size = SGL_SWAPBUFFERS_RESULT_SIZE;
-
-                    for (int i = 0; i < expected; i++) {
-                        int index = scramble_arr[i];
-                        size_t size = index != last_index ? SGL_SWAPBUFFERS_RESULT_SIZE : left_over_size;
-
-                        struct sgl_packet_swapbuffers_result result = {
-                            /* client_id = */   packet.client_id,
-                            /* index = */       index,
-                            /* size = */        size,
-                            /* result = */      { 0 }
-                        };
-
-                        memcpy(result.result, p + SGL_OFFSET_COMMAND_START + fifo_size + (index * SGL_SWAPBUFFERS_RESULT_SIZE), size);
-
-                        net_send_udp(net_ctx, &result, sizeof(result), 0);
-                    }
-                }
-
-                /*
-                 * incoming tcp packets to the server could only mean that
-                 * a client is uploading its fifo buffer 
-                 */
-                if (reason & NET_POLL_INCOMING_TCP) {
-                    for (int i = NET_SOCKET_FIRST_FD; i < net_fd_count(net_ctx); i++) {
-                        if (!net_did_event_happen_here(net_ctx, i))
-                            continue;
-                            
-                        struct sgl_packet_fifo_upload initial_upload_packet, *the_rest_of_the_packets = NULL;
-                        if (!net_recv_tcp_timeout(net_ctx, i, &initial_upload_packet, sizeof(initial_upload_packet), 500)) {
-                            int id = get_id_from_fd(i);
-                            PRINT_LOG("client %d timed out, disconnected\n", id);
-                            connection_rem(id, net_ctx);
-                            memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
-                            break;
-                        }
-
-                        if (initial_upload_packet.expected_chunks > 1) {
-                            the_rest_of_the_packets = malloc(sizeof(struct sgl_packet_fifo_upload) * (initial_upload_packet.expected_chunks - 1));
-                            for (int j = 0; j < initial_upload_packet.expected_chunks - 1; j++)
-                                net_recv_tcp(net_ctx, i, &the_rest_of_the_packets[j], sizeof(initial_upload_packet));
-                        }
-
-                        size_t offset = 0;
-                        for (int i = 0; i < initial_upload_packet.expected_chunks; i++) {
-                            struct sgl_packet_fifo_upload *packet = i == 0 ? &initial_upload_packet : &the_rest_of_the_packets[i - 1];
-                            size_t size = sizeof(uint32_t) * packet->count;
-
-                            memcpy(p + SGL_OFFSET_COMMAND_START + offset, packet->commands, size);
-                            offset += size;
-                        }
-
-                        if (the_rest_of_the_packets != NULL)
-                            free(the_rest_of_the_packets);
-
-                        ready_to_render = true;
-                        client_id = initial_upload_packet.client_id;
-
-                        // break here so we can handle other clients after
-                        break;
-                    }
-                }
-            }
-        }
+        if (!args.network_over_shared)
+            wait_shm(p, &client_id);
+        else
+            wait_net(p, &client_id,
+                    net_ctx, args, framebuffer_size, fifo_size, width, height);
 
         /*
          * set the current opengl context to the current client
@@ -378,7 +393,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 glScissor(0, 0, w, h);
                 break;
             }
-            case SGL_CMD_REQUEST_FRAMEBUFFER: {
+            case SGL_CMD_SWAP_BUFFERS: {
                 int w = *pb++,
                     h = *pb++,
                     vflip = *pb++,
@@ -388,7 +403,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_VP_UPLOAD: {
-                vp_upload_count = *pb++;
+                int vp_upload_count = *pb++;
                 uploaded = pb;
                 for (int i = 0; i < vp_upload_count; i++)
                     pb++;
@@ -410,8 +425,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             }
             case SGL_CMD_VP_DOWNLOAD: {
                 int length = *pb++;
-                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, map_buffer + map_buffer_offset, length);
-                map_buffer_offset += length;
+                memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, download_target + download_offset, length);
+                download_offset += length;
                 break;
             }
             
@@ -497,12 +512,12 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             }
             case SGL_CMD_CLIPPLANE: {
                 int plane = *pb++;
-                float eq[4];
+                double eq[4];
                 eq[0] = *((float*)pb++);
                 eq[1] = *((float*)pb++);
                 eq[2] = *((float*)pb++);
                 eq[3] = *((float*)pb++);
-                glClipPlanef(plane, eq);
+                glClipPlane(plane, eq);
                 break;
             }
             case SGL_CMD_COLOR3F: {
@@ -658,6 +673,12 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 glGetShaderiv(shader, pname, (int*)((char*)p + SGL_OFFSET_REGISTER_RETVAL));
                 break;
             }
+            case SGL_CMD_GETOBJECTPARAMETERIVARB: {
+                int obj = *pb++,
+                    pname = *pb++;
+                glGetObjectParameterivARB(obj, pname, (int*)((char*)p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
             case SGL_CMD_GETUNIFORMLOCATION: {
                 int program = *pb++;
                 char *name = (char*)pb;
@@ -694,6 +715,17 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 double v[16];
                 glGetDoublev(*pb++, v);
                 memcpy(p + SGL_OFFSET_REGISTER_RETVAL_V, v, sizeof(double) * 16);
+                break;
+            }
+            case SGL_CMD_GETTEXIMAGE: {
+                int target = *pb++,
+                    level = *pb++,
+                    format = *pb++,
+                    type = *pb++,
+                    total_size = *pb++;
+                glGetTexImage(target, level, format, type, scratch_buffer_get(total_size));
+                download_offset = 0;
+                download_target = scratch_buffer_get(total_size);
                 break;
             }
             case SGL_CMD_LIGHTMODELFV: {
@@ -768,10 +800,14 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 glShadeModel(*pb++);
                 break;
             case SGL_CMD_SHADERSOURCE: {
-                int shader = *pb++;
-                char *string = (char*)pb;
-                glShaderSource(shader, 1, (const char* const*)&string, NULL);
-                ADVANCE_PAST_STRING();
+                int shader = *pb++,
+                    count = *pb++;
+                const char *strings[count];
+                for (int i = 0; i < count; i++) {
+                    strings[i] = (char*)pb;
+                    ADVANCE_PAST_STRING();
+                }
+                glShaderSource(shader, count, strings, NULL);
                 break;
             }
             case SGL_CMD_TEXIMAGE1D: {
@@ -1016,7 +1052,6 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_CLEARDEPTH: {
                 float depth = *((float*)pb++);
                 glClearDepth(depth);
-                //// printf("glClearDepth(%f);\n", depth);
                 break;
             }
             case SGL_CMD_STENCILMASK: {
@@ -2798,6 +2833,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int target = *pb++;
                 int offset = *pb++;
                 int length = *pb++;
+                // memcpy(map_buffer + offset, uploaded, length);
                 glFlushMappedBufferRange(target, offset, length);
                 break;
             }
@@ -3660,6 +3696,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             }
             case SGL_CMD_UNMAPNAMEDBUFFER: {
                 int buffer = *pb++;
+                int length = *pb++;
+                memcpy(map_buffer, uploaded, length);
                 *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glUnmapNamedBuffer(buffer);
                 break;
             }
@@ -3667,6 +3705,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int buffer = *pb++;
                 int offset = *pb++;
                 int length = *pb++;
+                memcpy(map_buffer + offset, uploaded, length);
                 glFlushMappedNamedBufferRange(buffer, offset, length);
                 break;
             }
@@ -4204,6 +4243,13 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     offset = *pb++,
                     size = *pb++;
                 glBufferSubData(target, offset, size, uploaded);
+                break;
+            }
+            case SGL_CMD_BUFFERSUBDATAARB: {
+                int target = *pb++,
+                    offset = *pb++,
+                    size = *pb++;
+                glBufferSubDataARB(target, offset, size, uploaded);
                 break;
             }
             case SGL_CMD_GETBUFFERPARAMETERIV: {
@@ -4785,7 +4831,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int target = *pb++,
                     access = *pb++;
                 map_buffer = glMapBuffer(target, access);
-                map_buffer_offset = 0;
+                download_offset = 0;
+                download_target = map_buffer;
                 break;
             }
             case SGL_CMD_MAPBUFFERRANGE: {
@@ -4794,7 +4841,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     length = *pb++,
                     access = *pb++;
                 map_buffer = glMapBufferRange(target, offset, length, access);
-                map_buffer_offset = 0;
+                download_offset = 0;
+                download_target = map_buffer;
                 break;
             }
             case SGL_CMD_FENCESYNC: {
@@ -4820,7 +4868,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             }
             case SGL_CMD_DRAWBUFFERS: {
                 int n = *pb++;
-                unsigned int bufs[16];
+                unsigned int bufs[n];
                 for (int i = 0; i < n; i++)
                     bufs[i] = *pb++;
                 glDrawBuffers(n, bufs);
@@ -5514,7 +5562,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int target = *pb++,
                     access = *pb++;
                 map_buffer = glMapNamedBuffer(target, access);
-                map_buffer_offset = 0;
+                download_offset = 0;
+                download_target = map_buffer;
                 break;
             }
             case SGL_CMD_MAPNAMEDBUFFERRANGE: {
@@ -5523,7 +5572,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     length = *pb++,
                     access = *pb++;
                 map_buffer = glMapNamedBufferRange(target, offset, length, access);
-                map_buffer_offset = 0;
+                download_offset = 0;
+                download_target = map_buffer;
                 break;
             }
             case SGL_CMD_GETNAMEDBUFFERPARAMETERIV: {
@@ -5915,8 +5965,197 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 memcpy(p + SGL_OFFSET_REGISTER_RETVAL, &length, sizeof(int));
                 break;
             }
+            case SGL_CMD_ATTACHOBJECTARB: {
+                int v0 = *pb++;
+                int v1 = *pb++;
+                glAttachObjectARB(v0, v1);
+                break;
             }
-
+            case SGL_CMD_BINDATTRIBLOCATIONARB: {
+                int program = *pb++,
+                    index = *pb++;
+                char *name = (char*)pb;
+                glBindAttribLocationARB(program, index, name);
+                ADVANCE_PAST_STRING();
+                break;
+            }
+            case SGL_CMD_BINDBUFFERARB: {
+                int target = *pb++,
+                    buffer = *pb++;
+                glBindBufferARB(target, buffer);
+                break;
+            }
+            case SGL_CMD_BINDPROGRAMARB: {
+                int target = *pb++,
+                    program = *pb++;
+                glBindProgramARB(target, program);
+                break;
+            }
+            case SGL_CMD_BUFFERDATAARB: {
+                int target = *pb++,
+                    size = *pb++,
+                    use_uploaded = *pb++,
+                    usage = *pb++;
+                glBufferDataARB(target, size, use_uploaded ? uploaded : NULL, usage);
+                break;
+            }
+            case SGL_CMD_COMPILESHADERARB: {
+                glCompileShaderARB(*pb++);
+                break;
+            }
+            case SGL_CMD_CREATEPROGRAMOBJECTARB: {
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glCreateProgramObjectARB();
+                break;
+            }
+            case SGL_CMD_CREATESHADEROBJECTARB: {
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glCreateShaderObjectARB(*pb++);
+                break;
+            }
+            case SGL_CMD_DELETEBUFFERSARB: {
+                const unsigned int *x = (unsigned*)pb++;
+                glDeleteBuffersARB(1, x);
+                break;
+            }
+            case SGL_CMD_DELETEOBJECTARB: {
+                glDeleteObjectARB(*pb++);
+                break;
+            }
+            case SGL_CMD_DELETEPROGRAMSARB: {
+                const unsigned int *x = (unsigned*)pb++;
+                glDeleteProgramsARB(1, x);
+                break;
+            }
+            case SGL_CMD_DELETEQUERIESARB: {
+                const unsigned int *x = (unsigned*)pb++;
+                glDeleteQueriesARB(1, x);
+                break;
+            }
+            case SGL_CMD_DETACHOBJECTARB: {
+                int containerObj = *pb++,
+                    attachedObj = *pb++;
+                glDetachObjectARB(containerObj, attachedObj);
+                break;
+            }
+            case SGL_CMD_GENBUFFERSARB: {
+                glGenBuffersARB(1, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_GENPROGRAMSARB: {
+                glGenProgramsARB(1, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_GENQUERIESARB: {
+                glGenQueriesARB(1, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_GETINFOLOGARB: {
+                int obj = *pb++;
+                int maxLength = *pb++;
+                glGetInfoLogARB(obj, maxLength, 
+                    p + SGL_OFFSET_REGISTER_RETVAL_V,
+                    p + SGL_OFFSET_REGISTER_RETVAL_V + sizeof(GLsizei)
+                );
+                break;
+            }
+            case SGL_CMD_GETPROGRAMIVARB: {
+                int program = *pb++,
+                    pname = *pb++;
+                glGetProgramivARB(program, pname, (int*)((char*)p + SGL_OFFSET_REGISTER_RETVAL));
+                break;
+            }
+            case SGL_CMD_GETUNIFORMLOCATIONARB: {
+                int programObj = *pb++;
+                char *string = (char*)pb;
+                ADVANCE_PAST_STRING();
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glGetUniformLocationARB(programObj, string);
+                break;
+            }
+            case SGL_CMD_LINKPROGRAMARB: {
+                glLinkProgramARB(*pb++);
+                break;
+            }
+            case SGL_CMD_MAPBUFFERARB: {
+                int target = *pb++,
+                    access = *pb++;
+                map_buffer = glMapBufferARB(target, access);
+                download_offset = 0;
+                download_target = map_buffer;
+                break;
+            }
+            case SGL_CMD_PROGRAMSTRINGARB: {
+                int target = *pb++,
+                    format = *pb++,
+                    len = *pb++;
+                char *string = (char*)pb;
+                ADVANCE_PAST_STRING();
+                glProgramStringARB(target, format, len, string);
+                break;
+            }
+            case SGL_CMD_SHADERSOURCEARB: {
+                int shader = *pb++,
+                    count = *pb++;
+                const char *strings[count];
+                for (int i = 0; i < count; i++) {
+                    strings[i] = (char*)pb;
+                    ADVANCE_PAST_STRING();
+                }
+                glShaderSourceARB(shader, count, strings, NULL);
+                break;
+            }
+            case SGL_CMD_UNIFORM1IARB: {
+                int location = *pb++,
+                    v0 = *pb++;
+                glUniform1iARB(location, v0);
+                break;
+            }
+            case SGL_CMD_PROGRAMENVPARAMETERS4FVEXT: {
+                int target = *pb++,
+                    index = *pb++,
+                    count = *pb++;
+                float *params = (float*)pb;
+                pb += count * 4;
+                glProgramEnvParameters4fvEXT(target, index, count, params);
+                break;
+            }
+            case SGL_CMD_COLORMASKINDEXEDEXT: {
+                int index = *pb++,
+                    r = *pb++,
+                    g = *pb++,
+                    b = *pb++,
+                    a = *pb++;
+                glColorMaskIndexedEXT(index, r, g, b, a);
+                break;
+            }
+            case SGL_CMD_ENABLEINDEXEDEXT: {
+                int target = *pb++,
+                    index = *pb++;
+                glEnableIndexedEXT(target, index);
+                break;
+            }
+            case SGL_CMD_DISABLEINDEXEDEXT: {
+                int target = *pb++,
+                    index = *pb++;
+                glDisableIndexedEXT(target, index);
+                break;
+            }
+            case SGL_CMD_GETBOOLEANINDEXEDVEXT: {
+                int target = *pb++,
+                    index = *pb++;
+                glGetBooleanIndexedvEXT(target, index, p + SGL_OFFSET_REGISTER_RETVAL);
+                break;
+            }
+            case SGL_CMD_ACTIVETEXTUREARB: {
+                glActiveTextureARB(*pb++);
+                break;
+            }
+            case SGL_CMD_MULTITEXCOORD2FARB: {
+                int target = *pb++;
+                float s = *((float*)pb++),
+                      t = *((float*)pb++);
+                glMultiTexCoord2fARB(target, s, t);
+                break;
+            }
+            }
             if (!begun) {
                 int error;
                 while ((error = glGetError()) != GL_NO_ERROR)

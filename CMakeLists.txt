@@ -1,18 +1,20 @@
 cmake_minimum_required(VERSION 3.5.0)
-project(sharedgl VERSION 0.7.2 LANGUAGES C)
+project(sharedgl VERSION 0.8.0 LANGUAGES C)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 
 # set(CMAKE_C_COMPILER "clang")
 
+option(LINUX_LIB32 "Compile 32-bit libGL. Does not affect server." OFF)
+
 IF(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gz")
 ELSE()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
+    # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 ENDIF(WIN32)
 
-file(GLOB GLOBBED_SERVER_SOURCES CONFIGURE_DEPENDS "src/server/*.c" "src/network/*.c")
+file(GLOB GLOBBED_SERVER_SOURCES CONFIGURE_DEPENDS "src/server/*.c" "src/network/*.c" "src/client/scratch.c")
 
 # client stuff
 IF(UNIX)
@@ -35,6 +37,10 @@ IF(UNIX)
     target_link_libraries(sharedgl-core X11)
     set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "GL")
     set_target_properties(sharedgl-core PROPERTIES VERSION 1)
+    IF(LINUX_LIB32)
+        target_compile_options(sharedgl-core PRIVATE "-m32")
+        target_link_options(sharedgl-core PRIVATE "-m32")
+    ENDIF(LINUX_LIB32)
 ELSEIF(WIN32)
     add_library(sharedgl-core SHARED ${GLOBBED_CLIENT_SOURCES} ${GLOBBED_CLIENT_P_SOURCES})
     IF(CMAKE_GENERATOR_PLATFORM MATCHES "Win32")

@@ -6,6 +6,9 @@
 #include <client/platform/windrv.h>
 #include <client/platform/icd.h>
 
+#include <client/pb.h>
+#include <client/spinlock.h>
+
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -15,6 +18,8 @@ static int pfd_count = 0;
 static struct WGLCALLBACKS callbacks;
 
 static int max_width, max_height, real_width, real_height;
+
+static void *swap_sync_lock;
 
 ICD_SET_MAX_DIMENSIONS_DEFINITION(max_width, max_height, real_width, real_height);
 ICD_RESIZE_DEFINITION(real_width, real_height);
@@ -324,13 +329,18 @@ BOOL APIENTRY DrvSwapBuffers(HDC hdc)
         bmi.bmiHeader.biWidth = max_width;
         bmi.bmiHeader.biHeight = -max_height;
 
+        swap_sync_lock = pb_ptr(SGL_OFFSET_REGISTER_SWAP_BUFFERS_SYNC);
         framebuffer = glimpl_fb_address();
         init = 1;
     }
 
+    spin_lock(swap_sync_lock);
+
     glimpl_swap_buffers(real_width, real_height, do_vflip, GL_BGRA); /* to-do: fix overlay so vflip and -Height won't be needed */
     SetDIBitsToDevice(hdc, 0, 0, real_width, real_height, 0, 0, 0, real_height, framebuffer, &bmi, DIB_RGB_COLORS);
     // StretchDIBits(hdc, 0, 0, real_width, real_height, 0, 0, real_width, real_height, framebuffer, &bmi, DIB_RGB_COLORS, SRCCOPY);
+
+    spin_unlock(swap_sync_lock);
 
     return TRUE;
 }

@@ -23,6 +23,9 @@ struct pb_net_hooks {
 void pb_set_net(struct pb_net_hooks hooks, size_t internal_alloc_size);
 
 #ifndef _WIN32
+/*
+ * to-do: determine if direct_access is really unneeded
+ */
 void pb_set(int pb, bool direct_access);
 #else
 void pb_set(bool direct_access);

@@ -4,6 +4,9 @@
 #include <client/platform/glx.h>
 #include <client/glimpl.h>
 
+#include <client/pb.h>
+#include <client/spinlock.h>
+
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +22,8 @@ static int glx_minor = 4;
 static const char *glx_majmin_string = "1.4";
 
 static int max_width, max_height, real_width, real_height;
+
+static void *swap_sync_lock;
 
 ICD_SET_MAX_DIMENSIONS_DEFINITION(max_width, max_height, real_width, real_height);
 ICD_RESIZE_DEFINITION(real_width, real_height);
@@ -310,6 +315,18 @@ XVisualInfo *glXGetVisualFromFBConfig(Display *dpy, GLXFBConfig config)
 
 GLXContext glXCreateContextAttribsARB(Display *dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int *attrib_list)
 {
+    /*
+     * probably not needed, stuck around for testing
+     */
+    int *attribs = (int*)attrib_list;
+    while (*attribs) {
+        int attrib = *attribs++;
+        int value = *attribs++;
+
+        if (attrib == GLX_CONTEXT_PROFILE_MASK_ARB && value == GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB)
+            return NULL;
+    }
+
     return glXCreateContext(dpy, NULL, 0, 0);
 }
 
@@ -378,6 +395,8 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
     static struct glx_swap_data swap_data = { 0 };
 
     if (swap_data.initialized == false) {
+        swap_sync_lock = pb_ptr(SGL_OFFSET_REGISTER_SWAP_BUFFERS_SYNC);
+
         XWindowAttributes attr;
         XGetWindowAttributes(dpy, drawable, &attr);
 
@@ -397,11 +416,17 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
         swap_data.initialized = true;
     }
 
+    /* lock */
+    spin_lock(swap_sync_lock);
+
     /* swap */
     glimpl_swap_buffers(real_width, real_height, 1, GL_BGRA);
 
     /* display */
     XPutImage(dpy, drawable, swap_data.gc, swap_data.ximage, 0, 0, 0, 0, real_width, real_height);
+
+    /* unlock */
+    spin_unlock(swap_sync_lock);
 
     /* sync */
     XSync(dpy, False);
@@ -409,12 +434,12 @@ void glXSwapBuffers(Display* dpy, GLXDrawable drawable)
 
 void* glXGetProcAddressARB(char* s) 
 {
-    char str[64];
-    if (strstr(s, "EXT") || strstr(s, "ARB")) {
-        strcpy(str, s);
-        str[strlen(str) - 3] = 0;
-        return NULL;
-    }
+    // char str[64];
+    // if (strstr(s, "EXT") || strstr(s, "ARB")) {
+    //     strcpy(str, s);
+    //     str[strlen(str) - 3] = 0;
+    //     return NULL;
+    // }
 
     /* to-do: use stripped str? */
     return dlsym(NULL, s);

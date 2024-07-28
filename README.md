@@ -46,6 +46,16 @@ cmake --build . --target sharedgl-core --config Release
 
 For detailed build instructions for Windows, visit the [Windows section](#windows-in-a-vm).
 
+### Build options
+
+These CMake options are accessible by either:
+1. Using `ccmake` on `build` folder
+2. Configuring with `-D...`
+
+| **Option** | **Legal values** | **Default** | **Description** |
+|-|-|-|-|
+| LINUX_LIB32 | ON/OFF | OFF | Enable if you wish to build the Linux client library (libGL) as 32-bit. This does not affect the server. |
+
 # Usage
 The server must be started on the host before running any clients. Note that the server can only be ran on Linux.
 
@@ -70,7 +80,6 @@ Variables labeled with `host` get their values from the host/server when their o
 
 | **Option** | **Legal values** | **Default** | **Description** |
 |-|-|-|-|
-| SGL_SHARED_MEMORY_DIRECT | Boolean | true | If you intend on only running a single accelerated application at a time, this variable ensures maximum performance by writing/reading directly to/from shared memory. Make sure to set to `false` if you intend on using multiclient support. Available for both Windows and Linux clients. |
 | SGL_WINED3D_DONT_VFLIP | Boolean | false | If running a DirectX application via WineD3D, ensure this variable is set to `true` in order for the application to render the framebuffer in the proper orientation. Only available for Windows clients. |
 | SGL_RUN_WITH_LOW_PRIORITY | Boolean | false | On single core setups, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. Users should only set this to `true` if the VM has only a single VCPU. Only available for Windows clients. |
 | GL_VERSION_OVERRIDE | Digit.Digit | `host` | Override the OpenGL version on the client side. Available for both Windows and Linux clients. |
@@ -121,8 +130,6 @@ There are two possible drivers one may use:
            pnputil -i -a ksgldrv.inf
            ```
         3. By default, this builds for Windows 10 x64 (`10_X64`). If you wish to compile for a different version or multiple versions, you must provide it through the command line like so: `kcertify.bat 10_X64,10_NI_X64`. A list of OS versions is provided on MSDN [here](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/inf2cat).
-
-If using multiclient support, please read about `SGL_SHARED_MEMORY_DIRECT` in the [environment variables](#environment-variables) section.
 
 ### Library / ICD
 

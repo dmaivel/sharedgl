@@ -22,10 +22,12 @@ static inline uintptr_t align_to_4kb(uintptr_t ptr)
 #ifdef _WIN32
 static void *windows_mremap(void *old_address, size_t old_size, size_t new_size)
 {
+    MEMORY_BASIC_INFORMATION mbi;
+    void *new_address;
+
     /*
      * check to see if we can extend the current allocation
      */
-    MEMORY_BASIC_INFORMATION mbi;
     if (VirtualQuery((char*)old_address + old_size, &mbi, sizeof(mbi)) == sizeof(mbi))
         if (mbi.State == MEM_FREE && mbi.RegionSize >= (new_size - old_size))
             if (VirtualAlloc((char*)old_address + old_size, new_size - old_size, MEM_COMMIT, PAGE_READWRITE))
@@ -35,7 +37,7 @@ static void *windows_mremap(void *old_address, size_t old_size, size_t new_size)
      * otherwise, allocate a new region, copy, free
      * this can be expensive, but will rarely be performed
      */
-    void *new_address = VirtualAlloc(NULL, new_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    new_address = VirtualAlloc(NULL, new_size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (new_address) {
         memcpy(new_address, old_address, old_size);
         VirtualFree(old_address, 0, MEM_RELEASE);

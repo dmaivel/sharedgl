@@ -10,6 +10,8 @@ static char env_value[16];
 BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved) 
 {
     if (reason == DLL_PROCESS_ATTACH) {
+        DWORD result;
+
         /*
          * some weird hack that can speed up processes, reducing apparent lag;
          * by setting the priority of the program to "low", we give the kernel
@@ -18,7 +20,7 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved)
          *
          * appears to benefit systems with a single VCPU the most
          */
-        DWORD result = GetEnvironmentVariableA("SGL_RUN_WITH_LOW_PRIORITY", env_value, 16);
+        result = GetEnvironmentVariableA("SGL_RUN_WITH_LOW_PRIORITY", env_value, 16);
         if (strcmp(env_value, "true") == 0)
             SetPriorityClass(GetCurrentProcess(), IDLE_PRIORITY_CLASS);
 

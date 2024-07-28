@@ -58,9 +58,11 @@ static struct pb_net_hooks net_hooks = { NULL };
 #ifndef _WIN32
 void pb_set(int fd, bool direct_access)
 {
+    uintptr_t alloc_size;
+
     ptr = mmap(NULL, 0x1000, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    alloc_size = *(uintptr_t*)(ptr + SGL_OFFSET_REGISTER_MEMSIZE);
     
-    uintptr_t alloc_size = *(uintptr_t*)(ptr + SGL_OFFSET_REGISTER_MEMSIZE);
     munmap(ptr, 0x1000);
     ptr = mmap(NULL, alloc_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 

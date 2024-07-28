@@ -98,7 +98,7 @@ int main(int argc, char **argv)
     for (int i = 1; i < argc; i++) {
         switch (argv[i][1]) {
         case 'h':
-            printf(usage, SGL_DEFAULT_MAJOR, SGL_DEFAULT_MINOR);
+            fprintf(stderr, usage, SGL_DEFAULT_MAJOR, SGL_DEFAULT_MINOR);
             return 0;
         case 'v':
             print_virtual_machine_arguments = true;

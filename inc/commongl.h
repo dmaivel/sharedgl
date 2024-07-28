@@ -21,12 +21,15 @@ typedef int              GLfixed;
 typedef unsigned long    GLuint64;
 typedef long             GLint64;
 typedef struct __GLsync *GLsync;
+typedef int              GLhandleARB;
+typedef char             GLcharARB;
 
 typedef void (*GLDEBUGPROC)(GLenum source,GLenum type,GLuint id,GLenum severity,GLsizei length,const GLchar *message,const void *userParam);
 
 /* GL types for handling large vertex buffer objects */
 typedef long             GLintptr;
 typedef signed long      GLsizeiptr;
+typedef signed long      GLsizeiptrARB;
 
 /* Boolean */
 #define GL_FALSE                          (GLboolean)0

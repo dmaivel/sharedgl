@@ -21,7 +21,7 @@
 #include <sys/mman.h>
 #endif
 
-#define GLIMPL_USES_SHARED_MEMORY (net_ctx == NULL)
+#define GLIMPL_RUNTIME_USES_SHARED_MEMORY (net_ctx == NULL)
 
 #define GLIMPL_MAX_OBJECTS 256
 #define GLIMPL_MAX_TEXTURES 8
@@ -140,7 +140,7 @@ struct gl_map_buffer                glimpl_map_buffer;
 
 float                               glimpl_global_matrix_double_to_float[GLIMPL_MAX_COUNT_FOR_MATRIX_OP];
 
-#define NUM_EXTENSIONS 78
+#define NUM_EXTENSIONS 84
 static const char *glimpl_extensions_full = "GL_ARB_ES2_compatibility "
                                             "GL_ARB_ES3_compatibility "
                                             "GL_ARB_color_buffer_float "
@@ -218,7 +218,14 @@ static const char *glimpl_extensions_full = "GL_ARB_ES2_compatibility "
                                             "GL_EXT_texture_filter_anisotropic "
                                             "GL_EXT_texture_sRGB "
                                             "GL_EXT_texture_sRGB_decode "
-                                            "GL_NV_texture_barrier ";
+                                            "GL_NV_texture_barrier "
+                                            "GL_NV_texture_barrier "
+                                            "GL_ARB_occlusion_query "
+                                            "GL_ARB_vertex_array_bgra "
+                                            "GL_EXT_vertex_array_bgra "
+                                            "GL_EXT_direct_state_access "
+                                            "GL_EXT_framebuffer_multisample_blit_scaled "
+                                            "GL_EXT_texture_compression_dxt1";
 
 static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_ES2_compatibility",
@@ -298,7 +305,13 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_EXT_texture_filter_anisotropic",
     "GL_EXT_texture_sRGB",
     "GL_EXT_texture_sRGB_decode",
-    "GL_NV_texture_barrier"
+    "GL_NV_texture_barrier",
+    "GL_ARB_occlusion_query",
+    "GL_ARB_vertex_array_bgra",
+    "GL_EXT_vertex_array_bgra",
+    "GL_EXT_direct_state_access",
+    "GL_EXT_framebuffer_multisample_blit_scaled",
+    "GL_EXT_texture_compression_dxt1"
 };
 
 /* fake variables to be used with network feature only */
@@ -353,13 +366,14 @@ static void push_string(const char *s)
 {
     int len = strlen(s);
     int last = 0;
+    int rem = len % 4;
+    int shift = 0;
+
     for (int j = 0; j < len / 4; j++) {
         pb_push(*(int*)&s[j * 4]);
         last = *(int*)&s[j * 4];
     }
 
-    int rem = len % 4;
-    int shift = 0;
     if (rem != 0) {
         int res = 0;
         while (rem) {
@@ -382,6 +396,74 @@ static void push_string(const char *s)
  */
 bool expecting_retval = true;
 
+static inline void submit_shm()
+{
+    /*
+     * lock
+     */
+    spin_lock(lockg);
+
+    /* 
+     * hint to server that we're ready 
+     */
+    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
+
+    /*
+     * copy internal buffer to shared memory and submit
+     */
+    pb_copy_to_shared();
+    pb_write(SGL_OFFSET_REGISTER_SUBMIT, 1);
+    while (pb_read(SGL_OFFSET_REGISTER_SUBMIT) == 1);
+    pb_reset();
+
+    /*
+     * unlock
+     */
+    spin_unlock(lockg);
+}
+
+static inline void submit_net()
+{
+    void *ptr = pb_iptr(0);
+    size_t size = pb_size();
+    int blocks = CEIL_DIV(size, SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE);
+    size_t min_size = 0;
+    size_t count = size / 4;
+    struct sgl_packet_retval packet;
+
+    /*
+     * packet
+     */
+    for (int i = 0; i < blocks; i++) {
+        size_t packet_count = count > SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT ? SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT : count;
+
+        struct sgl_packet_fifo_upload packet = {
+            /* client_id = */       client_id,
+            /* expected_chunks = */ blocks,
+            /* index = */           i,
+            /* count = */           packet_count,
+            /* commands = */        { 0 }
+        };
+
+        memcpy(packet.commands, (char*)ptr + (i * SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE), packet_count * sizeof(uint32_t));
+        net_send_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
+
+        count -= SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT;
+    }
+
+    /*
+     * get retval registers
+     */
+    if (expecting_retval)
+        net_recv_tcp_timeout(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet), 500);
+
+    /*
+     * write response into fake register space
+     */
+    memcpy(fake_register_space, &packet, 256 + 8); 
+    pb_reset();
+}
+
 void glimpl_submit()
 {
     /*
@@ -389,77 +471,10 @@ void glimpl_submit()
      */
     pb_push(0);
 
-    if (GLIMPL_USES_SHARED_MEMORY) {
-        /*
-        * lock
-        */
-        spin_lock(lockg);
-
-        /* 
-        * hint to server that we're ready 
-        */
-        pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
-
-        /*
-        * copy internal buffer to shared memory and submit
-        */
-        pb_copy_to_shared();
-        pb_write(SGL_OFFSET_REGISTER_SUBMIT, 1);
-        while (pb_read(SGL_OFFSET_REGISTER_SUBMIT) == 1);
-        pb_reset();
-
-        /*
-        * unlock
-        */
-        spin_unlock(lockg);
-    }
-    else {
-        /* 
-         * get internal pointer & used size 
-         */
-        void *ptr = pb_iptr(0);
-        size_t size = pb_size();
-        
-        int blocks = size / SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE + (size % SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE != 0);
-        size_t min_size = 0;
-
-        /*
-         * packet
-         */
-retry:;
-        size_t count = size / 4;
-        for (int i = 0; i < blocks; i++) {
-            size_t packet_count = count > SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT ? SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT : count;
-
-            struct sgl_packet_fifo_upload packet = {
-                /* client_id = */       client_id,
-                /* expected_chunks = */ blocks,
-                /* index = */           i,
-                /* count = */           packet_count,
-                /* commands = */        { 0 }
-            };
-
-            memcpy(packet.commands, (char*)ptr + (i * SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE), packet_count * sizeof(uint32_t));
-            net_send_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
-
-            count -= SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT;
-        }
-
-        /*
-         * get retval registers
-         */
-        struct sgl_packet_retval packet;
-        if (expecting_retval)
-            if (!net_recv_tcp_timeout(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet), 500))
-                goto retry;
-
-        /*
-         * write response into fake register space
-         */
-        memcpy(fake_register_space, &packet, 256 + 8); 
-
-        pb_reset();
-    }
+    if (GLIMPL_RUNTIME_USES_SHARED_MEMORY)
+        submit_shm();
+    else
+        submit_net();
 }
 
 void glimpl_goodbye()
@@ -488,159 +503,174 @@ void glimpl_goodbye()
 #endif
 }
 
+static inline void swap_buffers_shm(int width, int height, int vflip, int format)
+{
+    pb_push(SGL_CMD_SWAP_BUFFERS);
+    pb_push(width);
+    pb_push(height);
+    pb_push(vflip);
+    pb_push(format);
+    glimpl_submit();
+}
+
+static inline void swap_buffers_net(int width, int height, int vflip, int format)
+{
+    int expected = CEIL_DIV((width * height * 4), SGL_SWAPBUFFERS_RESULT_SIZE);
+    struct sgl_packet_sync sync;
+
+    glimpl_submit();
+
+    struct sgl_packet_swapbuffers_request packet = {
+        /* client_id = */   client_id,
+        /* width = */       width,
+        /* height = */      height,
+        /* vflip = */       vflip,
+        /* format = */      format
+    };
+
+    net_send_udp(net_ctx, &packet, sizeof(packet), 0);
+
+    // wait for sync, timeout appears to disturb fifo upload
+    net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &sync, sizeof(sync));
+
+    for (int i = 0; i < expected * 4; i++) {
+        struct sgl_packet_swapbuffers_result result;
+        // while (net_recv_udp(net_ctx, &result, sizeof(result), 0) == -1);
+        int recieved = net_recv_udp(net_ctx, &result, sizeof(result), 0);
+
+        // global, so throwout any results that aren't ours (possible vuln for other applications? idk)
+        if (result.client_id != client_id || recieved < 0) {
+            // i--;
+            continue;
+        }
+
+        memcpy((char*)fake_framebuffer + (result.index * SGL_SWAPBUFFERS_RESULT_SIZE), result.result, result.size);
+    }
+}
+
 void glimpl_swap_buffers(int width, int height, int vflip, int format)
 {
-    if (GLIMPL_USES_SHARED_MEMORY) {
-        pb_push(SGL_CMD_REQUEST_FRAMEBUFFER);
-        pb_push(width);
-        pb_push(height);
-        pb_push(vflip);
-        pb_push(format);
-        glimpl_submit();
-    }
-    else {
-        glimpl_submit();
-
-        struct sgl_packet_swapbuffers_request packet = {
-            /* client_id = */   client_id,
-            /* width = */       width,
-            /* height = */      height,
-            /* vflip = */       vflip,
-            /* format = */      format
-        };
-
-        net_send_udp(net_ctx, &packet, sizeof(packet), 0);
-        
-        int expected = CEIL_DIV((width * height * 4), SGL_SWAPBUFFERS_RESULT_SIZE);
-
-        // wait for sync, timeout appears to disturb fifo upload
-        struct sgl_packet_sync sync;
-        net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &sync, sizeof(sync));
-
-        for (int i = 0; i < expected * 4; i++) {
-            struct sgl_packet_swapbuffers_result result;
-            // while (net_recv_udp(net_ctx, &result, sizeof(result), 0) == -1);
-            int recieved = net_recv_udp(net_ctx, &result, sizeof(result), 0);
-
-            // global, so throwout any results that aren't ours (possible vuln for other applications? idk)
-            if (result.client_id != client_id || recieved < 0) {
-                // i--;
-                continue;
-            }
-
-            memcpy((char*)fake_framebuffer + (result.index * SGL_SWAPBUFFERS_RESULT_SIZE), result.result, result.size);
-        }
-    }
+    if (GLIMPL_RUNTIME_USES_SHARED_MEMORY)
+        swap_buffers_shm(width, height, vflip, format);
+    else
+        swap_buffers_net(width, height, vflip, format);
 }
 
 void *glimpl_fb_address()
 {
     /* fake framebuffer used with network feature only */
-    if (fake_framebuffer)
+    if (!GLIMPL_RUNTIME_USES_SHARED_MEMORY)
         return fake_framebuffer;
     return pb_ptr(pb_read64(SGL_OFFSET_REGISTER_FBSTART));
+}
+
+static inline void init_shm(bool use_direct_access)
+{
+#ifndef _WIN32
+    int fd = shm_open(SGL_SHARED_MEMORY_NAME, O_RDWR, S_IRWXU);
+    if (fd == -1)
+        fd = sgl_detect_device_memory("/dev/sharedgl");
+    if (fd == -1) {
+        fprintf(stderr, "init_shm: failed to find memory\n");
+        exit(1);
+    }
+
+    pb_set(fd, use_direct_access);
+#else
+    pb_set(use_direct_access);
+#endif
+    pb_reset();
+}
+
+static inline void shm_create_context()
+{
+    lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
+
+    /*
+     * claim client id and increment the register for the
+     * next claimee to claim
+     */
+    spin_lock(lockg);
+    client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
+    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
+    pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
+
+    /*
+     * notify the server we would like to connect
+     */
+    pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
+    spin_unlock(lockg);
+        
+    /*
+     * submit
+     */
+    pb_push(SGL_CMD_CREATE_CONTEXT);
+    glimpl_submit();
+    
+    int packed_dims = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    icd_set_max_dimensions(UNPACK_A(packed_dims), UNPACK_B(packed_dims));
+}
+
+static inline void init_net(char *network)
+{
+    struct sgl_packet_connect packet = { 0 };
+    char *res;
+    struct pb_net_hooks hooks = {
+        pb_read_hook,
+        pb_read64_hook,
+        NULL,
+        NULL,
+        NULL,
+        pb_ptr_hook,
+        NULL
+    };
+
+    /*
+     * string is formatted address:port, so we want to split it into two strings
+     */
+    for (char *c = network; *c; c++) {
+        if (*c == ':') {
+            *c = 0;
+            break;
+        }
+    }
+
+    res = net_init_client(&net_ctx, network, atoi(&network[strlen(network) + 1]));
+    if (res != NULL) {
+        fprintf(stderr, "init_net: could not initialize client (%s)\n", res);
+        exit(1);
+    }
+
+    net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
+
+    glimpl_major = packet.gl_major;
+    glimpl_minor = packet.gl_minor;
+
+    client_id = packet.client_id;
+
+    fake_register_space = malloc(SGL_OFFSET_COMMAND_START);
+    fake_framebuffer = malloc(packet.framebuffer_size);
+
+    pb_set_net(hooks, packet.fifo_size);
+
+    icd_set_max_dimensions(packet.max_width, packet.max_height);
 }
 
 void glimpl_init()
 {
     char *network = getenv("SGL_NET_OVER_SHARED");
-    char *direct_access = getenv("SGL_SHARED_MEMORY_DIRECT");
-
-    bool use_direct_access = direct_access == NULL;
-    if (direct_access != NULL)
-        use_direct_access = strcmp(direct_access, "true") == 0;
-
-    if (network == NULL) {
-#ifndef _WIN32
-        int fd = shm_open(SGL_SHARED_MEMORY_NAME, O_RDWR, S_IRWXU);
-        if (fd == -1)
-            fd = sgl_detect_device_memory("/dev/sharedgl");
-        if (fd == -1) {
-            fprintf(stderr, "glimpl_init: failed to find memory\n");
-            exit(1);
-        }
-
-        pb_set(fd, use_direct_access);
-#else
-        pb_set(use_direct_access);
-#endif
-        pb_reset();
-    }
-    else {
-        /*
-         * string is formatted address:port, so we want to split it into two strings
-         */
-        for (char *c = network; *c; c++) {
-            if (*c == ':') {
-                *c = 0;
-                break;
-            }
-        }
-
-        char *res = net_init_client(&net_ctx, network, atoi(&network[strlen(network) + 1]));
-        if (res != NULL) {
-            fprintf(stderr, "glimpl_init: could not initialize client (%s)\n", res);
-            exit(1);
-        }
-
-        struct sgl_packet_connect packet = { 0 };
-        net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
-
-        glimpl_major = packet.gl_major;
-        glimpl_minor = packet.gl_minor;
-
-        client_id = packet.client_id;
-
-        fake_register_space = malloc(SGL_OFFSET_COMMAND_START);
-        fake_framebuffer = malloc(packet.framebuffer_size);
-
-        struct pb_net_hooks hooks = {
-            pb_read_hook,
-            pb_read64_hook,
-            NULL,
-            NULL,
-            NULL,
-            pb_ptr_hook,
-            NULL
-        };
-
-        pb_set_net(hooks, packet.fifo_size);
-
-        icd_set_max_dimensions(packet.max_width, packet.max_height);
-    }
-
     char *gl_version_override = getenv("GL_VERSION_OVERRIDE");
+
+    if (network == NULL)
+        init_shm(false);
+    else
+        init_net(network);
 
     glimpl_major = gl_version_override ? gl_version_override[0] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMAJ);
     glimpl_minor = gl_version_override ? gl_version_override[2] - '0' : pb_read(SGL_OFFSET_REGISTER_GLMIN);
 
-    if (GLIMPL_USES_SHARED_MEMORY) {
-        lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
-
-        /*
-         * claim client id and increment the register for the
-         * next claimee to claim
-         */
-        spin_lock(lockg);
-        client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
-        pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
-        pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
-
-        /*
-         * notify the server we would like to connect
-         */
-        pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
-        spin_unlock(lockg);
-        
-        /*
-         * submit
-         */
-        pb_push(SGL_CMD_CREATE_CONTEXT);
-        glimpl_submit();
-        
-        int packed_dims = pb_read(SGL_OFFSET_REGISTER_RETVAL);
-        icd_set_max_dimensions(UNPACK_A(packed_dims), UNPACK_B(packed_dims));
-    }
+    if (GLIMPL_RUNTIME_USES_SHARED_MEMORY)
+        shm_create_context();
 
     glimpl_map_buffer.mem = scratch_buffer_get(0x1000);
 }
@@ -665,6 +695,7 @@ static inline size_t glimpl_get_pixel_size(GLenum format)
     case GL_RGB:
     case GL_BGR:
     case GL_RGB8:
+    case GL_DEPTH_COMPONENT:
         return 3;
     case GL_LUMINANCE_ALPHA:
     case GL_RG:
@@ -684,13 +715,14 @@ static inline size_t glimpl_get_pixel_size(GLenum format)
     case GL_RGBA16UI:
         return 8;
     default:
+        STUB();
         return 1;
     }
 }
 
 static inline size_t glimpl_type_size(GLenum type)
 {
-	switch(type) {
+    switch(type) {
     case GL_BYTE:
     case GL_UNSIGNED_BYTE:
         return sizeof(GLbyte);
@@ -710,9 +742,10 @@ static inline size_t glimpl_type_size(GLenum type)
         return sizeof(GLfixed);
     case GL_HALF_FLOAT:
         return sizeof(GLshort);
-	}
+    }
 
-	return 1;
+    STUB();
+    return 1;
 }
 
 static inline void glimpl_upload_buffer(const void *data, size_t size)
@@ -755,6 +788,24 @@ static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, 
     glimpl_upload_buffer(pixels, total_size);
 }
 
+static inline void glimpl_push_vertex_attrib_pointers(int count)
+{
+    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++) {
+        struct gl_vertex_attrib_pointer *vap = &glimpl_vaps[i];
+        if (vap->client_managed) {
+            glimpl_upload_buffer(vap->ptr, vap->size * count * glimpl_type_size(vap->type));
+
+            pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
+            pb_push(vap->index);
+            pb_push(vap->size);
+            pb_push(vap->type);
+            pb_push(vap->normalized);
+            pb_push(vap->stride);
+            pb_push(LIKELY_OFFSET_LIMIT + 1); // force server to use upload
+        }
+    }
+}
+
 static inline bool glimpl_push_client_pointer(int count, int size, int type, int stride, const void *pointer)
 {
     const unsigned char *data = pointer;
@@ -782,7 +833,7 @@ static inline bool glimpl_push_client_pointer(int count, int size, int type, int
 static inline void glimpl_push_client_pointers(int mode, int count)
 {
     if (glimpl_normal_ptr.in_use) {
-        bool status = glimpl_push_client_pointer(count, glimpl_vertex_ptr.size, 
+        bool status = glimpl_push_client_pointer(count, 3, /* probably not glimpl_vertex_ptr.size */
                             glimpl_normal_ptr.type, glimpl_normal_ptr.stride, glimpl_normal_ptr.pointer);
 
         pb_push(SGL_CMD_NORMALPOINTER);
@@ -793,7 +844,11 @@ static inline void glimpl_push_client_pointers(int mode, int count)
     }
 
     if (glimpl_color_ptr.in_use) {
-        bool status = glimpl_push_client_pointer(count, glimpl_color_ptr.size, 
+        int true_size = glimpl_color_ptr.size;
+        if (true_size > 8)
+            true_size = glimpl_get_pixel_size(true_size);
+
+        bool status = glimpl_push_client_pointer(count, true_size, 
                             glimpl_color_ptr.type, glimpl_color_ptr.stride, glimpl_color_ptr.pointer);
 
         pb_push(SGL_CMD_COLORPOINTER);
@@ -866,6 +921,7 @@ static inline void glimpl_draw_elements(int mode, int type, int start, int end, 
 
         // increment bc we want count, not the value of the largest index
         max_index++;
+        glimpl_push_vertex_attrib_pointers(max_index);
         glimpl_push_client_pointers(mode, max_index);
 
         /*
@@ -1012,10 +1068,10 @@ static void glimpl_get_buffer_parameter(int cmd, GLuint buffer, GLenum pname, GL
 static void *glimpl_map_buffer_range(int cmd, GLenum buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
     bool ranged = true;
-    if (glimpl_map_buffer.in_use) {
-        fprintf(stderr, "glimpl_map_buffer_range: map buffer already in use, returning NULL\n");
-        return NULL;
-    }
+    // if (glimpl_map_buffer.in_use) {
+    //     fprintf(stderr, "glimpl_map_buffer_range: map buffer already in use, returning NULL\n");
+    //     return glimpl_map_buffer.mem;
+    // }
 
     /*
      * length is 0 when this function is called by glMapBuffer, glMapNamedBuffer
@@ -1057,6 +1113,34 @@ static void *glimpl_map_buffer_range(int cmd, GLenum buffer, GLintptr offset, GL
     glimpl_download_buffer(glimpl_map_buffer.mem, length);
 
     return glimpl_map_buffer.mem;
+}
+
+static inline bool glimpl_unmap_buffer(int cmd, int buffer)
+{
+    if (glimpl_map_buffer.target != buffer) {
+        fprintf(stderr, "glimpl_unmap_buffer: target mismatch\n");
+        return GL_FALSE;
+    }
+
+    glimpl_upload_buffer(glimpl_map_buffer.mem, glimpl_map_buffer.length);
+
+    pb_push(cmd);
+    pb_push(buffer);
+    pb_push(glimpl_map_buffer.length); // internal
+
+    glimpl_submit();
+    int res = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    return *(bool*)&res;
+}
+
+static inline void glimpl_flush_mapped_buffer_range(int cmd, int buffer, int offset, int length)
+{
+    glimpl_upload_buffer((char*)glimpl_map_buffer.mem + offset, length);
+    
+    pb_push(cmd);
+    pb_push(buffer);
+    pb_push(offset);
+    pb_push(length);
 }
 
 static void glimpl_invalidate_framebuffer(int cmd, bool is_subframebuffer, GLenum framebuffer, GLsizei n_attachments, 
@@ -1387,56 +1471,7 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
-    // struct gl_vertex_attrib_pointer *vap = glimpl_get_enabled_vap();
-    // if (vap) {
-    //     if (vap->client_managed) {
-    //         if (!is_value_likely_an_offset(vap->ptr)) {
-    //             pb_push(SGL_CMD_VP_UPLOAD);
-    //             pb_push(vap->size * count);
-    //             for (int i = 0; i < vap->size * count; i++)
-    //                 pb_push(vap->ptr[i]);
-    //         }
-
-    //         pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
-    //         pb_push(vap->index);
-    //         pb_push(vap->size);
-    //         pb_push(vap->type);
-    //         pb_push(vap->normalized);
-    //         pb_push(vap->stride);
-    //         pb_push((int)((uintptr_t)vap->ptr & 0x00000000FFFFFFFF));
-
-    //         pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
-    //         pb_push(vap->index);
-    //     }
-    // }
-    // else {
-    //     glimpl_push_client_pointers(mode, count);
-    // }
-
-    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++) {
-        struct gl_vertex_attrib_pointer *vap = &glimpl_vaps[i];
-        if (vap->client_managed) {
-            bool is_ptr_offset = is_value_likely_an_offset(vap->ptr);
-            if (!is_ptr_offset) {
-                pb_push(SGL_CMD_VP_UPLOAD);
-                pb_push(vap->size * count);
-                for (int i = 0; i < vap->size * count; i++)
-                    pb_push(vap->ptr[i]);
-            }
-
-            pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
-            pb_push(vap->index);
-            pb_push(vap->size);
-            pb_push(vap->type);
-            pb_push(vap->normalized);
-            pb_push(vap->stride);
-            pb_push(is_ptr_offset ? (int)(uintptr_t)vap->ptr : 0xFFFFFFFF); // force server to use upload
-
-            pb_push(SGL_CMD_ENABLEVERTEXATTRIBARRAY);
-            pb_push(vap->index);
-        }
-    }
-
+    glimpl_push_vertex_attrib_pointers(count);
     glimpl_push_client_pointers(mode, count);
 
     pb_push(SGL_CMD_DRAWARRAYS);
@@ -1618,11 +1653,14 @@ void glGetShaderiv(GLuint shader, GLenum pname, GLint* params)
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
-void glGetObjectParameterivARB(void *obj, GLenum pname, GLint* params)
+void glGetObjectParameterivARB(GLhandleARB obj, GLenum pname, GLint *params)
 {
-    STUB();
-    /* stub */
-    *params = GL_TRUE;
+    pb_push(SGL_CMD_GETOBJECTPARAMETERIVARB);
+    pb_push(obj);
+    pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
 
 static inline void real_glGetString(GLenum name, char *string)
@@ -1754,7 +1792,42 @@ void glGetDoublev(GLenum pname, GLdouble* data)
 
 void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void* pixels)
 {
-    STUB();
+    int width = 0, height = 0, depth = 0;
+    switch (target) {
+    case GL_TEXTURE_3D:
+        glimpl_get_texture_level_parameter(SGL_CMD_GETTEXLEVELPARAMETERIV, target, level, GL_TEXTURE_DEPTH, &depth);
+    case GL_TEXTURE_2D:
+    case GL_TEXTURE_RECTANGLE:
+    case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+    case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+    case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+    case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+    case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+    case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+    case GL_TEXTURE_2D_ARRAY:
+    case GL_TEXTURE_CUBE_MAP_ARRAY:
+        glimpl_get_texture_level_parameter(SGL_CMD_GETTEXLEVELPARAMETERIV, target, level, GL_TEXTURE_HEIGHT, &height);
+    case GL_TEXTURE_1D:
+    case GL_TEXTURE_1D_ARRAY:
+        glimpl_get_texture_level_parameter(SGL_CMD_GETTEXLEVELPARAMETERIV, target, level, GL_TEXTURE_WIDTH, &width);
+        break;
+    }
+
+    if (!depth) depth = 1;
+    if (!height) height = 1;
+    if (!width) width = 1;
+
+    size_t total_size = width * height * depth * glimpl_get_pixel_size(format);
+    
+    pb_push(SGL_CMD_GETTEXIMAGE);
+    pb_push(target);
+    pb_push(level);
+    pb_push(format);
+    pb_push(type);
+    pb_push(total_size);
+
+    glimpl_submit();
+    glimpl_download_buffer(pixels, total_size);
 }
 
 void glLightModelfv(GLenum pname, const GLfloat* params)
@@ -1848,13 +1921,12 @@ void glShadeModel(GLenum mode)
 
 void glShaderSource(GLuint shader, GLsizei count, const GLchar** string, const GLint* length)
 {
-    glimpl_submit();
+    pb_push(SGL_CMD_SHADERSOURCE);
+    pb_push(shader);
+    pb_push(count);
 
-    for (int i = 0; i < count; i++) {
-        pb_push(SGL_CMD_SHADERSOURCE);
-        pb_push(shader);
+    for (int i = 0; i < count; i++)
         push_string(string[i]);
-    }
 
     glimpl_submit();
 }
@@ -1960,7 +2032,7 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
         .client_managed = client_managed
     };
 
-    // if (!client_managed) {
+    if (!client_managed) {
         pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
         pb_push(index);
         pb_push(size);
@@ -1968,7 +2040,7 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
         pb_push(normalized);
         pb_push(stride);
         pb_push((int)((uintptr_t)pointer));
-    // }
+    }
 }
 
 void glViewport(GLint x, GLint y, GLsizei width, GLsizei height)
@@ -3396,11 +3468,6 @@ void glActiveTexture(GLenum texture)
     pb_push(texture);
 }
 
-void glActiveTextureARB(GLenum texture)
-{
-    glActiveTexture(texture);
-}
-
 void glSampleCoverage(GLfloat value, GLboolean invert)
 {
     pb_push(SGL_CMD_SAMPLECOVERAGE);
@@ -3751,25 +3818,7 @@ GLboolean glIsBuffer(GLuint buffer)
 
 GLboolean glUnmapBuffer(GLenum target)
 {
-    if (glimpl_map_buffer.target != target) {
-        fprintf(stderr, "glUnmapBuffer: target mismatch\n");
-        return GL_FALSE;
-    }
-
-    pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(glimpl_map_buffer.length / 4 + (glimpl_map_buffer.length % 4 != 0));
-    pb_memcpy(glimpl_map_buffer.mem, glimpl_map_buffer.length + ((glimpl_map_buffer.length % 4 != 0) * sizeof(int)));
-
-    if (glimpl_map_buffer.in_use) {
-        glimpl_map_buffer.in_use = false;
-    }
-
-    pb_push(SGL_CMD_UNMAPBUFFER);
-    pb_push(target);
-    pb_push(glimpl_map_buffer.length);
-
-    glimpl_submit();
-    return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    return glimpl_unmap_buffer(SGL_CMD_UNMAPBUFFER, target);
 }
 
 void glBlendEquationSeparate(GLenum modeRGB, GLenum modeAlpha)
@@ -4337,10 +4386,7 @@ void glFramebufferTextureLayer(GLenum target, GLenum attachment, GLuint texture,
 
 void glFlushMappedBufferRange(GLenum target, GLintptr offset, GLsizeiptr length)
 {
-    pb_push(SGL_CMD_FLUSHMAPPEDBUFFERRANGE);
-    pb_push(target);
-    pb_push(offset);
-    pb_push(length);
+    glimpl_flush_mapped_buffer_range(SGL_CMD_FLUSHMAPPEDBUFFERRANGE, target, offset, length);
 }
 
 GLboolean glIsVertexArray(GLuint array)
@@ -5308,19 +5354,12 @@ void glCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr re
 
 GLboolean glUnmapNamedBuffer(GLuint buffer)
 {
-    pb_push(SGL_CMD_UNMAPNAMEDBUFFER);
-    pb_push(buffer);
-
-    glimpl_submit();
-    return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    return glimpl_unmap_buffer(SGL_CMD_UNMAPNAMEDBUFFER, buffer);
 }
 
 void glFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length)
 {
-    pb_push(SGL_CMD_FLUSHMAPPEDNAMEDBUFFERRANGE);
-    pb_push(buffer);
-    pb_push(offset);
-    pb_push(length);
+    glimpl_flush_mapped_buffer_range(SGL_CMD_FLUSHMAPPEDNAMEDBUFFERRANGE, buffer, offset, length);
 }
 
 void glNamedFramebufferRenderbuffer(GLuint framebuffer, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)
@@ -8009,6 +8048,9 @@ void glDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsize
         return;
     }
 
+    glimpl_push_vertex_attrib_pointers(count);
+    glimpl_push_client_pointers(mode, count);
+
     pb_push(SGL_CMD_DRAWRANGEELEMENTSBASEVERTEX);
     pb_push(mode);
     pb_push(start);
@@ -8639,8 +8681,7 @@ void glGetProgramBinary(GLuint program, GLsizei bufSize, GLsizei* length, GLenum
     // pb_push(program);
     // pb_push(bufSize);
 
-    fprintf(stderr, "glGetProgramBinary: stub\n");
-
+    STUB();
 }
 
 void glProgramBinary(GLuint program, GLenum binaryFormat, const void* binary, GLsizei length)
@@ -9892,6 +9933,283 @@ void glGetnHistogram(GLenum target, GLboolean reset, GLenum format, GLenum type,
 void glGetnMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type, GLsizei bufSize, void* values)
 {
     STUB();
+}
+
+void glAttachObjectARB(GLhandleARB containerObj, GLhandleARB obj)
+{
+    pb_push(SGL_CMD_ATTACHOBJECTARB);
+    pb_push(containerObj);
+    pb_push(obj);
+}
+
+void glBindAttribLocationARB(GLhandleARB programObj, GLuint index, const GLcharARB* name)
+{
+    pb_push(SGL_CMD_BINDATTRIBLOCATIONARB);
+    pb_push(programObj);
+    pb_push(index);
+    push_string(name);
+}
+
+void glBindBufferARB(GLenum target, GLuint buffer)
+{
+    pb_push(SGL_CMD_BINDBUFFERARB);
+    pb_push(target);
+    pb_push(buffer);
+}
+
+void glBindProgramARB(GLenum target, GLuint program)
+{
+    pb_push(SGL_CMD_BINDPROGRAMARB);
+    pb_push(target);
+    pb_push(program);
+}
+
+void glBufferDataARB(GLenum target, GLsizeiptrARB size, const void* data, GLenum usage)
+{
+    glimpl_buffer_store_data(SGL_CMD_BUFFERDATAARB, target, size, data, usage);
+}
+
+void glBufferSubDataARB(GLenum target, GLintptr offset, GLsizeiptr size, const void* data)
+{
+    glimpl_buffer_subdata(SGL_CMD_BUFFERSUBDATAARB, target, offset, size, data);
+}
+
+void glCompileShaderARB(GLhandleARB shaderObj)
+{
+    pb_push(SGL_CMD_COMPILESHADERARB);
+    pb_push(shaderObj);
+}
+
+GLhandleARB glCreateProgramObjectARB(void)
+{
+    pb_push(SGL_CMD_CREATEPROGRAMOBJECTARB);
+
+    glimpl_submit();
+    return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+GLhandleARB glCreateShaderObjectARB(GLenum shaderType)
+{
+    pb_push(SGL_CMD_CREATESHADEROBJECTARB);
+    pb_push(shaderType);
+
+    glimpl_submit();
+    return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glDeleteBuffersARB(GLsizei n, const GLuint* buffers)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETEBUFFERSARB);
+        pb_push(buffers[i]);
+    }
+}
+
+void glDeleteObjectARB(GLhandleARB obj)
+{
+    pb_push(SGL_CMD_DELETEOBJECTARB);
+    pb_push(obj);
+}
+
+void glDeleteProgramsARB(GLsizei n, const GLuint* programs)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETEPROGRAMSARB);
+        pb_push(programs[i]);
+    }
+}
+
+void glDeleteQueriesARB(GLsizei n, const GLuint* ids)
+{
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_DELETEQUERIESARB);
+        pb_push(ids[i]);
+    }
+}
+
+void glDetachObjectARB(GLhandleARB containerObj, GLhandleARB attachedObj)
+{
+    pb_push(SGL_CMD_DETACHOBJECTARB);
+    pb_push(containerObj);
+    pb_push(attachedObj);
+}
+
+// void glGenBuffersARB(GLsizei n, GLuint* buffers)
+// {
+//     glGenBuffers(n, buffers);
+// }
+
+void glGenBuffersARB(GLsizei n, GLuint* buffers)
+{
+    GLuint *p = buffers;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENBUFFERSARB);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGenProgramsARB(GLsizei n, GLuint* programs)
+{
+    GLuint *p = programs;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENPROGRAMSARB);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGenQueriesARB(GLsizei n, GLuint* ids)
+{
+    GLuint *p = ids;
+
+    for (int i = 0; i < n; i++) {
+        pb_push(SGL_CMD_GENQUERIESARB);
+        // pb_push(1);
+
+        glimpl_submit();
+        *p++ = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+    }
+}
+
+void glGetInfoLogARB(GLhandleARB obj, GLsizei maxLength, GLsizei* length, GLcharARB* infoLog)
+{
+    pb_push(SGL_CMD_GETINFOLOGARB);
+    pb_push(obj);
+    pb_push(maxLength);
+    
+    glimpl_submit();
+
+    uintptr_t ptr = (uintptr_t)pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
+    GLsizei length_notptr;
+
+    memcpy(&length_notptr, (void*)(ptr + 0), sizeof(*length));
+    if (length != NULL)
+        *length = length_notptr;
+
+    memcpy(infoLog, (void*)(ptr + sizeof(*length)), length_notptr);
+}
+
+void glGetProgramivARB(GLenum target, GLenum pname, GLint* params)
+{
+    pb_push(SGL_CMD_GETPROGRAMIVARB);
+    pb_push(target);
+    pb_push(pname);
+
+    glimpl_submit();
+    *params = pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+GLint glGetUniformLocationARB(GLhandleARB programObj, const GLcharARB* name)
+{
+    pb_push(SGL_CMD_GETUNIFORMLOCATIONARB);
+    pb_push(programObj);
+    push_string(name);
+
+    glimpl_submit();
+    return pb_read(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glLinkProgramARB(GLhandleARB programObj)
+{
+    pb_push(SGL_CMD_LINKPROGRAMARB);
+    pb_push(programObj);
+}
+
+void* glMapBufferARB(GLenum target, GLenum access)
+{
+    return glimpl_map_buffer_range(SGL_CMD_MAPBUFFERARB, target, 0, 0, access);
+}
+
+void glProgramStringARB(GLenum target, GLenum format, GLsizei len, const void* string) 
+{
+    pb_push(SGL_CMD_PROGRAMSTRINGARB);
+    pb_push(target);
+    pb_push(format);
+    pb_push(len);
+    push_string(string);
+}
+
+void glShaderSourceARB(GLhandleARB shaderObj, GLsizei count, const GLcharARB* *string, const GLint* length)
+{
+    pb_push(SGL_CMD_SHADERSOURCEARB);
+    pb_push(shaderObj);
+    pb_push(count);
+
+    for (int i = 0; i < count; i++)
+        push_string(string[i]);
+
+    glimpl_submit();
+}
+
+void glUniform1iARB(GLint location, GLint v0)
+{
+    pb_push(SGL_CMD_UNIFORM1IARB);
+    pb_push(location);
+    pb_push(v0);
+}
+
+void glProgramEnvParameters4fvEXT(GLenum target, GLuint index, GLsizei count, const GLfloat* params)
+{
+    pb_push(SGL_CMD_PROGRAMENVPARAMETERS4FVEXT);
+    pb_push(target);
+    pb_push(index);
+    pb_push(count);
+    pb_memcpy(params, count * 4 * sizeof(float));
+}
+
+void glColorMaskIndexedEXT(GLuint index, GLboolean r, GLboolean g, GLboolean b, GLboolean a)
+{
+    pb_push(SGL_CMD_COLORMASKINDEXEDEXT);
+    pb_push(index);
+    pb_push(r);
+    pb_push(g);
+    pb_push(b);
+    pb_push(a);
+}
+
+void glEnableIndexedEXT(GLenum target, GLuint index)
+{
+    pb_push(SGL_CMD_ENABLEINDEXEDEXT);
+    pb_push(target);
+    pb_push(index);
+}
+
+void glDisableIndexedEXT(GLenum target, GLuint index)
+{
+    pb_push(SGL_CMD_DISABLEINDEXEDEXT);
+    pb_push(target);
+    pb_push(index);
+}
+
+void glGetBooleanIndexedvEXT(GLenum target, GLuint index, GLboolean* data)
+{
+    pb_push(SGL_CMD_GETBOOLEANINDEXEDVEXT);
+    pb_push(target);
+    pb_push(index);
+
+    glimpl_submit();
+    *data = *(GLboolean*)pb_ptr(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glActiveTextureARB(GLenum texture)
+{
+    pb_push(SGL_CMD_ACTIVETEXTUREARB);
+    pb_push(texture);
+}
+
+void glMultiTexCoord2fARB(GLenum target, GLfloat s, GLfloat t)
+{
+    pb_push(SGL_CMD_MULTITEXCOORD2FARB);
+    pb_push(target);
+    pb_pushf(s);
+    pb_pushf(t);
 }
 
 #ifdef _WIN32

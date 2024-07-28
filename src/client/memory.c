@@ -14,11 +14,13 @@
 
 int sgl_detect_device_memory(const char *path)
 {
-    DIR *directory = opendir(path);
+    DIR *directory;
+    struct dirent *entry = NULL;
+
+    directory = opendir(path);
     if (directory == NULL)
         return -1;
 
-    struct dirent *entry = NULL;
     while ((entry = readdir(directory)) != NULL) {
         char full_name[256] = { 0 };
         snprintf(full_name, 100, "%s/%s", path, entry->d_name);
