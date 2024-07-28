@@ -1,5 +1,7 @@
 #ifdef _WIN32
 
+#include <sharedgl.h>
+
 #include <windows.h>
 #include <client/glimpl.h>
 #include <client/platform/gldrv.h>
