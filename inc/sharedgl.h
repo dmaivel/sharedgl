@@ -59,6 +59,14 @@
 #define UNPACK_A(packed) (((packed) >> 16) & 0xFFFF)
 #define UNPACK_B(packed) ((packed) & 0xFFFF)
 
+#ifndef MIN
+#define MIN( A, B )   ( (A)<(B) ? (A) : (B) )
+#endif
+
+#ifndef MAX
+#define MAX( A, B )   ( (A)>(B) ? (A) : (B) )
+#endif
+
 #ifdef _WIN32
 #   define FORCEINLINE __forceinline
 #else

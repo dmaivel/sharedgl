@@ -26,9 +26,6 @@ static void *swap_sync_lock;
 ICD_SET_MAX_DIMENSIONS_DEFINITION(max_width, max_height, real_width, real_height);
 ICD_RESIZE_DEFINITION(real_width, real_height);
 
-#define MIN_INTERNAL( A, B )   ( (A)<(B) ? (A) : (B) )
-#define MAX_INTERNAL( A, B )   ( (A)>(B) ? (A) : (B) )
-
 typedef HGLRC(WINAPI * 	wglCreateContext_t )(HDC);
 typedef BOOL(WINAPI * 	wglDeleteContext_t )(HGLRC);
 
@@ -284,7 +281,7 @@ PROC APIENTRY DrvGetProcAddress(LPCSTR lpszProc)
 
 void APIENTRY DrvSetCallbackProcs(INT nProcs, PROC *pProcs)
 {
-    size_t size = MIN_INTERNAL(nProcs * sizeof(*pProcs), sizeof(callbacks));
+    size_t size = MIN(nProcs * sizeof(*pProcs), sizeof(callbacks));
     memcpy(&callbacks, pProcs, size);
 
     return;

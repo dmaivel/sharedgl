@@ -318,6 +318,7 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
 static struct net_context *net_ctx = NULL;
 static int *fake_register_space = NULL;
 static int *fake_framebuffer = NULL;
+static int fake_swap_buffers_sync = 0;
 
 static int glimpl_major = SGL_DEFAULT_MAJOR;
 static int glimpl_minor = SGL_DEFAULT_MINOR;
@@ -356,6 +357,8 @@ static void *pb_ptr_hook(size_t offset)
         return &fake_register_space[0];
     case SGL_OFFSET_REGISTER_RETVAL_V:
         return &fake_register_space[2];
+    case SGL_OFFSET_REGISTER_SWAP_BUFFERS_SYNC:
+        return &fake_swap_buffers_sync;
     default:
         fprintf(stderr, "pb_ptr_hook: defaulted to pb_iptr, possible undefined behavior\n");
         return pb_iptr(offset);
@@ -435,7 +438,7 @@ static inline void submit_net()
      * packet
      */
     for (int i = 0; i < blocks; i++) {
-        size_t packet_count = count > SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT ? SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT : count;
+        size_t packet_count = MIN(count, SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT);
 
         struct sgl_packet_fifo_upload packet = {
             /* client_id = */       client_id,
@@ -763,7 +766,7 @@ static inline void glimpl_download_buffer(void *dst, size_t size)
     void *retval_v = pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V);
 
     for (int i = 0; i < blocks; i++) {
-        size_t true_count = count > SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES ? SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES : count;
+        size_t true_count = MIN(count, SGL_VP_DOWNLOAD_BLOCK_SIZE_IN_BYTES);
 
         pb_push(SGL_CMD_VP_DOWNLOAD);
         pb_push(true_count);
