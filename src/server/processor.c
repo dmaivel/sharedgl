@@ -115,7 +115,7 @@ static void scramble(int *arr, int n)
     }
 }
 
-static FORCEINLINE void wait_shm(void *p, int *client_id)
+static FORCEINLINE inline void wait_shm(void *p, int *client_id)
 {
     /*
      * not only wait for a submit from a specific client,
@@ -272,7 +272,7 @@ static void sgl_net_get_fifo_upload(void *p, int *client_id, bool *ready_to_rend
     }
 }
 
-static FORCEINLINE void wait_net(void *p, int *client_id, struct net_context *net_ctx, struct sgl_cmd_processor_args args, 
+static FORCEINLINE inline void wait_net(void *p, int *client_id, struct net_context *net_ctx, struct sgl_cmd_processor_args args, 
         size_t framebuffer_size, size_t fifo_size, int width, int height)
 {
     bool ready_to_render = false;

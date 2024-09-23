@@ -24,27 +24,23 @@ SharedGL is an OpenGL implementation that enables 3D acceleration for Windows an
 
 # Getting started
 
-The following libraries are required for building the server (and client) on Linux:
+The following libraries are required for building the server on Linux:
 - libepoxy
 - SDL2
-- libx11
 
-The following script builds: `sglrenderer` and `libGL` for Linux:
+The following script builds `sglrenderer` for Linux:
 ```bash
 git clone https://github.com/dmaivel/sharedgl.git
 cd sharedgl
 mkdir build
 cd build
 cmake ..
-cmake --build . --config Release
+cmake --build . --target sglrenderer --config Release
 ```
 
-If on Windows (Visual Studio required), you must specify that you only want to build the library, `sharedglXX.dll`:
-```
-cmake --build . --target sharedgl-core --config Release
-```
+If you also wish to build the client library for Linux, `libx11` is required. Build with `--target sharedgl-core`.
 
-For detailed build instructions for Windows, visit the [Windows section](#windows-in-a-vm).
+For detailed build instructions for Windows, visit the [Windows section](#windows-in-a-vm). The renderer/server is only supported on Linux hosts.
 
 ### Build options
 
@@ -156,6 +152,10 @@ There are two ways to install the library on windows:
        ```
 
 ## Linux
+
+> [!IMPORTANT]
+> The following sections discuss using the *client library*, not the *renderer/server*. If your intention is to only accelerate Windows guests, you may disregard this section as all you need to do is run the renderer, no additional libraries required (other than the dependencies).
+
 For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
 
 ```bash
