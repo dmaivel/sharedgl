@@ -8595,6 +8595,7 @@ void glGetUniformSubroutineuiv(GLenum shadertype, GLint location, GLuint* params
     pb_push(shadertype);
     pb_push(location);
 
+    glimpl_submit();
     *params = pb_read(SGL_OFFSET_REGISTER_RETVAL_V);
 }
 
