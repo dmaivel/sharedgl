@@ -2,7 +2,7 @@
 
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
-SharedGL is an OpenGL implementation that enables 3D acceleration for Windows and Linux guests within QEMU/KVM by streaming OpenGL commands over shared memory *(and networks, for devices over LAN)*. For future plans, click [here](https://github.com/users/dmaivel/projects/2) for the roadmap.
+SharedGL is an OpenGL 4.6 implementation that enables 3D acceleration for Windows and Linux guests within QEMU/KVM by streaming OpenGL commands over shared memory or sockets.
 
 <details>
 <summary>Click to reveal: Table of contents</summary>
@@ -11,24 +11,27 @@ SharedGL is an OpenGL implementation that enables 3D acceleration for Windows an
 2. [Usage](#usage)
    - [Environment variables](#environment-variables)
    - [Windows in a VM](#windows-in-a-vm)
-   - [Linux](#linux)
-      - [Linux in a VM](#linux-in-a-vm)
+   - [Linux (client debugging)](#linux)
+   - [Linux in a VM](#linux-in-a-vm)
 3. [Networking](#networking)
-4. [Virtual machines](#virtual-machines)
-5. [Supported GL versions](#supported-gl-versions)
-6. [Limitations / Issues](#limitations--issues)
-7. [Troubleshooting](#troubleshooting)
-8. [Showcase](#showcase)
+4. [Known issues](#known-issues)
+5. [Troubleshooting](#troubleshooting)
+6. [Showcase](#showcase)
 
 </details>
 
 # Getting started
 
-The following libraries are required for building the server on Linux:
-- libepoxy
-- SDL2
+## Dependencies
 
-The following script builds `sglrenderer` for Linux:
+| Name | Version |
+| ---- | ------- |
+| [CMake](https://cmake.org/) | 3.5+ |
+| [libepoxy](https://github.com/anholt/libepoxy) | Latest |
+| [SDL2](https://www.libsdl.org/) | 2.24.0+ | 
+
+## Building
+
 ```bash
 git clone https://github.com/dmaivel/sharedgl.git
 cd sharedgl
@@ -38,7 +41,7 @@ cmake ..
 cmake --build . --target sglrenderer --config Release
 ```
 
-If you also wish to build the client library for Linux, `libx11` is required. Build with `--target sharedgl-core`.
+If you also wish to build the client library `libGL` for Linux, `libx11` is required. Build with `--target sharedgl-core`.
 
 For detailed build instructions for Windows, visit the [Windows section](#windows-in-a-vm). The renderer/server is only supported on Linux hosts.
 
@@ -70,6 +73,31 @@ options:
     -p [PORT]          if networking is enabled, specify which port to use (default: 3000)
 ```
 
+Your virtual machine must also be configured with a shared memory device *(unless you are using the sockets version, in which case see [networking](#networking))*. You can get the configurations from `sglrenderer` if you run it with `-v`. Sample configurations are provided below:
+
+**libvirt:**
+```xml
+<!--> THIS IS A SAMPLE; ONLY USE THIS AS A GUIDE ON WHERE TO PLACE THE OUTPUT <-->
+...
+<devices>
+    ...
+    <shmem name="sharedgl_shared_memory">
+        <model type="ivshmem-plain"/>
+        <size unit="M">??</size>
+    </shmem>
+</devices>
+```
+
+**qemu:**
+```bash
+# THIS IS A SAMPLE; ONLY USE THIS AS A GUIDE ON WHERE TO PLACE THE OUTPUT
+qemu-system-x86_64 -object memory-backend-file,size=??M,share,mem-path=/dev/shm/sharedgl_shared_memory,id=sharedgl_shared_memory
+```
+
+For installation of the client driver inside the virtual machine, refer to one of these:
+- [Windows as the guest](#windows-in-a-vm)
+- [Linux as the guest](#linux-in-a-vm)
+
 ### Environment variables
 
 Variables labeled with `host` get their values from the host/server when their override isn't set.
@@ -84,8 +112,6 @@ Variables labeled with `host` get their values from the host/server when their o
 | SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
 
 ## Windows (in a VM)
-
-[Windows is only supported as a guest: Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
 
 Two things must be done for the windows installation:
 1. Install a compatible driver
@@ -153,7 +179,7 @@ There are two ways to install the library on windows:
 
 ## Linux
 
-> [!IMPORTANT]
+> [!CAUTION]
 > The following sections discuss using the *client library*, not the *renderer/server*. If your intention is to only accelerate Windows guests, you may disregard this section as all you need to do is run the renderer, no additional libraries required (other than the dependencies).
 
 For your OpenGL application to communicate with the server, the client library must be specified in your library path. Upon exporting, any program you run in the terminal where you inputted this command will run with the SGL binary.
@@ -170,9 +196,7 @@ Note that the Linux library does not need to be used in a virtual machine, allow
 
 Some applications may require an explicit `libGLX`, so run `ln -s libGL.so.1 libGLX.so.0` in `build` to make a symlink.
 
-### Linux in a VM
-
-[Click here for virtual machine configuring, which is required for the guest to see SharedGL's shared memory](#virtual-machines)
+## Linux in a VM
 
 For virtual Linux clients, an additional kernel module needs to be compiled in the virtual machine, resulting in a binary `sharedgl.ko` which needs to be loaded. Loading/installing can be done by running the provided script (`./kernel/linux/install.sh`), following compilation. If the module doesn't load on boot, it is recommended that you add `sharedgl` to your modprobe config.
 
@@ -186,6 +210,9 @@ make
 > If you move the client library to the guest from the host instead of compiling it in the guest, you may encounter the `SIGILL` exception in the virtual machine as the build compiles with the native (host) architecture. To fix, either change your cpu model to `host-model`/`host-passthrough` or comment out the `-march=native` line in the cmake script (will most likely reduce performance).
 
 # Networking
+
+> [!NOTE]
+> Shared memory should be prefered over sockets if speed is a concern.
 
 Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
   - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
@@ -205,66 +232,9 @@ If the network feature feels too slow, you may want to modify `SGL_FIFO_UPLOAD_C
 
 Note that changing this file will require rebuilding the client and server.
 
-# Virtual machines
-
-Before starting the virtual machine, you must pass a shared memory device and start the server before starting the virtual machine. This can be done within libvirt's XML editor or the command line. Before starting the virtual machine, start the server using `-v`, which will start the server and print the necessary configurations:
-
-```bash
-$ ./sglrenderer -v [OTHER PARAMETERS]
-```
-
-> [!IMPORTANT]\
-> Once these configurations are in place, running the server with `-v` is not required. If you make changes to the amount of memory to reserve using the `-m` argument, you must reflect that change in the virtual machine configuration.
-
-**libvirt:**
-```xml
-<!--> THIS IS A SAMPLE; ONLY USE THIS AS A GUIDE ON WHERE TO PLACE THE OUTPUT <-->
-...
-<devices>
-    ...
-    <shmem name="sharedgl_shared_memory">
-        <model type="ivshmem-plain"/>
-        <size unit="M">??</size>
-    </shmem>
-</devices>
-```
-
-**qemu:**
-```bash
-# THIS IS A SAMPLE; ONLY USE THIS AS A GUIDE ON WHERE TO PLACE THE OUTPUT
-qemu-system-x86_64 -object memory-backend-file,size=??M,share,mem-path=/dev/shm/sharedgl_shared_memory,id=sharedgl_shared_memory
-```
-
-# Supported GL versions
-This list describes the amount of functions left from each standard to implement. This excludes EXT/ARB functions. This list may be inaccurate in terms of totals and also counts stubs as implementations.
-
-- [x] OpenGL 1
-    - [x] 1.0 (~306 total)
-    - [x] 1.1 (~30 total) 
-    - [x] 1.2 (~4 total) 
-    - [x] 1.3 (~46 total) 
-    - [x] 1.4 (~47 total) 
-    - [x] 1.5 (~19 total) 
-- [x] OpenGL 2
-    - [x] 2.0 (~93 total) 
-    - [x] 2.1 (~6 total) 
-- [x] OpenGL 3
-    - [x] 3.0 (~84 total) 
-    - [x] 3.1 (~15 total) 
-    - [x] 3.2 (~19 total)
-    - [x] 3.3 (~58 total)
-- [x] OpenGL 4
-    - [x] 4.0 (~46 total) 
-    - [x] 4.1 (~89 total) 
-    - [x] 4.2 (~12 total) 
-    - [x] 4.3 (~44 total) 
-    - [x] 4.4 (~9 total) 
-    - [x] 4.5 (~122 total) 
-    - [x] 4.6 (~4 total) 
-
-# Limitations / Issues
-- New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run (only tested on Linux clients).
-- Incomplete framebuffers when using network feature
+# Known issues
+- **Network:** Incomplete framebuffers when using network feature
+- **Linux clients:** New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run (only tested on Linux clients).
 
 # Troubleshooting
 
