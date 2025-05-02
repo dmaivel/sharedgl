@@ -26,7 +26,7 @@ SharedGL is an OpenGL 4.6 implementation that enables 3D acceleration for Window
 
 | Name | Version |
 | ---- | ------- |
-| [CMake](https://cmake.org/) | 3.5+ |
+| [CMake](https://cmake.org/) | 3.15+ |
 | [libepoxy](https://github.com/anholt/libepoxy) | Latest |
 | [SDL2](https://www.libsdl.org/) | 2.24.0+ | 
 
