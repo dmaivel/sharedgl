@@ -1,8 +1,15 @@
-<img align="right" width="22%" src="https://github.com/dmaivel/sharedgl/assets/38770072/7ad42df9-d10c-413a-9ef4-7682c06dc679">
+<img align="right" width="8%" src="https://github.com/dmaivel/sharedgl/assets/38770072/7ad42df9-d10c-413a-9ef4-7682c06dc679">
 
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
 SharedGL is an OpenGL 4.6 implementation that enables 3D acceleration for Windows and Linux guests within QEMU/KVM by streaming OpenGL commands over shared memory or sockets.
+
+<details open>
+<summary>Click to hide: Preview</summary>
+
+![preview](https://github.com/user-attachments/assets/fbcd62ac-090d-4ad1-b37c-bd1f0432866a)
+
+</details>
 
 <details>
 <summary>Click to reveal: Table of contents</summary>
