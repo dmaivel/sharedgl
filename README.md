@@ -2,7 +2,7 @@
 
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
-SharedGL is an OpenGL 4.6 implementation that enables 3D acceleration for Windows and Linux guests within QEMU/KVM by streaming OpenGL commands over shared memory or sockets.
+SharedGL is an OpenGL 4.6 implementation that enables 3D acceleration for Windows and Linux guests within QEMU/KVM by streaming OpenGL commands over shared memory or sockets. *(The network feature isn't bound to QEMU, allowing users to stream OpenGL over LAN!)*
 
 <details open>
 <summary>Click to hide: Preview</summary>
@@ -113,7 +113,7 @@ Variables labeled with `host` get their values from the host/server when their o
 |-|-|-|-|
 | SGL_WINED3D_DONT_VFLIP | Boolean | false | If running a DirectX application via WineD3D, ensure this variable is set to `true` in order for the application to render the framebuffer in the proper orientation. Only available for Windows clients. |
 | SGL_NETWORK_ENDPOINT | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
-| SGL_RUN_WITH_LOW_PRIORITY | Boolean | false | Potentially imrpove performance by setting the process priority to low / `IDLE_PRIORITY_CLASS`; applications will run smoother as the kernel is given more CPU time. This benefits those with a VCPU count lower than the hosts or if using the network feature. Only available for Windows clients. |
+| SGL_RUN_WITH_LOW_PRIORITY | Boolean | false | Potentially improve performance by setting the process priority to low / `IDLE_PRIORITY_CLASS`; applications will run smoother as the kernel is given more CPU time. This benefits those with a VCPU count lower than the hosts or if using the network feature. Only available for Windows clients. |
 | GL_VERSION_OVERRIDE | Digit.Digit | `host` | Override the OpenGL version on the client side. Available for both Windows and Linux clients. |
 | GLX_VERSION_OVERRIDE | Digit.Digit | 1.4 | Override the GLX version on the client side. Only available for Linux clients. |
 | GLSL_VERSION_OVERRIDE | Digit.Digit |  | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
