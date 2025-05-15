@@ -6,7 +6,9 @@
 #include <server/processor.h>
 #include <sgldebug.h>
 
-#include <network/net.h>
+#define ENET_IMPLEMENTATION
+#include <network/enet.h>
+#include <network/packet.h>
 
 #include <stdbool.h>
 #include <unistd.h>
@@ -66,53 +68,16 @@ static void connection_current(int id)
         }
 }
 
-static net_socket get_fd_from_id(int id)
+static void connection_rem(int id, ENetHost *server)
 {
-    for (struct sgl_connection *con = connections; con; con = con->next)
-        if (con->id == id)
-            return con->fd;
-    return NET_SOCKET_NONE;
-}
-
-static int get_id_from_fd(int fd)
-{
-    for (struct sgl_connection *con = connections; con; con = con->next)
-        if (con->fd == fd)
-            return con->id;
-    return 0;
-}
-
-static void connection_rem(int id, struct net_context *net_ctx)
-{
-    if (net_ctx != NULL)
-        net_close(net_ctx, get_fd_from_id(id));
+    //    if (net_ctx != NULL)
+    //    net_close(net_ctx, get_fd_from_id(id));
     dynarr_free_element((void**)&connections, 0, match_connection, (void*)((uintptr_t)id));
 }
 
 static bool wait_for_submit(void *p) 
 {
     return *(int*)(p + SGL_OFFSET_REGISTER_SUBMIT) == 1;
-}
-
-/*
- * used for generating an out-of-order sequence of frames to be uploaded
- * for the UDP protocol. Otherwise, mostly the upper half of the window
- * recieves all the updates while the lower half of the window takes some
- * time to update
- */
-static int scramble_arr[1000];
-static void scramble(int *arr, int n) 
-{
-    for (int i = 0; i < n; i++)
-        arr[i] = i;
-
-    for (int i = n - 1; i > 0; i--) {
-        int j = rand() % (i + 1);
-
-        int temp = arr[i];
-        arr[i] = arr[j];
-        arr[j] = temp;
-    }
 }
 
 static FORCEINLINE inline void wait_shm(void *p, int *client_id)
@@ -156,13 +121,10 @@ static FORCEINLINE inline void wait_shm(void *p, int *client_id)
     *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
 }
 
-static void sgl_net_accept_connection(void *p, struct net_context *net_ctx, struct sgl_cmd_processor_args args, 
+static void sgl_net_accept_connection(void *p, ENetHost *server, ENetPeer *peer, struct sgl_cmd_processor_args args, 
         size_t framebuffer_size, size_t fifo_size, int width, int height)
 {
-    net_socket socket = net_accept(net_ctx);
     int id = *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID);
-
-    connection_add(id, socket);
 
     struct sgl_packet_connect packet = {
         /* client_id = */          id,
@@ -174,142 +136,95 @@ static void sgl_net_accept_connection(void *p, struct net_context *net_ctx, stru
         /* max_height= */          height
     };
 
-    net_send_tcp(net_ctx, socket, &packet, sizeof(packet));
+    ENetPacket *epacket = __enet_packet_create(&packet, sizeof(packet), ENET_PACKET_FLAG_RELIABLE);
+    __enet_peer_send(peer, 0, epacket);
 
     *((int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID)) += 1;
 
     PRINT_LOG("client %d connected\n", id);
 }
 
-static void sgl_net_send_framebuffer(void *p, struct net_context *net_ctx, size_t fifo_size)
+#include <lzav.h>
+
+static char *compressed_framebuffer = NULL;
+static void sgl_net_send_framebuffer(void *p, ENetHost *server, ENetPeer *peer, uint64_t fb_size)
 {
-    struct sgl_packet_swapbuffers_request packet;
-    struct sgl_packet_sync sync = { 0 };
-    size_t left_over;
-    int expected;
-    int last_index;
-    size_t left_over_size;
+    uint64_t fb_offs = *(uint64_t*)(p + SGL_OFFSET_REGISTER_FBSTART);
 
-    net_recv_udp(net_ctx, &packet, sizeof(packet), 0);
-
-    left_over = packet.width * packet.height * 4;
-    expected = left_over / SGL_SWAPBUFFERS_RESULT_SIZE + (left_over % SGL_SWAPBUFFERS_RESULT_SIZE != 0);
+    size_t compressed_size = lzav_compress_default(p + fb_offs, compressed_framebuffer, fb_size, lzav_compress_bound(fb_size));
     
-    connection_current(packet.client_id);
-    sgl_read_pixels(packet.width, packet.height, p + SGL_OFFSET_COMMAND_START + fifo_size, packet.vflip, packet.format, 0); // to-do: show memory for overlay
-
-    /*
-    * send sync packet, otherwise most frames are lost
-    */
-    net_send_tcp(net_ctx, get_fd_from_id(packet.client_id), &sync, sizeof(sync));
-
-    /*
-    * generate an out-of-sequence order of frames. this way, we update as much of the window
-    * as possible, tackling packet loss from UDP
-    */
-    scramble(scramble_arr, expected);
-    last_index = expected - 1;
-    left_over_size = left_over % SGL_SWAPBUFFERS_RESULT_SIZE;
-
-    if (left_over_size == 0)
-        left_over_size = SGL_SWAPBUFFERS_RESULT_SIZE;
-
-    for (int i = 0; i < expected; i++) {
-        int index = scramble_arr[i];
-        size_t size = index != last_index ? SGL_SWAPBUFFERS_RESULT_SIZE : left_over_size;
-
-        struct sgl_packet_swapbuffers_result result = {
-            /* client_id = */   packet.client_id,
-            /* index = */       index,
-            /* size = */        size,
-            /* result = */      { 0 }
-        };
-
-        memcpy(result.result, p + SGL_OFFSET_COMMAND_START + fifo_size + (index * SGL_SWAPBUFFERS_RESULT_SIZE), size);
-
-        net_send_udp(net_ctx, &result, sizeof(result), 0);
-    }
+    ENetPacket *epacket = __enet_packet_create(compressed_framebuffer, compressed_size, ENET_PACKET_FLAG_RELIABLE);
+    __enet_peer_send(peer, 0, epacket);
 }
 
-static void sgl_net_get_fifo_upload(void *p, int *client_id, bool *ready_to_render, struct net_context *net_ctx, size_t fifo_size)
+static void sgl_net_get_fifo_upload(void *p, ENetHost *server, ENetEvent *event)
 {
-    for (int i = NET_SOCKET_FIRST_FD; i < net_fd_count(net_ctx); i++) {
-        if (!net_did_event_happen_here(net_ctx, i))
-            continue;
-            
-        struct sgl_packet_fifo_upload initial_upload_packet, *the_rest_of_the_packets = NULL;
-        if (!net_recv_tcp_timeout(net_ctx, i, &initial_upload_packet, sizeof(initial_upload_packet), 500)) {
-            int id = get_id_from_fd(i);
-            PRINT_LOG("client %d timed out, disconnected\n", id);
-            connection_rem(id, net_ctx);
-            memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
-            break;
-        }
-
-        if (initial_upload_packet.expected_chunks > 1) {
-            the_rest_of_the_packets = malloc(sizeof(struct sgl_packet_fifo_upload) * (initial_upload_packet.expected_chunks - 1));
-            for (int j = 0; j < initial_upload_packet.expected_chunks - 1; j++)
-                net_recv_tcp(net_ctx, i, &the_rest_of_the_packets[j], sizeof(initial_upload_packet));
-        }
-
-        size_t offset = 0;
-        for (int i = 0; i < initial_upload_packet.expected_chunks; i++) {
-            struct sgl_packet_fifo_upload *packet = i == 0 ? &initial_upload_packet : &the_rest_of_the_packets[i - 1];
-            size_t size = sizeof(uint32_t) * packet->count;
-
-            memcpy(p + SGL_OFFSET_COMMAND_START + offset, packet->commands, size);
-            offset += size;
-        }
-
-        if (the_rest_of_the_packets != NULL)
-            free(the_rest_of_the_packets);
-
-        *ready_to_render = true;
-        *client_id = initial_upload_packet.client_id;
-
-        // break here so we can handle other clients after
-        break;
-    }
+    memcpy(p + SGL_OFFSET_COMMAND_START, event->packet->data, event->packet->dataLength);
 }
 
-static FORCEINLINE inline void wait_net(void *p, int *client_id, struct net_context *net_ctx, struct sgl_cmd_processor_args args, 
+static FORCEINLINE inline void wait_net(void *p, int *client_id, struct sgl_host_context **out_ctx, ENetPeer **out_peer, ENetHost *server, struct sgl_cmd_processor_args args, 
         size_t framebuffer_size, size_t fifo_size, int width, int height)
 {
     bool ready_to_render = false;
+    ENetEvent event;
+    int type;
     while (!ready_to_render) {
-        enum net_poll_reason reason = net_poll(net_ctx); // to-do: check failure
-
-        if (reason & NET_POLL_INCOMING_CONNECTION)
-            sgl_net_accept_connection(p, net_ctx, args, framebuffer_size, fifo_size, width, height);
-
-        /* 
-        * incoming udp packets to the server could only mean that
-        * a client has requested a framebuffer update
-        */
-        if (reason & NET_POLL_INCOMING_UDP)
-            sgl_net_send_framebuffer(p, net_ctx, fifo_size);
-
-        /*
-        * incoming tcp packets to the server could only mean that
-        * a client is uploading its fifo buffer 
-        */
-        if (reason & NET_POLL_INCOMING_TCP)
-            sgl_net_get_fifo_upload(p, client_id, &ready_to_render, net_ctx, fifo_size);
+        while (__enet_host_service(server, &event, 0) > 0) {
+            switch (event.type) {
+            case ENET_EVENT_TYPE_CONNECT:
+                sgl_net_accept_connection(p, server, event.peer, args, framebuffer_size, fifo_size, width, height);
+                event.peer->data = sgl_context_create();
+                break;
+            case ENET_EVENT_TYPE_DISCONNECT:
+                // printf("enet disconnect\n");
+                break;
+            case ENET_EVENT_TYPE_DISCONNECT_TIMEOUT:
+                // printf("enet timeout\n");
+                // to-do
+                break;
+            case ENET_EVENT_TYPE_RECEIVE:
+                sgl_net_get_fifo_upload(p, server, &event);
+                ready_to_render = true;
+                *out_ctx = event.peer->data;
+                *out_peer = event.peer;
+                __enet_packet_destroy(event.packet);
+                break;
+            default:
+                break;
+            }
+        }
     }
+}
+
+char *net_get_ip()
+{
+    char host_buffer[256];
+    char *ip_buffer;
+    struct hostent *host_entry;
+    int hostname;
+
+    hostname = gethostname(host_buffer, sizeof(host_buffer));
+    host_entry = gethostbyname(host_buffer);
+    ip_buffer = inet_ntoa(*((struct in_addr*)
+                        host_entry->h_addr_list[0]));
+ 
+    return ip_buffer;
 }
 
 void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 {
     int width, height;
     int cmd;
-    struct net_context *net_ctx = NULL;
     bool network_expecting_retval = true;
+    bool network_did_swap_buffers = false;
     bool begun = false;
     void *uploaded = NULL;
     void *map_buffer;
     void *download_target = NULL;
     size_t download_offset = 0;
-
+    ENetAddress address = {0};
+    ENetHost *server;
+    
     sgl_get_max_resolution(&width, &height);
     size_t framebuffer_size = width * height * 4;
     size_t fifo_size = args.memory_size - SGL_OFFSET_COMMAND_START - framebuffer_size;
@@ -336,33 +251,43 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
         *args.internal_cmd_ptr = &cmd;
 
     if (args.network_over_shared) {
-        char *res = net_init_server(&net_ctx, args.port);
-        if (res != NULL) {
-            PRINT_LOG("failed to start server (reason: %s)\n", res);
+        compressed_framebuffer = malloc(framebuffer_size);
+        
+        address.host = ENET_HOST_ANY;
+        address.port = args.port;
+        if (__enet_initialize () != 0) {
+            PRINT_LOG("failed to initialize enet\n");
             return;
         }
         
-        PRINT_LOG("--------------------------------------------------------\n");
-        PRINT_LOG("running server on %s:%d\n", net_get_ip(), args.port);
-        PRINT_LOG("ensure SGL_NET_OVER_SHARED is set before running clients\n");
+        server = __enet_host_create(&address, 32, 2, 0, 0);
+        
+        if (server == NULL) {
+            PRINT_LOG("failed to start server\n");
+            return;
+        }
+        
+        PRINT_LOG("using networking, ensure clients use SGL_NETWORK_ENDPOINT=%s:%d\n", net_get_ip(), args.port);
     }
-
-    PRINT_LOG("--------------------------------------------------------\n");
 
     while (1) {
         int client_id = 0;
+        struct sgl_host_context *net_ctx = NULL;
+        ENetPeer *peer;
         
         if (!args.network_over_shared)
             wait_shm(p, &client_id);
         else
-            wait_net(p, &client_id,
-                    net_ctx, args, framebuffer_size, fifo_size, width, height);
+            wait_net(p, &client_id, &net_ctx, &peer, server, args, framebuffer_size, fifo_size, width, height);
 
         /*
          * set the current opengl context to the current client
          */
-        connection_current(client_id);
-
+        if (net_ctx == NULL)
+            connection_current(client_id);
+        else
+            sgl_set_current(net_ctx);
+        
         int *pb = p + SGL_OFFSET_COMMAND_START;
         // int track = 0;
         while (*pb != SGL_CMD_INVALID) {
@@ -380,7 +305,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_GOODBYE_WORLD: {
                 int id = *pb++;
                 PRINT_LOG("client %d disconnected\n", id);
-                connection_rem(id, net_ctx);
+                // connection_rem(id, net_ctx);
                 memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
                 network_expecting_retval = false;
                 // exit(1);
@@ -400,6 +325,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     format = *pb++;
 
                 sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format, (size_t)pb - (size_t)(p + SGL_OFFSET_COMMAND_START));
+                network_did_swap_buffers = server != NULL;
                 break;
             }
             case SGL_CMD_VP_UPLOAD: {
@@ -6178,11 +6104,17 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 
                 memcpy(&packet.retval, (uint64_t*)(p + SGL_OFFSET_REGISTER_RETVAL), 8);
                 memcpy(&packet.retval_v, (uint64_t*)(p + SGL_OFFSET_REGISTER_RETVAL_V), 256);
-                
-                net_send_tcp(net_ctx, get_fd_from_id(client_id), &packet, sizeof(packet));
+
+                ENetPacket *epacket = __enet_packet_create(&packet, sizeof(packet), ENET_PACKET_FLAG_RELIABLE);
+                __enet_peer_send(peer, 0, epacket);
             }
             else {
                 network_expecting_retval = true;
+            }
+
+            if (network_did_swap_buffers) {
+                sgl_net_send_framebuffer(p, server, peer, framebuffer_size);
+                network_did_swap_buffers = false;
             }
         }
     }

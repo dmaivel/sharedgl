@@ -17,8 +17,6 @@ BOOL APIENTRY DllMain(HMODULE module, DWORD reason, LPVOID reserved)
          * by setting the priority of the program to "low", we give the kernel
          * more CPU time, which is crucial because the kernel driver is how data
          * between the VM and host move.
-         *
-         * appears to benefit systems with a single VCPU the most
          */
         result = GetEnvironmentVariableA("SGL_RUN_WITH_LOW_PRIORITY", env_value, 16);
         if (strcmp(env_value, "true") == 0)

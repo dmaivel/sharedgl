@@ -1,3 +1,7 @@
+#define ENET_IMPLEMENTATION
+#include <network/enet.h>
+#include <network/packet.h>
+
 #include <client/glimpl.h>
 #include <client/memory.h>
 #include <client/spinlock.h>
@@ -9,9 +13,6 @@
 #include <sharedgl.h>
 #include <commongl.h>
 
-#include <network/net.h>
-#include <network/packet.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -21,7 +22,7 @@
 #include <sys/mman.h>
 #endif
 
-#define GLIMPL_RUNTIME_USES_SHARED_MEMORY (net_ctx == NULL)
+#define GLIMPL_RUNTIME_USES_SHARED_MEMORY (client == NULL)
 
 #define GLIMPL_MAX_OBJECTS 256
 #define GLIMPL_MAX_TEXTURES 8
@@ -315,9 +316,12 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
 };
 
 /* fake variables to be used with network feature only */
-static struct net_context *net_ctx = NULL;
+static ENetHost *client = NULL;
+static ENetPeer *peer = NULL;
 static int *fake_register_space = NULL;
 static int *fake_framebuffer = NULL;
+static char *compressed_framebuffer = NULL;
+static size_t fb_size = 0;
 static int fake_swap_buffers_sync = 0;
 
 static int glimpl_major = SGL_DEFAULT_MAJOR;
@@ -427,43 +431,25 @@ static inline void submit_shm()
 
 static inline void submit_net()
 {
-    void *ptr = pb_iptr(0);
-    size_t size = pb_size();
-    int blocks = CEIL_DIV(size, SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE);
-    size_t min_size = 0;
-    size_t count = size / 4;
-    struct sgl_packet_retval packet;
+    ENetPacket *epacket = __enet_packet_create(pb_iptr(0), pb_size(), ENET_PACKET_FLAG_RELIABLE);
+    __enet_peer_send(peer, 0, epacket);
 
-    /*
-     * packet
-     */
-    for (int i = 0; i < blocks; i++) {
-        size_t packet_count = MIN(count, SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT);
-
-        struct sgl_packet_fifo_upload packet = {
-            /* client_id = */       client_id,
-            /* expected_chunks = */ blocks,
-            /* index = */           i,
-            /* count = */           packet_count,
-            /* commands = */        { 0 }
-        };
-
-        memcpy(packet.commands, (char*)ptr + (i * SGL_FIFO_UPLOAD_COMMAND_BLOCK_SIZE), packet_count * sizeof(uint32_t));
-        net_send_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
-
-        count -= SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT;
+    ENetEvent event;
+    if (expecting_retval) {
+        while (__enet_host_service(client, &event, 0) >= 0) {
+            if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+                memcpy(fake_register_space, event.packet->data, event.packet->dataLength);
+                __enet_packet_destroy(event.packet);
+                break;
+            }
+        }
+    }
+    else {
+        if (__enet_host_service(client, &event, 500) >= 0)
+            if (event.packet != NULL)
+                __enet_packet_destroy(event.packet);
     }
 
-    /*
-     * get retval registers
-     */
-    if (expecting_retval)
-        net_recv_tcp_timeout(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet), 500);
-
-    /*
-     * write response into fake register space
-     */
-    memcpy(fake_register_space, &packet, 256 + 8); 
     pb_reset();
 }
 
@@ -498,6 +484,17 @@ void glimpl_goodbye()
     pb_push(0);
     glimpl_submit();
 
+    if (client != NULL)
+        __enet_peer_disconnect(peer, 0);
+
+    ENetEvent event;
+    while (__enet_host_service(client, &event, 100) >= 0)
+        if (event.type == ENET_EVENT_TYPE_DISCONNECT)
+            break;
+
+    __enet_host_destroy(client);
+    __enet_deinitialize();
+    
     // if (net_ctx != NULL)
     //     net_goodbye(net_ctx);
 
@@ -516,38 +513,20 @@ static inline void swap_buffers_shm(int width, int height, int vflip, int format
     glimpl_submit();
 }
 
+#include <lzav.h>
+
 static inline void swap_buffers_net(int width, int height, int vflip, int format)
 {
-    int expected = CEIL_DIV((width * height * 4), SGL_SWAPBUFFERS_RESULT_SIZE);
-    struct sgl_packet_sync sync;
+    swap_buffers_shm(width, height, vflip, format);
 
-    glimpl_submit();
-
-    struct sgl_packet_swapbuffers_request packet = {
-        /* client_id = */   client_id,
-        /* width = */       width,
-        /* height = */      height,
-        /* vflip = */       vflip,
-        /* format = */      format
-    };
-
-    net_send_udp(net_ctx, &packet, sizeof(packet), 0);
-
-    // wait for sync, timeout appears to disturb fifo upload
-    net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &sync, sizeof(sync));
-
-    for (int i = 0; i < expected * 4; i++) {
-        struct sgl_packet_swapbuffers_result result;
-        // while (net_recv_udp(net_ctx, &result, sizeof(result), 0) == -1);
-        int recieved = net_recv_udp(net_ctx, &result, sizeof(result), 0);
-
-        // global, so throwout any results that aren't ours (possible vuln for other applications? idk)
-        if (result.client_id != client_id || recieved < 0) {
-            // i--;
-            continue;
+    ENetEvent event;
+    while (__enet_host_service(client, &event, 0) >= 0) {
+        if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+            memcpy(compressed_framebuffer, event.packet->data, event.packet->dataLength);
+            lzav_decompress(compressed_framebuffer, fake_framebuffer, event.packet->dataLength, fb_size);
+            __enet_packet_destroy(event.packet);
+            break;
         }
-
-        memcpy((char*)fake_framebuffer + (result.index * SGL_SWAPBUFFERS_RESULT_SIZE), result.result, result.size);
     }
 }
 
@@ -616,7 +595,7 @@ static inline void shm_create_context()
 
 static inline void init_net(char *network)
 {
-    struct sgl_packet_connect packet = { 0 };
+    struct sgl_packet_connect *packet = NULL;
     char *res;
     struct pb_net_hooks hooks = {
         pb_read_hook,
@@ -638,30 +617,61 @@ static inline void init_net(char *network)
         }
     }
 
-    res = net_init_client(&net_ctx, network, atoi(&network[strlen(network) + 1]));
-    if (res != NULL) {
-        fprintf(stderr, "init_net: could not initialize client (%s)\n", res);
+    if (__enet_initialize() < 0) {
+        fprintf(stderr, "init_net: could not initialize enet\n");
         exit(1);
     }
 
-    net_recv_tcp(net_ctx, NET_SOCKET_SERVER, &packet, sizeof(packet));
+    client = __enet_host_create(NULL, 1, 2, 0, 0);
+    if (client == NULL) {
+        fprintf(stderr, "init_net: could not create client\n");
+        exit(1);
+    }
 
-    glimpl_major = packet.gl_major;
-    glimpl_minor = packet.gl_minor;
+    ENetAddress address;
+    __enet_address_set_host(&address, network);
+    address.port = atoi(&network[strlen(network) + 1]);
 
-    client_id = packet.client_id;
+    peer = __enet_host_connect(client, &address, 2, 0);
+    if (peer == NULL) {
+        fprintf(stderr, "init_net: could not connect\n");
+        exit(1);
+    }
+
+    ENetEvent event;
+    errno = 0;
+    int result = __enet_host_service(client, &event, 5000);
+    if (result <= 0 || event.type != ENET_EVENT_TYPE_CONNECT) {
+        fprintf(stderr, "init_net: connection failed to service (result = %d, ip = %s, port = %d, err = %s)\n", result, network, address.port, strerror(errno));
+        exit(1);
+    }
+    
+    while (__enet_host_service(client, &event, 100) >= 0) {
+        if (event.type == ENET_EVENT_TYPE_RECEIVE) {
+            packet = (struct sgl_packet_connect*)event.packet->data;
+            __enet_packet_destroy(event.packet);
+            break;
+        }
+    }
+    
+    glimpl_major = packet->gl_major;
+    glimpl_minor = packet->gl_minor;
+
+    client_id = packet->client_id;
 
     fake_register_space = malloc(SGL_OFFSET_COMMAND_START);
-    fake_framebuffer = malloc(packet.framebuffer_size);
+    fake_framebuffer = malloc(packet->framebuffer_size);
+    compressed_framebuffer = malloc(packet->framebuffer_size);
+    fb_size = packet->framebuffer_size;
+    
+    pb_set_net(hooks, packet->fifo_size);
 
-    pb_set_net(hooks, packet.fifo_size);
-
-    icd_set_max_dimensions(packet.max_width, packet.max_height);
+    icd_set_max_dimensions(packet->max_width, packet->max_height);
 }
 
 void glimpl_init()
 {
-    char *network = getenv("SGL_NET_OVER_SHARED");
+    char *network = getenv("SGL_NETWORK_ENDPOINT");
     char *gl_version_override = getenv("GL_VERSION_OVERRIDE");
 
     if (network == NULL)

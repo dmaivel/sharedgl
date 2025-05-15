@@ -112,11 +112,11 @@ Variables labeled with `host` get their values from the host/server when their o
 | **Option** | **Legal values** | **Default** | **Description** |
 |-|-|-|-|
 | SGL_WINED3D_DONT_VFLIP | Boolean | false | If running a DirectX application via WineD3D, ensure this variable is set to `true` in order for the application to render the framebuffer in the proper orientation. Only available for Windows clients. |
-| SGL_RUN_WITH_LOW_PRIORITY | Boolean | false | On single core setups, by setting the process priority to low / `IDLE_PRIORITY_CLASS`, applications will run smoother as the kernel driver is given more CPU time. Users should only set this to `true` if the VM has only a single VCPU. Only available for Windows clients. |
+| SGL_NETWORK_ENDPOINT | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
+| SGL_RUN_WITH_LOW_PRIORITY | Boolean | false | Potentially imrpove performance by setting the process priority to low / `IDLE_PRIORITY_CLASS`; applications will run smoother as the kernel is given more CPU time. This benefits those with a VCPU count lower than the hosts or if using the network feature. Only available for Windows clients. |
 | GL_VERSION_OVERRIDE | Digit.Digit | `host` | Override the OpenGL version on the client side. Available for both Windows and Linux clients. |
 | GLX_VERSION_OVERRIDE | Digit.Digit | 1.4 | Override the GLX version on the client side. Only available for Linux clients. |
 | GLSL_VERSION_OVERRIDE | Digit.Digit |  | Override the GLSL version on the client side. Available for both Windows and Linux clients. |
-| SGL_NET_OVER_SHARED | Ip:Port | | If networking is enabled, this environment variable must exist on the guest. Available for both Windows and Linux clients. |
 
 ## Windows (in a VM)
 
@@ -134,6 +134,9 @@ There are two possible drivers one may use:
 
 > [!WARNING]\
 > If you use the included driver, test signing must be on. Enable it by running the following command in an elevated command prompt: `bcdedit.exe -set testsigning on` and restart.
+
+> [!NOTE]\
+> If you are looking for multiclient support but do not wish to install the patched driver, take a look into the networking feature which requires no drivers.
 
 2. Included driver (multiclient support)
     1. Use the release (>= `0.4.0`) **(Windows 10 only)**
@@ -218,29 +221,12 @@ make
 
 # Networking
 
-> [!NOTE]
-> Shared memory should be prefered over sockets if speed is a concern.
-
-Starting from `0.5.0`, SharedGL offers a networking feature that may be used in place of shared memory. No additional drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
+No drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
   - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
-  - Ensure the client libraries are installed
-  - Ensure that the environment variable `SGL_NET_OVER_SHARED=ADDRESS:PORT` exists in the guest (`ADDRESS` being the host's IP address)
-
-If the network feature feels too slow, you may want to modify `SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT` in `inc/network/packet.h`, which can be ranged from [1, 15360]:
-```diff
-/*
- * 256: safe, keeps packet size under 1400 bytes
- * 512: default
- * 15360: largest, may result in fragmentation
- */
-- #define SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT 512
-+ #define SGL_FIFO_UPLOAD_COMMAND_BLOCK_COUNT 15360
-```
-
-Note that changing this file will require rebuilding the client and server.
+  - Ensure the ICD is installed
+  - Ensure that the environment variable `SGL_NETWORK_ENDPOINT=ADDRESS:PORT` exists in the guest (`ADDRESS` being the host's IP address)
 
 # Known issues
-- **Network:** Incomplete framebuffers when using network feature
 - **Linux clients:** New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run (only tested on Linux clients).
 
 # Troubleshooting
