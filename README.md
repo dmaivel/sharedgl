@@ -2,7 +2,7 @@
 
 # SharedGL ![license](https://img.shields.io/badge/license-MIT-blue)
 
-SharedGL is an OpenGL 4.6 implementation that enables 3D acceleration for Windows and Linux guests within QEMU/KVM by streaming OpenGL commands over shared memory or sockets. *(The network feature isn't bound to QEMU, allowing users to stream OpenGL over LAN!)*
+SharedGL is an OpenGL 4.6 implementation that enables 3D acceleration for Windows and Linux guests within QEMU/KVM by streaming OpenGL commands over shared memory or sockets.
 
 <details open>
 <summary>Click to hide: Preview</summary>
@@ -221,10 +221,12 @@ make
 
 # Networking
 
-No drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively, the kernel drivers do not need be compiled/installed. However, installation of the ICD for either Linux or Windows is still required.
+No drivers are required for the network feature, meaning if you wish to have a driverless experience in your virtual machine, networking is the given alternative. If the networking feature is used exclusively, the kernel drivers do not need be compiled or installed. However, installation of the ICD for either Linux or Windows is still required.
   - Start the server using `-n` (and provide a port if the default is not available through `-p PORT`)
   - Ensure the ICD is installed
   - Ensure that the environment variable `SGL_NETWORK_ENDPOINT=ADDRESS:PORT` exists in the guest (`ADDRESS` being the host's IP address)
+
+The networking feature is not restricted to only virtual machines.
 
 # Known issues
 - **Linux clients:** New GLX FB configs may cause applications using `freeglut` or `glad` to no longer run (only tested on Linux clients).
