@@ -484,16 +484,17 @@ void glimpl_goodbye()
     pb_push(0);
     glimpl_submit();
 
-    if (client != NULL)
+    if (client != NULL) {
         __enet_peer_disconnect(peer, 0);
 
-    ENetEvent event;
-    while (__enet_host_service(client, &event, 100) >= 0)
-        if (event.type == ENET_EVENT_TYPE_DISCONNECT)
-            break;
+        ENetEvent event;
+        while (__enet_host_service(client, &event, 100) >= 0)
+            if (event.type == ENET_EVENT_TYPE_DISCONNECT)
+                break;
 
-    __enet_host_destroy(client);
-    __enet_deinitialize();
+        __enet_host_destroy(client);
+        __enet_deinitialize();
+    }
     
     // if (net_ctx != NULL)
     //     net_goodbye(net_ctx);
