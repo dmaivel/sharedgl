@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: ./packge_linux.sh [--no-lib32]
+Usage: ./package_linux.sh [--no-lib32]
 
 Build a Linux release tarball containing:
 - sglrenderer at the archive root
