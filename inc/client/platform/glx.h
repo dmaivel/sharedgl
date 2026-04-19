@@ -27,6 +27,14 @@
 #define GLX_ACCUM_BLUE_SIZE     16
 #define GLX_ACCUM_ALPHA_SIZE    17
 
+#define GLX_BAD_SCREEN          1
+#define GLX_BAD_ATTRIBUTE       2
+#define GLX_NO_EXTENSION        3
+#define GLX_BAD_VISUAL          4
+#define GLX_BAD_CONTEXT         5
+#define GLX_BAD_VALUE           6
+#define GLX_BAD_ENUM            7
+
 #define GLX_CONFIG_CAVEAT           0x20
 #define GLX_DONT_CARE               0xFFFFFFFF
 #define GLX_X_VISUAL_TYPE           0x22

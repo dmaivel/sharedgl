@@ -34,17 +34,23 @@ void pb_unset(void);
 
 void pb_reset();
 void pb_push(int c);
+void pb_push64(int64_t c);
 void pb_pushf(float c);
 
 int pb_read(int s);
 int64_t pb_read64(int s);
 void pb_write(int s, int c);
+int pb_global_read(int s);
+int64_t pb_global_read64(int s);
+void pb_global_write(int s, int c);
 
 void pb_memcpy(const void *src, size_t length);
 void pb_memcpy_unaligned(const void *src, size_t length);
 void pb_realign();
 
 void *pb_ptr(size_t offs);
+void *pb_global_ptr(size_t offs);
+void pb_set_client(int client_id);
 
 /*
  * special case: return pointer within internal space
@@ -54,6 +60,8 @@ void *pb_ptr(size_t offs);
 void *pb_iptr(size_t offs);
 
 size_t pb_size();
+size_t pb_capacity();
+bool pb_overflowed();
 
 void pb_copy_to_shared();
 

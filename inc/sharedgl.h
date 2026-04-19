@@ -31,6 +31,7 @@
 #define SGL_OFFSET_REGISTER_SUBMIT              (sizeof(int) * 0)
 #define SGL_OFFSET_REGISTER_RETVAL              (sizeof(int) * 1)
 #define SGL_OFFSET_REGISTER_READY_HINT          (sizeof(int) * 2)
+#define SGL_OFFSET_REGISTER_SHM_SLOT_MASK       SGL_OFFSET_REGISTER_READY_HINT
 #define SGL_OFFSET_REGISTER_LOCK                (sizeof(int) * 3)
 #define SGL_OFFSET_REGISTER_CLAIM_ID            (sizeof(int) * 4)
 #define SGL_OFFSET_REGISTER_CONNECT             (sizeof(int) * 5)
@@ -40,7 +41,23 @@
 #define SGL_OFFSET_REGISTER_GLMAJ               (sizeof(int) * 11)
 #define SGL_OFFSET_REGISTER_GLMIN               (sizeof(int) * 12)
 #define SGL_OFFSET_REGISTER_RETVAL_V            (sizeof(int) * 13)
+#define SGL_OFFSET_REGISTER_STAGE_CLIENT_ID     (sizeof(int) * 14)
+#define SGL_OFFSET_REGISTER_STAGE_SIZE          (sizeof(int) * 15)
+#define SGL_OFFSET_REGISTER_FIFO_SIZE           (sizeof(int) * 16)
+#define SGL_OFFSET_REGISTER_MAX_CLIENTS         (sizeof(int) * 17)
 #define SGL_OFFSET_COMMAND_START                0x1000
+
+#define SGL_CLIENT_SLOT_SIZE                    SGL_OFFSET_COMMAND_START
+#define SGL_MAX_CLIENTS                         16
+#define SGL_MAILBOXES_OFFSET                    SGL_OFFSET_COMMAND_START
+#define SGL_MAILBOXES_SIZE                      (SGL_CLIENT_SLOT_SIZE * SGL_MAX_CLIENTS)
+#define SGL_STAGE_OFFSET                        (SGL_MAILBOXES_OFFSET + SGL_MAILBOXES_SIZE)
+
+#define SGL_CLIENT_SLOT_OFFSET(id) \
+    (SGL_MAILBOXES_OFFSET + (((size_t)(id)) - 1) * SGL_CLIENT_SLOT_SIZE)
+
+#define SGL_SHM_SLOT_BIT(id) \
+    ((uint32_t)1 << (((uint32_t)(id)) - 1))
 
 /*
  * max return in RETVAL_V is 4044

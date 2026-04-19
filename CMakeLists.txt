@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(sharedgl VERSION 0.9.0 LANGUAGES C)
+project(sharedgl VERSION 0.10.0 LANGUAGES C)
 
 include_directories(${CMAKE_SOURCE_DIR}/inc)
 
@@ -9,9 +9,11 @@ option(LINUX_LIB32 "Compile 32-bit libGL. Does not affect server." OFF)
 
 IF(WIN32)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gz")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING "Select MSVC runtime library.")
-    set_property(GLOBAL PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    IF(MSVC)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /Gz")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded" CACHE STRING "Select MSVC runtime library.")
+        set_property(GLOBAL PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded")
+    ENDIF()
 ELSE()
     # set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
 ENDIF(WIN32)
@@ -39,6 +41,10 @@ IF(UNIX)
     target_link_libraries(sharedgl-core X11)
     set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "GL")
     set_target_properties(sharedgl-core PROPERTIES VERSION 1)
+    add_custom_command(TARGET sharedgl-core POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:sharedgl-core> $<TARGET_FILE_DIR:sharedgl-core>/libOpenGL.so.0
+        COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE_NAME:sharedgl-core> $<TARGET_FILE_DIR:sharedgl-core>/libGLX.so.0
+    )
     IF(LINUX_LIB32)
         target_compile_options(sharedgl-core PRIVATE "-m32")
         target_link_options(sharedgl-core PRIVATE "-m32")
@@ -52,6 +58,7 @@ ELSEIF(WIN32)
         set_target_properties(sharedgl-core PROPERTIES OUTPUT_NAME "sharedgl64")
         target_link_options(sharedgl-core PRIVATE /machine:x64)
     ENDIF()
+
 ENDIF(UNIX)
 
 # windows driver

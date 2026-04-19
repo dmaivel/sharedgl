@@ -12,6 +12,7 @@
 
 #include <sharedgl.h>
 #include <commongl.h>
+#include <lzav.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +23,7 @@
 #include <sys/mman.h>
 #endif
 
-#define GLIMPL_RUNTIME_USES_SHARED_MEMORY (client == NULL)
+#define GLIMPL_RUNTIME_USES_SHARED_MEMORY (!glimpl_uses_network)
 
 #define GLIMPL_MAX_OBJECTS 256
 #define GLIMPL_MAX_TEXTURES 8
@@ -76,13 +77,20 @@
 // #define STUB() fprintf(stderr, "%s: stub\n", __FUNCTION__);
 #define STUB()
 
+enum gl_vertex_attrib_pointer_kind {
+    GLIMPL_VERTEX_ATTRIB_POINTER_FLOAT,
+    GLIMPL_VERTEX_ATTRIB_POINTER_INT,
+    GLIMPL_VERTEX_ATTRIB_POINTER_LONG
+};
+
 struct gl_vertex_attrib_pointer {
     int index;
     int size;
     int type;
     int normalized;
     int stride;
-    int *ptr;
+    const void *ptr;
+    enum gl_vertex_attrib_pointer_kind kind;
 
     bool enabled;
     bool client_managed;
@@ -95,6 +103,7 @@ struct gl_color_tex_vertex_pointer {
     const void *pointer;
 
     bool in_use;
+    bool client_managed;
 };
 
 struct gl_normal_index_pointer {
@@ -103,6 +112,7 @@ struct gl_normal_index_pointer {
     const void *pointer;
 
     bool in_use;
+    bool client_managed;
 };
 
 struct gl_edge_flag_pointer {
@@ -118,6 +128,21 @@ struct gl_map_buffer {
     size_t offset;
     size_t length;
     int access;
+    bool in_use;
+};
+
+struct gl_pixel_store_state {
+    GLint alignment;
+    GLint row_length;
+    GLint image_height;
+    GLint skip_rows;
+    GLint skip_pixels;
+    GLint skip_images;
+};
+
+struct gl_vertex_array_binding_state {
+    GLuint name;
+    GLuint element_array_buffer;
     bool in_use;
 };
 
@@ -141,96 +166,40 @@ struct gl_map_buffer                glimpl_map_buffer;
 
 float                               glimpl_global_matrix_double_to_float[GLIMPL_MAX_COUNT_FOR_MATRIX_OP];
 
-#define NUM_EXTENSIONS 84
-static const char *glimpl_extensions_full = "GL_ARB_ES2_compatibility "
-                                            "GL_ARB_ES3_compatibility "
-                                            "GL_ARB_color_buffer_float "
-                                            "GL_ARB_compressed_texture_pixel_storage "
-                                            "GL_ARB_compute_shader "
-                                            "GL_ARB_conservative_depth "
-                                            "GL_ARB_copy_buffer "
-                                            "GL_ARB_cull_distance "
-                                            "GL_ARB_derivative_control "
-                                            "GL_ARB_draw_buffers_blend "
-                                            "GL_ARB_draw_elements_base_vertex "
-                                            "GL_ARB_draw_indirect "
-                                            "GL_ARB_draw_instanced "
-                                            "GL_ARB_explicit_uniform_location "
-                                            "GL_ARB_fragment_shader "
-                                            "GL_ARB_framebuffer_object "
-                                            "GL_ARB_geometry_shader4 "
-                                            "GL_ARB_get_program_binary "
-                                            "GL_ARB_gpu_shader5 "
-                                            "GL_ARB_half_float_pixel "
-                                            "GL_ARB_internalformat_query "
-                                            "GL_ARB_internalformat_query2 "
-                                            "GL_ARB_map_buffer_alignment "
-                                            "GL_ARB_map_buffer_range "
-                                            "GL_ARB_multitexture "
-                                            "GL_ARB_program_interface_query "
-                                            "GL_ARB_sampler_objects "
-                                            "GL_ARB_separate_shader_objects "
-                                            "GL_ARB_shader_atomic_counters "
-                                            "GL_ARB_shader_bit_encoding "
-                                            "GL_ARB_shader_image_load_store "
-                                            "GL_ARB_shader_image_size "
-                                            "GL_ARB_shader_objects "
-                                            "GL_ARB_shader_precision "
-                                            "GL_ARB_shading_language_420pack "
-                                            "GL_ARB_shading_language_packing "
-                                            "GL_ARB_sync "
-                                            "GL_ARB_tessellation_shader "
-                                            "GL_ARB_texture_buffer_object "
-                                            "GL_ARB_texture_buffer_object_rgb32 "
-                                            "GL_ARB_texture_buffer_range "
-                                            "GL_ARB_texture_compression_bptc "
-                                            "GL_ARB_texture_compression_rgtc "
-                                            "GL_ARB_texture_cube_map_array "
-                                            "GL_ARB_texture_gather "
-                                            "GL_ARB_texture_multisample "
-                                            "GL_ARB_texture_non_power_of_two "
-                                            "GL_ARB_texture_rectangle "
-                                            "GL_ARB_texture_rg "
-                                            "GL_ARB_texture_storage "
-                                            "GL_ARB_texture_swizzle "
-                                            "GL_ARB_texture_view "
-                                            "GL_ARB_transform_feedback2 "
-                                            "GL_ARB_transform_feedback3 "
-                                            "GL_ARB_uniform_buffer_object "
-                                            "GL_ARB_vertex_array_object "
-                                            "GL_ARB_vertex_attrib_binding "
-                                            "GL_ARB_vertex_buffer_object "
-                                            "GL_ARB_vertex_shader "
-                                            "GL_ARB_viewport_array "
-                                            "GL_EXT_abgr "
-                                            "GL_EXT_bgra "
-                                            "GL_EXT_bindable_uniform "
-                                            "GL_EXT_draw_buffers2 "
-                                            "GL_EXT_framebuffer_blit "
-                                            "GL_EXT_framebuffer_multisample "
-                                            "GL_EXT_framebuffer_object "
-                                            "GL_EXT_framebuffer_sRGB "
-                                            "GL_EXT_geometry_shader4 "
-                                            "GL_EXT_gpu_shader4 "
-                                            "GL_EXT_packed_depth_stencil "
-                                            "GL_EXT_polygon_offset_clamp "
-                                            "GL_EXT_shader_integer_mix "
-                                            "GL_EXT_texture_compression_s3tc "
-                                            "GL_EXT_texture_filter_anisotropic "
-                                            "GL_EXT_texture_sRGB "
-                                            "GL_EXT_texture_sRGB_decode "
-                                            "GL_NV_texture_barrier "
-                                            "GL_NV_texture_barrier "
-                                            "GL_ARB_occlusion_query "
-                                            "GL_ARB_vertex_array_bgra "
-                                            "GL_EXT_vertex_array_bgra "
-                                            "GL_EXT_direct_state_access "
-                                            "GL_EXT_framebuffer_multisample_blit_scaled "
-                                            "GL_EXT_texture_compression_dxt1";
+static GLuint                       glimpl_array_buffer_binding = 0;
+static GLuint                       glimpl_draw_indirect_buffer_binding = 0;
+static GLuint                       glimpl_current_vertex_array = 0;
+static struct gl_vertex_array_binding_state glimpl_vertex_array_bindings[GLIMPL_MAX_OBJECTS] = {
+    { .name = 0, .element_array_buffer = 0, .in_use = true }
+};
+static struct gl_pixel_store_state  glimpl_pack_store = {
+    .alignment = 4,
+    .row_length = 0,
+    .image_height = 0,
+    .skip_rows = 0,
+    .skip_pixels = 0,
+    .skip_images = 0
+};
+static struct gl_pixel_store_state  glimpl_unpack_store = {
+    .alignment = 4,
+    .row_length = 0,
+    .image_height = 0,
+    .skip_rows = 0,
+    .skip_pixels = 0,
+    .skip_images = 0
+};
 
+#define NUM_EXTENSIONS 118
 static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_ES2_compatibility",
     "GL_ARB_ES3_compatibility",
+    "GL_ARB_depth_texture",
+    "GL_ARB_instanced_arrays",
+    "GL_ARB_multisample",
+    "GL_ARB_occlusion_query2",
+    "GL_ARB_pixel_buffer_object",
+    "GL_ARB_point_parameters",
+    "GL_ARB_point_sprite",
     "GL_ARB_color_buffer_float",
     "GL_ARB_compressed_texture_pixel_storage",
     "GL_ARB_compute_shader",
@@ -238,6 +207,7 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_copy_buffer",
     "GL_ARB_cull_distance",
     "GL_ARB_derivative_control",
+    "GL_ARB_draw_buffers",
     "GL_ARB_draw_buffers_blend",
     "GL_ARB_draw_elements_base_vertex",
     "GL_ARB_draw_indirect",
@@ -265,15 +235,25 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_shader_precision",
     "GL_ARB_shading_language_420pack",
     "GL_ARB_shading_language_packing",
+    "GL_ARB_shadow",
+    "GL_ARB_shadow_ambient",
     "GL_ARB_sync",
     "GL_ARB_tessellation_shader",
+    "GL_ARB_texture_compression",
+    "GL_ARB_texture_barrier",
     "GL_ARB_texture_buffer_object",
     "GL_ARB_texture_buffer_object_rgb32",
     "GL_ARB_texture_buffer_range",
     "GL_ARB_texture_compression_bptc",
     "GL_ARB_texture_compression_rgtc",
+    "GL_ARB_texture_cube_map",
     "GL_ARB_texture_cube_map_array",
+    "GL_ARB_texture_env_add",
+    "GL_ARB_texture_env_combine",
+    "GL_ARB_texture_env_crossbar",
+    "GL_ARB_texture_env_dot3",
     "GL_ARB_texture_gather",
+    "GL_ARB_texture_mirrored_repeat",
     "GL_ARB_texture_multisample",
     "GL_ARB_texture_non_power_of_two",
     "GL_ARB_texture_rectangle",
@@ -289,20 +269,37 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_vertex_buffer_object",
     "GL_ARB_vertex_shader",
     "GL_ARB_viewport_array",
+    "GL_ARB_timer_query",
     "GL_EXT_abgr",
     "GL_EXT_bgra",
-    "GL_EXT_bindable_uniform",
+    "GL_EXT_blend_color",
+    "GL_EXT_blend_equation_separate",
+    "GL_EXT_blend_func_separate",
+    "GL_EXT_blend_minmax",
+    "GL_EXT_blend_subtract",
+    "GL_EXT_draw_transform_feedback",
+    "GL_EXT_draw_buffers_indexed",
     "GL_EXT_draw_buffers2",
+    "GL_EXT_draw_elements_base_vertex",
+    "GL_EXT_draw_instanced",
+    "GL_EXT_draw_range_elements",
     "GL_EXT_framebuffer_blit",
     "GL_EXT_framebuffer_multisample",
     "GL_EXT_framebuffer_object",
     "GL_EXT_framebuffer_sRGB",
     "GL_EXT_geometry_shader4",
-    "GL_EXT_gpu_shader4",
+    "GL_EXT_instanced_arrays",
+    "GL_EXT_map_buffer_range",
+    "GL_EXT_multi_draw_arrays",
+    "GL_EXT_multi_draw_indirect",
+    "GL_EXT_occlusion_query_boolean",
     "GL_EXT_packed_depth_stencil",
+    "GL_EXT_pixel_buffer_object",
     "GL_EXT_polygon_offset_clamp",
     "GL_EXT_shader_integer_mix",
+    "GL_EXT_timer_query",
     "GL_EXT_texture_compression_s3tc",
+    "GL_EXT_texture3D",
     "GL_EXT_texture_filter_anisotropic",
     "GL_EXT_texture_sRGB",
     "GL_EXT_texture_sRGB_decode",
@@ -310,10 +307,12 @@ static const char glimpl_extensions_list[NUM_EXTENSIONS][48] = {
     "GL_ARB_occlusion_query",
     "GL_ARB_vertex_array_bgra",
     "GL_EXT_vertex_array_bgra",
-    "GL_EXT_direct_state_access",
     "GL_EXT_framebuffer_multisample_blit_scaled",
     "GL_EXT_texture_compression_dxt1"
 };
+
+static char glimpl_extensions_full[NUM_EXTENSIONS * 49];
+static bool glimpl_extensions_full_ready = false;
 
 /* fake variables to be used with network feature only */
 static ENetHost *client = NULL;
@@ -323,6 +322,9 @@ static int *fake_framebuffer = NULL;
 static char *compressed_framebuffer = NULL;
 static size_t fb_size = 0;
 static int fake_swap_buffers_sync = 0;
+static bool glimpl_uses_network = false;
+static bool glimpl_initialized = false;
+static bool glimpl_shutdown = false;
 
 static int glimpl_major = SGL_DEFAULT_MAJOR;
 static int glimpl_minor = SGL_DEFAULT_MINOR;
@@ -397,6 +399,13 @@ static void push_string(const char *s)
         pb_push(0);
 }
 
+static void push_counted_string(const char *s, int len)
+{
+    pb_push(len);
+    if (len > 0)
+        pb_memcpy(s, len);
+}
+
 /*
  * temporary solution to submit stalling out at `recv` when
  * submitting the goodbye message
@@ -405,28 +414,41 @@ bool expecting_retval = true;
 
 static inline void submit_shm()
 {
+    size_t submit_size = pb_size();
+    int fifo_size = pb_global_read(SGL_OFFSET_REGISTER_FIFO_SIZE);
+
+    if (submit_size > (size_t)fifo_size) {
+        PRINT_LOG("shared-memory submit too large: size=%zu capacity=%d client=%d\n",
+            submit_size, fifo_size, client_id);
+        pb_write(SGL_OFFSET_REGISTER_RETVAL, 0);
+        memset(pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), 0, SGL_CLIENT_SLOT_SIZE - SGL_OFFSET_REGISTER_RETVAL_V);
+        pb_reset();
+        return;
+    }
+
     /*
      * lock
      */
     spin_lock(lockg);
 
-    /* 
-     * hint to server that we're ready 
-     */
-    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
+    while (pb_global_read(SGL_OFFSET_REGISTER_SUBMIT) == 1) {
+        spin_unlock(lockg);
+        while (pb_global_read(SGL_OFFSET_REGISTER_SUBMIT) == 1);
+        spin_lock(lockg);
+    }
 
     /*
      * copy internal buffer to shared memory and submit
      */
-    pb_copy_to_shared();
     pb_write(SGL_OFFSET_REGISTER_SUBMIT, 1);
+    pb_copy_to_shared();
+    pb_global_write(SGL_OFFSET_REGISTER_STAGE_CLIENT_ID, client_id);
+    pb_global_write(SGL_OFFSET_REGISTER_STAGE_SIZE, (int)submit_size);
+    pb_global_write(SGL_OFFSET_REGISTER_SUBMIT, 1);
+    spin_unlock(lockg);
+
     while (pb_read(SGL_OFFSET_REGISTER_SUBMIT) == 1);
     pb_reset();
-
-    /*
-     * unlock
-     */
-    spin_unlock(lockg);
 }
 
 static inline void submit_net()
@@ -445,7 +467,7 @@ static inline void submit_net()
         }
     }
     else {
-        if (__enet_host_service(client, &event, 500) >= 0)
+        if (__enet_host_service(client, &event, 500) > 0)
             if (event.packet != NULL)
                 __enet_packet_destroy(event.packet);
     }
@@ -460,6 +482,16 @@ void glimpl_submit()
      */
     pb_push(0);
 
+    if (pb_overflowed()) {
+        PRINT_LOG("dropping command buffer after push-buffer overflow\n");
+        if (client_id != 0 || glimpl_uses_network) {
+            pb_write(SGL_OFFSET_REGISTER_RETVAL, 0);
+            memset(pb_ptr(SGL_OFFSET_REGISTER_RETVAL_V), 0, SGL_CLIENT_SLOT_SIZE - SGL_OFFSET_REGISTER_RETVAL_V);
+        }
+        pb_reset();
+        return;
+    }
+
     if (GLIMPL_RUNTIME_USES_SHARED_MEMORY)
         submit_shm();
     else
@@ -468,6 +500,10 @@ void glimpl_submit()
 
 void glimpl_goodbye()
 {
+    if (!glimpl_initialized || glimpl_shutdown)
+        return;
+
+    glimpl_shutdown = true;
     expecting_retval = false;
 
     /*
@@ -484,17 +520,32 @@ void glimpl_goodbye()
     pb_push(0);
     glimpl_submit();
 
-    if (client != NULL) {
+    if (client != NULL && peer != NULL)
         __enet_peer_disconnect(peer, 0);
 
+    if (client != NULL) {
         ENetEvent event;
-        while (__enet_host_service(client, &event, 100) >= 0)
+        while (__enet_host_service(client, &event, 100) > 0) {
+            if (event.type == ENET_EVENT_TYPE_RECEIVE && event.packet != NULL)
+                __enet_packet_destroy(event.packet);
             if (event.type == ENET_EVENT_TYPE_DISCONNECT)
                 break;
+        }
 
         __enet_host_destroy(client);
         __enet_deinitialize();
     }
+
+    client = NULL;
+    peer = NULL;
+    free(fake_register_space);
+    fake_register_space = NULL;
+    free(fake_framebuffer);
+    fake_framebuffer = NULL;
+    free(compressed_framebuffer);
+    compressed_framebuffer = NULL;
+    fb_size = 0;
+    glimpl_initialized = false;
     
     // if (net_ctx != NULL)
     //     net_goodbye(net_ctx);
@@ -513,8 +564,6 @@ static inline void swap_buffers_shm(int width, int height, int vflip, int format
     pb_push(format);
     glimpl_submit();
 }
-
-#include <lzav.h>
 
 static inline void swap_buffers_net(int width, int height, int vflip, int format)
 {
@@ -544,11 +593,13 @@ void *glimpl_fb_address()
     /* fake framebuffer used with network feature only */
     if (!GLIMPL_RUNTIME_USES_SHARED_MEMORY)
         return fake_framebuffer;
-    return pb_ptr(pb_read64(SGL_OFFSET_REGISTER_FBSTART));
+    return pb_global_ptr((size_t)pb_global_read64(SGL_OFFSET_REGISTER_FBSTART));
 }
 
 static inline void init_shm(bool use_direct_access)
 {
+    glimpl_uses_network = false;
+
 #ifndef _WIN32
     int fd = shm_open(SGL_SHARED_MEMORY_NAME, O_RDWR, S_IRWXU);
     if (fd == -1)
@@ -565,23 +616,53 @@ static inline void init_shm(bool use_direct_access)
     pb_reset();
 }
 
+static int shm_claim_slot(void)
+{
+    uint32_t slot_mask = (uint32_t)pb_global_read(SGL_OFFSET_REGISTER_SHM_SLOT_MASK);
+    int max_slots = pb_global_read(SGL_OFFSET_REGISTER_MAX_CLIENTS);
+
+    if (max_slots > (int)(sizeof(slot_mask) * 8))
+        max_slots = (int)(sizeof(slot_mask) * 8);
+
+    for (int slot = 1; slot <= max_slots; slot++) {
+        uint32_t slot_bit = SGL_SHM_SLOT_BIT(slot);
+        if ((slot_mask & slot_bit) == 0) {
+            pb_global_write(SGL_OFFSET_REGISTER_SHM_SLOT_MASK, (int)(slot_mask | slot_bit));
+            return slot;
+        }
+    }
+
+    return 0;
+}
+
 static inline void shm_create_context()
 {
-    lockg = pb_ptr(SGL_OFFSET_REGISTER_LOCK);
+    lockg = pb_global_ptr(SGL_OFFSET_REGISTER_LOCK);
 
     /*
-     * claim client id and increment the register for the
-     * next claimee to claim
+     * claim a free shared-memory slot
      */
     spin_lock(lockg);
-    client_id = pb_read(SGL_OFFSET_REGISTER_CLAIM_ID);
-    pb_write(SGL_OFFSET_REGISTER_READY_HINT, client_id);
-    pb_write(SGL_OFFSET_REGISTER_CLAIM_ID, client_id + 1);
+    client_id = shm_claim_slot();
+    if (client_id == 0) {
+        int max_slots = pb_global_read(SGL_OFFSET_REGISTER_MAX_CLIENTS);
+        unsigned slot_mask = (unsigned)pb_global_read(SGL_OFFSET_REGISTER_SHM_SLOT_MASK);
+        spin_unlock(lockg);
+        PRINT_LOG("no free shared-memory slots: max=%d mask=0x%08x\n",
+            max_slots, slot_mask);
+        exit(1);
+    }
+    pb_set_client(client_id);
 
     /*
      * notify the server we would like to connect
      */
-    pb_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
+    while (pb_global_read(SGL_OFFSET_REGISTER_CONNECT) != 0) {
+        spin_unlock(lockg);
+        while (pb_global_read(SGL_OFFSET_REGISTER_CONNECT) != 0);
+        spin_lock(lockg);
+    }
+    pb_global_write(SGL_OFFSET_REGISTER_CONNECT, client_id);
     spin_unlock(lockg);
         
     /*
@@ -617,6 +698,8 @@ static inline void init_net(char *network)
             break;
         }
     }
+
+    glimpl_uses_network = true;
 
     if (__enet_initialize() < 0) {
         fprintf(stderr, "init_net: could not initialize enet\n");
@@ -654,7 +737,7 @@ static inline void init_net(char *network)
             break;
         }
     }
-    
+
     glimpl_major = packet->gl_major;
     glimpl_minor = packet->gl_minor;
 
@@ -675,6 +758,12 @@ void glimpl_init()
     char *network = getenv("SGL_NETWORK_ENDPOINT");
     char *gl_version_override = getenv("GL_VERSION_OVERRIDE");
 
+    if (glimpl_initialized)
+        return;
+
+    glimpl_shutdown = false;
+    expecting_retval = true;
+
     if (network == NULL)
         init_shm(false);
     else
@@ -687,6 +776,7 @@ void glimpl_init()
         shm_create_context();
 
     glimpl_map_buffer.mem = scratch_buffer_get(0x1000);
+    glimpl_initialized = true;
 }
 
 static struct gl_vertex_attrib_pointer *glimpl_get_enabled_vap()
@@ -698,36 +788,99 @@ static struct gl_vertex_attrib_pointer *glimpl_get_enabled_vap()
     return NULL;
 }
 
-static inline size_t glimpl_get_pixel_size(GLenum format)
+static struct gl_vertex_array_binding_state *glimpl_get_vertex_array_binding(GLuint name, bool create)
+{
+    struct gl_vertex_array_binding_state *free_slot = NULL;
+
+    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++) {
+        struct gl_vertex_array_binding_state *state = &glimpl_vertex_array_bindings[i];
+        if (state->in_use && state->name == name)
+            return state;
+        if (!state->in_use && free_slot == NULL)
+            free_slot = state;
+    }
+
+    if (!create || free_slot == NULL)
+        return NULL;
+
+    *free_slot = (struct gl_vertex_array_binding_state){
+        .name = name,
+        .element_array_buffer = 0,
+        .in_use = true
+    };
+    return free_slot;
+}
+
+static inline GLuint glimpl_get_element_array_buffer_binding(void)
+{
+    struct gl_vertex_array_binding_state *state = glimpl_get_vertex_array_binding(glimpl_current_vertex_array, false);
+    return state ? state->element_array_buffer : 0;
+}
+
+static inline void glimpl_set_element_array_buffer_binding(GLuint buffer)
+{
+    struct gl_vertex_array_binding_state *state = glimpl_get_vertex_array_binding(glimpl_current_vertex_array, true);
+    if (state != NULL)
+        state->element_array_buffer = buffer;
+}
+
+static void glimpl_remove_vertex_array_binding(GLuint name)
+{
+    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++) {
+        struct gl_vertex_array_binding_state *state = &glimpl_vertex_array_bindings[i];
+        if (state->in_use && state->name == name) {
+            if (name == 0) {
+                state->element_array_buffer = 0;
+                return;
+            }
+
+            memset(state, 0, sizeof(*state));
+            return;
+        }
+    }
+}
+
+static inline size_t glimpl_align_size(size_t value, size_t alignment)
+{
+    if (alignment <= 1)
+        return value;
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
+static inline size_t glimpl_get_legacy_color_array_size(GLint size)
+{
+    switch (size) {
+    case GL_BGRA:
+        return 4;
+    default:
+        return size;
+    }
+}
+
+static inline size_t glimpl_get_pixel_component_count(GLenum format)
 {
     switch (format) {
     case GL_RGBA:
     case GL_RGBA8:
     case GL_BGRA:
-    case GL_COMPRESSED_SRGB_ALPHA:
         return 4;
     case GL_RGB:
     case GL_BGR:
     case GL_RGB8:
-    case GL_DEPTH_COMPONENT:
         return 3;
     case GL_LUMINANCE_ALPHA:
     case GL_RG:
     case GL_RG8:
         return 2;
+    case GL_DEPTH_STENCIL:
+        return 2;
     case GL_LUMINANCE:
     case GL_ALPHA:
     case GL_RED:
     case GL_R8:
+    case GL_DEPTH_COMPONENT:
+    case GL_STENCIL_INDEX:
         return 1;
-    case GL_RGB16F:
-    case GL_RGB16I:
-    case GL_RGB16UI:
-        return 6;
-    case GL_RGBA16F:
-    case GL_RGBA16I:
-    case GL_RGBA16UI:
-        return 8;
     default:
         STUB();
         return 1;
@@ -762,6 +915,110 @@ static inline size_t glimpl_type_size(GLenum type)
     return 1;
 }
 
+static inline size_t glimpl_get_pixel_size(GLenum format, GLenum type)
+{
+    switch (type) {
+    case GL_UNSIGNED_BYTE_3_3_2:
+    case GL_UNSIGNED_BYTE_2_3_3_REV:
+        return 1;
+    case GL_UNSIGNED_SHORT_5_6_5:
+    case GL_UNSIGNED_SHORT_5_6_5_REV:
+    case GL_UNSIGNED_SHORT_4_4_4_4:
+    case GL_UNSIGNED_SHORT_4_4_4_4_REV:
+    case GL_UNSIGNED_SHORT_5_5_5_1:
+    case GL_UNSIGNED_SHORT_1_5_5_5_REV:
+        return 2;
+    case GL_UNSIGNED_INT_8_8_8_8:
+    case GL_UNSIGNED_INT_8_8_8_8_REV:
+    case GL_UNSIGNED_INT_10_10_10_2:
+    case GL_UNSIGNED_INT_2_10_10_10_REV:
+    case GL_UNSIGNED_INT_24_8:
+    case GL_UNSIGNED_INT_5_9_9_9_REV:
+    case GL_UNSIGNED_INT_10F_11F_11F_REV:
+        return 4;
+    case GL_FLOAT_32_UNSIGNED_INT_24_8_REV:
+        return 8;
+    default:
+        return glimpl_get_pixel_component_count(format) * glimpl_type_size(type);
+    }
+}
+
+static inline size_t glimpl_get_pixel_transfer_span(const struct gl_pixel_store_state *store, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type)
+{
+    if (width <= 0 || height <= 0 || depth <= 0)
+        return 0;
+
+    size_t pixel_size = glimpl_get_pixel_size(format, type);
+    size_t alignment = store->alignment > 0 ? (size_t)store->alignment : 1;
+    size_t row_pixels = store->row_length > 0 ? (size_t)store->row_length : (size_t)width;
+    size_t image_rows = store->image_height > 0 ? (size_t)store->image_height : (size_t)height;
+    size_t row_stride = glimpl_align_size(row_pixels * pixel_size, alignment);
+    size_t image_stride = row_stride * image_rows;
+    size_t start_offset = (size_t)store->skip_images * image_stride +
+                          (size_t)store->skip_rows * row_stride +
+                          (size_t)store->skip_pixels * pixel_size;
+
+    return start_offset +
+           (size_t)(depth - 1) * image_stride +
+           (size_t)(height - 1) * row_stride +
+           (size_t)width * pixel_size;
+}
+
+static void glimpl_set_pixel_store(GLenum pname, GLint param)
+{
+    struct gl_pixel_store_state *store = NULL;
+
+    switch (pname) {
+    case GL_PACK_ALIGNMENT:
+    case GL_PACK_ROW_LENGTH:
+    case GL_PACK_IMAGE_HEIGHT:
+    case GL_PACK_SKIP_ROWS:
+    case GL_PACK_SKIP_PIXELS:
+    case GL_PACK_SKIP_IMAGES:
+        store = &glimpl_pack_store;
+        break;
+    case GL_UNPACK_ALIGNMENT:
+    case GL_UNPACK_ROW_LENGTH:
+    case GL_UNPACK_IMAGE_HEIGHT:
+    case GL_UNPACK_SKIP_ROWS:
+    case GL_UNPACK_SKIP_PIXELS:
+    case GL_UNPACK_SKIP_IMAGES:
+        store = &glimpl_unpack_store;
+        break;
+    default:
+        return;
+    }
+
+    switch (pname) {
+    case GL_PACK_ALIGNMENT:
+    case GL_UNPACK_ALIGNMENT:
+        store->alignment = param > 0 ? param : 1;
+        break;
+    case GL_PACK_ROW_LENGTH:
+    case GL_UNPACK_ROW_LENGTH:
+        store->row_length = param;
+        break;
+    case GL_PACK_IMAGE_HEIGHT:
+    case GL_UNPACK_IMAGE_HEIGHT:
+        store->image_height = param;
+        break;
+    case GL_PACK_SKIP_ROWS:
+    case GL_UNPACK_SKIP_ROWS:
+        store->skip_rows = param;
+        break;
+    case GL_PACK_SKIP_PIXELS:
+    case GL_UNPACK_SKIP_PIXELS:
+        store->skip_pixels = param;
+        break;
+    case GL_PACK_SKIP_IMAGES:
+    case GL_UNPACK_SKIP_IMAGES:
+        store->skip_images = param;
+        break;
+    default:
+        break;
+    }
+}
+
 static inline void glimpl_upload_buffer(const void *data, size_t size)
 {
     pb_push(SGL_CMD_VP_UPLOAD);
@@ -790,53 +1047,39 @@ static inline void glimpl_download_buffer(void *dst, size_t size)
     }
 }
 
-static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, GLenum format, const void* pixels)
+static void glimpl_upload_texture(GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
 {
     if (pixels == NULL) {
         pb_push(SGL_CMD_VP_NULL);
         return;
     }
 
-    size_t total_size = width * height * depth * glimpl_get_pixel_size(format);
+    size_t total_size = glimpl_get_pixel_transfer_span(&glimpl_unpack_store, width, height, depth, format, type);
 
     glimpl_upload_buffer(pixels, total_size);
 }
 
-static inline void glimpl_push_vertex_attrib_pointers(int count)
-{
-    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++) {
-        struct gl_vertex_attrib_pointer *vap = &glimpl_vaps[i];
-        if (vap->client_managed) {
-            glimpl_upload_buffer(vap->ptr, vap->size * count * glimpl_type_size(vap->type));
-
-            pb_push(SGL_CMD_VERTEXATTRIBPOINTER);
-            pb_push(vap->index);
-            pb_push(vap->size);
-            pb_push(vap->type);
-            pb_push(vap->normalized);
-            pb_push(vap->stride);
-            pb_push(LIKELY_OFFSET_LIMIT + 1); // force server to use upload
-        }
-    }
-}
-
-static inline bool glimpl_push_client_pointer(int count, int size, int type, int stride, const void *pointer)
+static inline bool glimpl_push_client_pointer(bool client_managed, int first, int count, int size, int type, int stride, const void *pointer)
 {
     const unsigned char *data = pointer;
     size_t sizeof_type = glimpl_type_size(type);
+    size_t elem_size = (size_t)size * sizeof_type;
+    size_t byte_count = elem_size * count;
 
-    if (is_value_likely_an_offset(pointer))
+    if (!client_managed)
         return false;
 
     pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push((count * size) / CEIL_DIV(sizeof(int), sizeof_type));
+    pb_push(CEIL_DIV(byte_count, sizeof(int)));
 
     if (stride == 0)
-        pb_memcpy(data, count * size * sizeof_type);
+        pb_memcpy(data + ((size_t)first * elem_size), byte_count);
     else {
+        const unsigned char *base = data + ((size_t)first * stride);
+
         for (int i = 0; i < count; i++) {
-            void *real_data = ((char*)data + i * stride);
-            pb_memcpy_unaligned(real_data, size * sizeof_type);
+            const void *real_data = base + ((size_t)i * stride);
+            pb_memcpy_unaligned(real_data, elem_size);
         }
         pb_realign();
     }
@@ -844,25 +1087,58 @@ static inline bool glimpl_push_client_pointer(int count, int size, int type, int
     return true;
 }
 
-static inline void glimpl_push_client_pointers(int mode, int count)
+static inline int glimpl_vertex_attrib_cmd(const struct gl_vertex_attrib_pointer *vap)
 {
+    switch (vap->kind) {
+    case GLIMPL_VERTEX_ATTRIB_POINTER_INT:
+        return SGL_CMD_VERTEXATTRIBIPOINTER;
+    case GLIMPL_VERTEX_ATTRIB_POINTER_LONG:
+        return SGL_CMD_VERTEXATTRIBLPOINTER;
+    case GLIMPL_VERTEX_ATTRIB_POINTER_FLOAT:
+    default:
+        return SGL_CMD_VERTEXATTRIBPOINTER;
+    }
+}
+
+static inline void glimpl_push_vertex_attrib_pointers(int first, int count)
+{
+    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++) {
+        struct gl_vertex_attrib_pointer *vap = &glimpl_vaps[i];
+        if (vap->enabled && vap->client_managed) {
+            bool use_upload = glimpl_push_client_pointer(vap->client_managed, first, count, vap->size, vap->type, vap->stride, vap->ptr);
+
+            pb_push(glimpl_vertex_attrib_cmd(vap));
+            pb_push(vap->index);
+            pb_push(vap->size);
+            pb_push(vap->type);
+            if (vap->kind == GLIMPL_VERTEX_ATTRIB_POINTER_FLOAT)
+                pb_push(vap->normalized);
+            pb_push(use_upload ? 0 : vap->stride);
+            pb_push64(use_upload ? 0 : (int64_t)(uintptr_t)vap->ptr);
+            pb_push(use_upload);
+        }
+    }
+}
+
+static inline void glimpl_push_client_pointers(int first, int count)
+{
+    int last_tex_coord_unit = -1;
+
     if (glimpl_normal_ptr.in_use) {
-        bool status = glimpl_push_client_pointer(count, 3, /* probably not glimpl_vertex_ptr.size */
+        bool status = glimpl_push_client_pointer(glimpl_normal_ptr.client_managed, first, count, 3,
                             glimpl_normal_ptr.type, glimpl_normal_ptr.stride, glimpl_normal_ptr.pointer);
 
         pb_push(SGL_CMD_NORMALPOINTER);
         pb_push(glimpl_normal_ptr.type);
         pb_push(status ? 0 : glimpl_normal_ptr.stride);
         pb_push(status);
-        pb_push(status ? 0 : (int)(uintptr_t)glimpl_normal_ptr.pointer);
+        pb_push64(status ? 0 : (int64_t)(uintptr_t)glimpl_normal_ptr.pointer);
     }
 
     if (glimpl_color_ptr.in_use) {
-        int true_size = glimpl_color_ptr.size;
-        if (true_size > 8)
-            true_size = glimpl_get_pixel_size(true_size);
+        int true_size = glimpl_get_legacy_color_array_size(glimpl_color_ptr.size);
 
-        bool status = glimpl_push_client_pointer(count, true_size, 
+        bool status = glimpl_push_client_pointer(glimpl_color_ptr.client_managed, first, count, true_size,
                             glimpl_color_ptr.type, glimpl_color_ptr.stride, glimpl_color_ptr.pointer);
 
         pb_push(SGL_CMD_COLORPOINTER);
@@ -870,16 +1146,17 @@ static inline void glimpl_push_client_pointers(int mode, int count)
         pb_push(glimpl_color_ptr.type);
         pb_push(status ? 0 : glimpl_color_ptr.stride);
         pb_push(status);
-        pb_push(status ? 0 : (int)(uintptr_t)glimpl_color_ptr.pointer);
+        pb_push64(status ? 0 : (int64_t)(uintptr_t)glimpl_color_ptr.pointer);
     }
 
     for (int t = 0; t < GLIMPL_MAX_TEXTURES; t++) {
         if (glimpl_tex_coord_ptr[t].in_use) {
-            bool status = glimpl_push_client_pointer(count, glimpl_tex_coord_ptr[t].size, 
+            bool status = glimpl_push_client_pointer(glimpl_tex_coord_ptr[t].client_managed, first, count, glimpl_tex_coord_ptr[t].size,
                                 glimpl_tex_coord_ptr[t].type, glimpl_tex_coord_ptr[t].stride, glimpl_tex_coord_ptr[t].pointer);
 
             pb_push(SGL_CMD_CLIENTACTIVETEXTURE);
             pb_push(GL_TEXTURE0 + t);
+            last_tex_coord_unit = t;
 
             pb_push(SGL_CMD_ENABLECLIENTSTATE);
             pb_push(GL_TEXTURE_COORD_ARRAY);
@@ -889,12 +1166,17 @@ static inline void glimpl_push_client_pointers(int mode, int count)
             pb_push(glimpl_tex_coord_ptr[t].type);
             pb_push(status ? 0 : glimpl_tex_coord_ptr[t].stride);
             pb_push(status);
-            pb_push(status ? 0 : (int)(uintptr_t)glimpl_tex_coord_ptr[t].pointer);
+            pb_push64(status ? 0 : (int64_t)(uintptr_t)glimpl_tex_coord_ptr[t].pointer);
         }
     }
 
+    if (last_tex_coord_unit >= 0 && last_tex_coord_unit != glimpl_client_active_texture) {
+        pb_push(SGL_CMD_CLIENTACTIVETEXTURE);
+        pb_push(GL_TEXTURE0 + glimpl_client_active_texture);
+    }
+
     if (glimpl_vertex_ptr.in_use) {
-        bool status = glimpl_push_client_pointer(count, glimpl_vertex_ptr.size,
+        bool status = glimpl_push_client_pointer(glimpl_vertex_ptr.client_managed, first, count, glimpl_vertex_ptr.size,
                             glimpl_vertex_ptr.type,  glimpl_vertex_ptr.stride, glimpl_vertex_ptr.pointer);
 
         pb_push(SGL_CMD_VERTEXPOINTER);
@@ -902,84 +1184,138 @@ static inline void glimpl_push_client_pointers(int mode, int count)
         pb_push(glimpl_vertex_ptr.type);
         pb_push(status ? 0 : glimpl_vertex_ptr.stride);
         pb_push(status);
-        pb_push(status ? 0 : (int)(uintptr_t)glimpl_vertex_ptr.pointer);
+        pb_push64(status ? 0 : (int64_t)(uintptr_t)glimpl_vertex_ptr.pointer);
     }
 }
 
-#define GET_MAX_INDEX(x, y, s, e) \
-    for (int i = s; i < e; i++) \
-        if (y[i] > x) \
-            x = y[i]
-
-static inline void glimpl_draw_elements(int mode, int type, int start, int end, const void *indices)
+static bool glimpl_has_client_managed_draw_state(void)
 {
-    if (indices) {
-        int max_index = 0;
-        switch (type) {
-        case GL_UNSIGNED_BYTE: {
-            const unsigned char *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices, start, end);
-            break;
-        }
-        case GL_UNSIGNED_SHORT: {
-            const unsigned short *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices, start, end);
-            break;
-        }
-        case GL_UNSIGNED_INT: {
-            const unsigned int *tindices = indices;
-            GET_MAX_INDEX(max_index, tindices, start, end);
-            break;
-        }
-        }
+    for (int i = 0; i < GLIMPL_MAX_OBJECTS; i++)
+        if (glimpl_vaps[i].enabled && glimpl_vaps[i].client_managed)
+            return true;
 
-        // increment bc we want count, not the value of the largest index
-        max_index++;
-        glimpl_push_vertex_attrib_pointers(max_index);
-        glimpl_push_client_pointers(mode, max_index);
+    if (glimpl_normal_ptr.in_use && glimpl_normal_ptr.client_managed)
+        return true;
+    if (glimpl_color_ptr.in_use && glimpl_color_ptr.client_managed)
+        return true;
+    if (glimpl_vertex_ptr.in_use && glimpl_vertex_ptr.client_managed)
+        return true;
 
-        /*
-         * to-do: pack?
-         */
-        pb_push(SGL_CMD_VP_UPLOAD);
-        pb_push(end - start);
-        switch (type) {
-        case GL_UNSIGNED_BYTE: {
-            const unsigned char *b = indices;
-            for (int i = start; i < end; i++)
-                pb_push(*b++);
-            break;
-        }
-        case GL_UNSIGNED_SHORT: {
-            const unsigned short *s = indices;
-            for (int i = start; i < end; i++)
-                pb_push(*s++);
-            break;
-        }
-        case GL_UNSIGNED_INT: {
-            const unsigned int *u = indices;
-            for (int i = start; i < end; i++)
-                pb_push(*u++);
-            break;
-        }
-        }
+    for (int i = 0; i < GLIMPL_MAX_TEXTURES; i++)
+        if (glimpl_tex_coord_ptr[i].in_use && glimpl_tex_coord_ptr[i].client_managed)
+            return true;
+
+    return false;
+}
+
+static inline void glimpl_push_client_managed_draw_state(int first, int count)
+{
+    bool has_client_managed_draw_state = glimpl_has_client_managed_draw_state();
+    bool restore_array_buffer_binding = has_client_managed_draw_state && glimpl_array_buffer_binding != 0;
+
+    if (restore_array_buffer_binding) {
+        pb_push(SGL_CMD_BINDBUFFER);
+        pb_push(GL_ARRAY_BUFFER);
+        pb_push(0);
     }
-    
+
+    glimpl_push_vertex_attrib_pointers(first, count);
+    glimpl_push_client_pointers(first, count);
+
+    if (restore_array_buffer_binding) {
+        pb_push(SGL_CMD_BINDBUFFER);
+        pb_push(GL_ARRAY_BUFFER);
+        pb_push(glimpl_array_buffer_binding);
+    }
+}
+
+static unsigned int glimpl_get_max_index(int type, int count, const void *indices)
+{
+    unsigned int max_index = 0;
+
+    switch (type) {
+    case GL_UNSIGNED_BYTE: {
+        const unsigned char *tindices = indices;
+        for (int i = 0; i < count; i++)
+            max_index = MAX(max_index, tindices[i]);
+        break;
+    }
+    case GL_UNSIGNED_SHORT: {
+        const unsigned short *tindices = indices;
+        for (int i = 0; i < count; i++)
+            max_index = MAX(max_index, tindices[i]);
+        break;
+    }
+    case GL_UNSIGNED_INT: {
+        const unsigned int *tindices = indices;
+        for (int i = 0; i < count; i++)
+            max_index = MAX(max_index, tindices[i]);
+        break;
+    }
+    default:
+        STUB();
+        break;
+    }
+
+    return max_index;
+}
+
+static bool glimpl_prepare_draw_elements(int count, int type, const void *indices, int vertex_upload_count_hint, bool *use_upload, uint64_t *index_pointer)
+{
+    bool element_array_buffer_bound = glimpl_get_element_array_buffer_binding() != 0;
+
+    if (element_array_buffer_bound) {
+        if (glimpl_has_client_managed_draw_state()) {
+            if (vertex_upload_count_hint < 0) {
+                fprintf(stderr, "glDrawElements: client-managed arrays with element-array-buffer offsets are unsupported without an index range hint\n");
+                return false;
+            }
+
+            glimpl_push_client_managed_draw_state(0, vertex_upload_count_hint);
+        }
+
+        *use_upload = false;
+        *index_pointer = (uint64_t)(uintptr_t)indices;
+        return true;
+    }
+
+    if (indices == NULL) {
+        *use_upload = false;
+        *index_pointer = 0;
+        return true;
+    }
+
+    unsigned int max_index = glimpl_get_max_index(type, count, indices) + 1;
+    glimpl_push_client_managed_draw_state(0, max_index);
+    glimpl_upload_buffer(indices, (size_t)count * glimpl_type_size(type));
+
+    *use_upload = true;
+    *index_pointer = 0;
+    return true;
+}
+
+static inline void glimpl_draw_elements(int mode, int type, int count, const void *indices, int vertex_upload_count_hint)
+{
+    bool use_upload;
+    uint64_t index_pointer;
+
+    if (!glimpl_prepare_draw_elements(count, type, indices, vertex_upload_count_hint, &use_upload, &index_pointer))
+        return;
+
     pb_push(SGL_CMD_DRAWELEMENTS);
     pb_push(mode);
-    pb_push(end - start);
-    pb_push(indices != NULL ? GL_UNSIGNED_INT : type); /* to-do: actually use type */
-    pb_push(indices != NULL);
+    pb_push(count);
+    pb_push(type);
+    pb_push64(index_pointer);
+    pb_push(use_upload);
 }
-
-#undef GET_MAX_INDEX
 
 static void glimpl_texture_image(int cmd, int n_dims, GLuint texture, GLint level, GLint internalformat,
         GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels)
 {
     const int dims[3] = { width, height, depth };
 
-    glimpl_upload_texture(width, n_dims > 1 ? height : 1, n_dims > 2 ? depth : 1, format, pixels);
+    glimpl_upload_texture(width, n_dims > 1 ? height : 1, n_dims > 2 ? depth : 1, format, type, pixels);
 
     pb_push(cmd);
     pb_push(texture);
@@ -998,7 +1334,7 @@ static void glimpl_texture_subimage(int cmd, int n_dims, GLuint texture, GLint l
     const int offsets[3] = { xoffset, yoffset, zoffset };
     const int dims[3] = { width, height, depth };
 
-    glimpl_upload_texture(width, n_dims > 1 ? height : 1, n_dims > 2 ? depth : 1, format, pixels);
+    glimpl_upload_texture(width, n_dims > 1 ? height : 1, n_dims > 2 ? depth : 1, format, type, pixels);
 
     pb_push(cmd);
     pb_push(texture);
@@ -1290,6 +1626,20 @@ void glBeginQuery(GLenum target, GLuint id)
 
 void glBindBuffer(GLenum target, GLuint buffer)
 {
+    switch (target) {
+    case GL_ARRAY_BUFFER:
+        glimpl_array_buffer_binding = buffer;
+        break;
+    case GL_ELEMENT_ARRAY_BUFFER:
+        glimpl_set_element_array_buffer_binding(buffer);
+        break;
+    case GL_DRAW_INDIRECT_BUFFER:
+        glimpl_draw_indirect_buffer_binding = buffer;
+        break;
+    default:
+        break;
+    }
+
     pb_push(SGL_CMD_BINDBUFFER);
     pb_push(target);
     pb_push(buffer);
@@ -1318,6 +1668,9 @@ void glBindFragDataLocation(GLuint program, GLuint color, const GLchar* name)
 
 void glBindVertexArray(GLuint array)
 {
+    glimpl_current_vertex_array = array;
+    glimpl_get_vertex_array_binding(array, true);
+
     pb_push(SGL_CMD_BINDVERTEXARRAY);
     pb_push(array);
 }
@@ -1439,6 +1792,10 @@ void glDeleteTextures(GLsizei n, const GLuint* textures)
 void glDeleteVertexArrays(GLsizei n, const GLuint* arrays)
 {
     for (int i = 0; i < n; i++) {
+        if (glimpl_current_vertex_array == arrays[i])
+            glimpl_current_vertex_array = 0;
+        glimpl_remove_vertex_array_binding(arrays[i]);
+
         pb_push(SGL_CMD_DELETEVERTEXARRAYS);
         pb_push(arrays[i]);
     }
@@ -1485,8 +1842,7 @@ void glDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_grou
 
 void glDrawArrays(GLenum mode, GLint first, GLsizei count)
 {
-    glimpl_push_vertex_attrib_pointers(count);
-    glimpl_push_client_pointers(mode, count);
+    glimpl_push_client_managed_draw_state(0, first + count);
 
     pb_push(SGL_CMD_DRAWARRAYS);
     pb_push(mode);
@@ -1508,16 +1864,12 @@ void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void* indices
      * to-do: check if mode and type is valid
      */
 
-    glimpl_draw_elements(mode, type, 0, count, indices);
+    glimpl_draw_elements(mode, type, count, indices, -1);
 }
 
 void glDrawRangeElements(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices)
 {
-    /*
-     * count is ignored?
-     */
-
-    glimpl_draw_elements(mode, type, start, end, indices);
+    glimpl_draw_elements(mode, type, count, indices, (int)end + 1);
 }
 
 void glEnable(GLenum cap)
@@ -1688,6 +2040,26 @@ static inline void real_glGetString(GLenum name, char *string)
     memcpy(string, (void*)ptr, pb_read(SGL_OFFSET_REGISTER_RETVAL));
 }
 
+static const char *glimpl_get_extensions_string(void)
+{
+    if (!glimpl_extensions_full_ready) {
+        size_t cursor = 0;
+
+        glimpl_extensions_full[0] = '\0';
+        for (int i = 0; i < NUM_EXTENSIONS; i++) {
+            size_t len = strlen(glimpl_extensions_list[i]);
+            memcpy(glimpl_extensions_full + cursor, glimpl_extensions_list[i], len);
+            cursor += len;
+            if (i + 1 < NUM_EXTENSIONS)
+                glimpl_extensions_full[cursor++] = ' ';
+        }
+        glimpl_extensions_full[cursor] = '\0';
+        glimpl_extensions_full_ready = true;
+    }
+
+    return glimpl_extensions_full;
+}
+
 const GLubyte *glGetString(GLenum name)
 {
     static char version[16] = "X.X.0";
@@ -1695,6 +2067,7 @@ const GLubyte *glGetString(GLenum name)
 
     static char real_vendor[256] = "SharedGL and ";
     static char real_renderer[256] = "SharedGL using ";
+    const GLubyte *result = (const GLubyte *)"?";
 
     if (version[0] == 'X') {
         version[0] = '0' + (char)glimpl_major;
@@ -1722,13 +2095,24 @@ const GLubyte *glGetString(GLenum name)
     }
 
     switch (name) {
-    case GL_VENDOR: return (const GLubyte *)real_vendor;
-    case GL_RENDERER: return (const GLubyte *)real_renderer;
-    case GL_VERSION: return (const GLubyte *)version;
-    case GL_EXTENSIONS: return (const GLubyte *)glimpl_extensions_full;
-    case GL_SHADING_LANGUAGE_VERSION: return (const GLubyte *)glsl_vr;
+    case GL_VENDOR:
+        result = (const GLubyte *)real_vendor;
+        break;
+    case GL_RENDERER:
+        result = (const GLubyte *)real_renderer;
+        break;
+    case GL_VERSION:
+        result = (const GLubyte *)version;
+        break;
+    case GL_EXTENSIONS:
+        result = (const GLubyte *)glimpl_get_extensions_string();
+        break;
+    case GL_SHADING_LANGUAGE_VERSION:
+        result = (const GLubyte *)glsl_vr;
+        break;
     }
-    return (const GLubyte *)"?";
+
+    return result;
 }
 
 const GLubyte *glGetStringi(GLenum name, GLuint index)
@@ -1776,6 +2160,12 @@ void glGetIntegerv(GLenum pname, GLint* data)
         return;
     case GL_MINOR_VERSION:
         data[0] = glimpl_minor;
+        return;
+    case GL_CONTEXT_PROFILE_MASK:
+        data[0] = GL_CONTEXT_COMPATIBILITY_PROFILE_BIT;
+        return;
+    case GL_CONTEXT_FLAGS:
+        data[0] = 0;
         return;
     case GL_NUM_EXTENSIONS:
         data[0] = NUM_EXTENSIONS;
@@ -1831,7 +2221,7 @@ void glGetTexImage(GLenum target, GLint level, GLenum format, GLenum type, void*
     if (!height) height = 1;
     if (!width) width = 1;
 
-    size_t total_size = width * height * depth * glimpl_get_pixel_size(format);
+    size_t total_size = glimpl_get_pixel_transfer_span(&glimpl_pack_store, width, height, depth, format, type);
     
     pb_push(SGL_CMD_GETTEXIMAGE);
     pb_push(target);
@@ -1939,8 +2329,10 @@ void glShaderSource(GLuint shader, GLsizei count, const GLchar** string, const G
     pb_push(shader);
     pb_push(count);
 
-    for (int i = 0; i < count; i++)
-        push_string(string[i]);
+    for (int i = 0; i < count; i++) {
+        int len = length && length[i] >= 0 ? length[i] : strlen(string[i]);
+        push_counted_string(string[i], len);
+    }
 
     glimpl_submit();
 }
@@ -2033,7 +2425,7 @@ void glVertex3f(GLfloat x, GLfloat y, GLfloat z)
 
 void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const void *pointer)
 {
-    bool client_managed = !is_value_likely_an_offset(pointer);
+    bool client_managed = glimpl_array_buffer_binding == 0;
 
     glimpl_vaps[index] = (struct gl_vertex_attrib_pointer){ 
         .index = index,
@@ -2042,7 +2434,8 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
         .normalized = normalized,
         .stride = stride,
         .ptr = (void*)pointer,
-        .enabled = false,
+        .kind = GLIMPL_VERTEX_ATTRIB_POINTER_FLOAT,
+        .enabled = glimpl_vaps[index].enabled,
         .client_managed = client_managed
     };
 
@@ -2053,7 +2446,8 @@ void glVertexAttribPointer(GLuint index, GLint size, GLenum type, GLboolean norm
         pb_push(type);
         pb_push(normalized);
         pb_push(stride);
-        pb_push((int)((uintptr_t)pointer));
+        pb_push64((int64_t)(uintptr_t)pointer);
+        pb_push(false);
     }
 }
 
@@ -2102,7 +2496,8 @@ void glColorPointer(GLint size, GLenum type, GLsizei stride, const void* pointer
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = glimpl_color_ptr.in_use
+        .in_use = glimpl_color_ptr.in_use,
+        .client_managed = glimpl_array_buffer_binding == 0
     };
 }
 
@@ -2112,7 +2507,8 @@ void glNormalPointer(GLenum type, GLsizei stride, const void* pointer)
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = glimpl_normal_ptr.in_use
+        .in_use = glimpl_normal_ptr.in_use,
+        .client_managed = glimpl_array_buffer_binding == 0
     };
 }
 
@@ -2123,7 +2519,8 @@ void glTexCoordPointer(GLint size, GLenum type, GLsizei stride, const void* poin
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = glimpl_tex_coord_ptr[glimpl_client_active_texture].in_use
+        .in_use = glimpl_tex_coord_ptr[glimpl_client_active_texture].in_use,
+        .client_managed = glimpl_array_buffer_binding == 0
     };
 }
 
@@ -2134,7 +2531,8 @@ void glVertexPointer(GLint size, GLenum type, GLsizei stride, const void* pointe
         .type = type,
         .stride = stride,
         .pointer = pointer,
-        .in_use = glimpl_vertex_ptr.in_use
+        .in_use = glimpl_vertex_ptr.in_use,
+        .client_managed = glimpl_array_buffer_binding == 0
     };
 }
 
@@ -2324,6 +2722,7 @@ void glStencilOp(GLenum fail, GLenum zfail, GLenum zpass)
 
 void glPixelStoref(GLenum pname, GLfloat param)
 {
+    glimpl_set_pixel_store(pname, (GLint)param);
     pb_push(SGL_CMD_PIXELSTOREF);
     pb_push(pname);
     pb_pushf(param);
@@ -2331,6 +2730,7 @@ void glPixelStoref(GLenum pname, GLfloat param)
 
 void glPixelStorei(GLenum pname, GLint param)
 {
+    glimpl_set_pixel_store(pname, param);
     pb_push(SGL_CMD_PIXELSTOREI);
     pb_push(pname);
     pb_push(param);
@@ -4414,6 +4814,8 @@ GLboolean glIsVertexArray(GLuint array)
 
 void glDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount)
 {
+    glimpl_push_client_managed_draw_state(0, first + count);
+
     pb_push(SGL_CMD_DRAWARRAYSINSTANCED);
     pb_push(mode);
     pb_push(first);
@@ -5072,14 +5474,17 @@ void glScissorIndexed(GLuint index, GLint left, GLint bottom, GLsizei width, GLs
 
 void glDepthRangeIndexed(GLuint index, GLdouble n, GLdouble f)
 {
+    const GLdouble range[2] = { n, f };
+
+    glimpl_upload_buffer(range, sizeof(range));
     pb_push(SGL_CMD_DEPTHRANGEINDEXED);
     pb_push(index);
-    pb_pushf(n);
-    pb_pushf(f);
 }
 
 void glDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance)
 {
+    glimpl_push_client_managed_draw_state(0, first + count);
+
     pb_push(SGL_CMD_DRAWARRAYSINSTANCEDBASEINSTANCE);
     pb_push(mode);
     pb_push(first);
@@ -5280,7 +5685,7 @@ void glBindVertexBuffer(GLuint bindingindex, GLuint buffer, GLintptr offset, GLs
     pb_push(SGL_CMD_BINDVERTEXBUFFER);
     pb_push(bindingindex);
     pb_push(buffer);
-    pb_push(offset);
+    pb_push64(offset);
     pb_push(stride);
 }
 
@@ -5636,6 +6041,10 @@ void glEnableVertexArrayAttrib(GLuint vaobj, GLuint index)
 
 void glVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
 {
+    struct gl_vertex_array_binding_state *state = glimpl_get_vertex_array_binding(vaobj, true);
+    if (state != NULL)
+        state->element_array_buffer = buffer;
+
     pb_push(SGL_CMD_VERTEXARRAYELEMENTBUFFER);
     pb_push(vaobj);
     pb_push(buffer);
@@ -5647,7 +6056,7 @@ void glVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer,
     pb_push(vaobj);
     pb_push(bindingindex);
     pb_push(buffer);
-    pb_push(offset);
+    pb_push64(offset);
     pb_push(stride);
 }
 
@@ -7533,7 +7942,7 @@ void glGetVertexAttribiv(GLuint index, GLenum pname, GLint* params)
 
 void glGetVertexAttribPointerv(GLuint index, GLenum pname, void* *pointer)
 {
-    *pointer = glimpl_vaps[index].ptr;
+    *pointer = (void*)glimpl_vaps[index].ptr;
 }
 
 void glUniformMatrix2fv(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value)
@@ -7934,17 +8343,18 @@ void* glMapBufferRange(GLenum target, GLintptr offset, GLsizeiptr length, GLbitf
 
 void glDrawElementsInstanced(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount)
 {
-    if (!is_value_likely_an_offset(indices)) {
-        fprintf(stderr, "glDrawElementsInstanced: indices isn't an offset, fallback to glDrawElements\n");
-        glDrawElements(mode, count, type, indices);
+    bool use_upload;
+    uint64_t index_pointer;
+
+    if (!glimpl_prepare_draw_elements(count, type, indices, -1, &use_upload, &index_pointer))
         return;
-    }
 
     pb_push(SGL_CMD_DRAWELEMENTSINSTANCED);
     pb_push(mode);
     pb_push(count);
     pb_push(type);
-    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push64(index_pointer);
+    pb_push(use_upload);
     pb_push(instancecount);
 }
 
@@ -8040,30 +8450,29 @@ void glGetActiveUniformBlockName(GLuint program, GLuint uniformBlockIndex, GLsiz
 
 void glDrawElementsBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLint basevertex)
 {
-    if (!is_value_likely_an_offset(indices)) {
-        fprintf(stderr, "glDrawElementsBaseVertex: indices isn't an offset, fallback to glDrawElements\n");
-        glDrawElements(mode, count, type, indices);
+    bool use_upload;
+    uint64_t index_pointer;
+
+    if (!glimpl_prepare_draw_elements(count, type, indices, -1, &use_upload, &index_pointer))
         return;
-    }
 
     pb_push(SGL_CMD_DRAWELEMENTSBASEVERTEX);
     pb_push(mode);
     pb_push(count);
     pb_push(type);
-    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push64(index_pointer);
+    pb_push(use_upload);
     pb_push(basevertex);
 }
 
 void glDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void* indices, GLint basevertex)
 {
-    if (!is_value_likely_an_offset(indices)) {
-        fprintf(stderr, "glDrawRangeElementsBaseVertex: indices isn't an offset, fallback to glDrawElements\n");
-        glDrawElements(mode, count, type, indices);
-        return;
-    }
+    bool use_upload;
+    uint64_t index_pointer;
+    int upload_hint = (int)end + MAX(basevertex, 0) + 1;
 
-    glimpl_push_vertex_attrib_pointers(count);
-    glimpl_push_client_pointers(mode, count);
+    if (!glimpl_prepare_draw_elements(count, type, indices, upload_hint, &use_upload, &index_pointer))
+        return;
 
     pb_push(SGL_CMD_DRAWRANGEELEMENTSBASEVERTEX);
     pb_push(mode);
@@ -8071,23 +8480,25 @@ void glDrawRangeElementsBaseVertex(GLenum mode, GLuint start, GLuint end, GLsize
     pb_push(end);
     pb_push(count);
     pb_push(type);
-    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push64(index_pointer);
+    pb_push(use_upload);
     pb_push(basevertex);
 }
 
 void glDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex)
 {
-    if (!is_value_likely_an_offset(indices)) {
-        fprintf(stderr, "glDrawElementsInstancedBaseVertex: indices isn't an offset, fallback to glDrawElements\n");
-        glDrawElements(mode, count, type, indices);
+    bool use_upload;
+    uint64_t index_pointer;
+
+    if (!glimpl_prepare_draw_elements(count, type, indices, -1, &use_upload, &index_pointer))
         return;
-    }
 
     pb_push(SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEX);
     pb_push(mode);
     pb_push(count);
     pb_push(type);
-    pb_push((uint32_t)(uintptr_t)indices);
+    pb_push64(index_pointer);
+    pb_push(use_upload);
     pb_push(instancecount);
     pb_push(basevertex);
 }
@@ -8365,7 +8776,7 @@ void glSecondaryColorP3uiv(GLenum type, const GLuint* color)
 
 void glVertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer)
 {
-    bool client_managed = !is_value_likely_an_offset(pointer);
+    bool client_managed = glimpl_array_buffer_binding == 0;
 
     glimpl_vaps[index] = (struct gl_vertex_attrib_pointer){ 
         .index = index,
@@ -8374,41 +8785,37 @@ void glVertexAttribIPointer(GLuint index, GLint size, GLenum type, GLsizei strid
         .normalized = GL_FALSE,
         .stride = stride,
         .ptr = (void*)pointer,
-        .enabled = false,
+        .kind = GLIMPL_VERTEX_ATTRIB_POINTER_INT,
+        .enabled = glimpl_vaps[index].enabled,
         .client_managed = client_managed
     };
 
-    // if (!client_managed) {
+    if (!client_managed) {
         pb_push(SGL_CMD_VERTEXATTRIBIPOINTER);
         pb_push(index);
         pb_push(size);
         pb_push(type);
         pb_push(stride);
-        pb_push((int)((uintptr_t)pointer));
-    // }
+        pb_push64((int64_t)(uintptr_t)pointer);
+        pb_push(false);
+    }
 }
 
 void glDrawArraysIndirect(GLenum mode, const void* indirect)
 {
-    /*
-     * to-do: instead of using this function, check if GL_DRAW_INDIRECT_BUFFER is bound
-     */
-    if (!is_value_likely_an_offset(indirect)) {
+    if (glimpl_draw_indirect_buffer_binding == 0) {
         fprintf(stderr, "glDrawArraysIndirect: expected GL_DRAW_INDIRECT_BUFFER\n");
         return;
     }
     
     pb_push(SGL_CMD_DRAWARRAYSINDIRECT);
     pb_push(mode);
-    pb_push((int)(uintptr_t)indirect);
+    pb_push64((int64_t)(uintptr_t)indirect);
 }
 
 void glDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect)
 {
-    /*
-     * to-do: instead of using this function, check if GL_DRAW_INDIRECT_BUFFER is bound
-     */
-    if (!is_value_likely_an_offset(indirect)) {
+    if (glimpl_draw_indirect_buffer_binding == 0) {
         fprintf(stderr, "glDrawElementsIndirect: expected GL_DRAW_INDIRECT_BUFFER\n");
         return;
     }
@@ -8416,7 +8823,7 @@ void glDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect)
     pb_push(SGL_CMD_DRAWELEMENTSINDIRECT);
     pb_push(mode);
     pb_push(type);
-    pb_push((int)(uintptr_t)indirect);
+    pb_push64((int64_t)(uintptr_t)indirect);
 }
 
 void glUniformMatrix2dv(GLint location, GLsizei count, GLboolean transpose, const GLdouble* value)
@@ -8714,6 +9121,9 @@ GLuint glCreateShaderProgramv(GLenum type, GLsizei count, const GLchar* const*st
     pb_push(type);
     pb_push(count);
 
+    for (int i = 0; i < count; i++)
+        push_counted_string(strings[i], strlen(strings[i]));
+
     glimpl_submit();
     return pb_read(SGL_OFFSET_REGISTER_RETVAL);
 }
@@ -8970,7 +9380,7 @@ void glGetProgramPipelineInfoLog(GLuint pipeline, GLsizei bufSize, GLsizei* leng
 
 void glVertexAttribLPointer(GLuint index, GLint size, GLenum type, GLsizei stride, const void* pointer)
 {
-    bool client_managed = !is_value_likely_an_offset(pointer);
+    bool client_managed = glimpl_array_buffer_binding == 0;
 
     glimpl_vaps[index] = (struct gl_vertex_attrib_pointer){ 
         .index = index,
@@ -8979,18 +9389,20 @@ void glVertexAttribLPointer(GLuint index, GLint size, GLenum type, GLsizei strid
         .normalized = GL_FALSE,
         .stride = stride,
         .ptr = (void*)pointer,
-        .enabled = false,
+        .kind = GLIMPL_VERTEX_ATTRIB_POINTER_LONG,
+        .enabled = glimpl_vaps[index].enabled,
         .client_managed = client_managed
     };
 
-    // if (!client_managed) {
+    if (!client_managed) {
         pb_push(SGL_CMD_VERTEXATTRIBLPOINTER);
         pb_push(index);
         pb_push(size);
         pb_push(type);
         pb_push(stride);
-        pb_push((int)((uintptr_t)pointer));
-    // }
+        pb_push64((int64_t)(uintptr_t)pointer);
+        pb_push(false);
+    }
 }
 
 void glGetVertexAttribLdv(GLuint index, GLenum pname, GLdouble* params)
@@ -9018,10 +9430,7 @@ void glViewportIndexedfv(GLuint index, const GLfloat* v)
 
 void glScissorArrayv(GLuint first, GLsizei count, const GLint* v)
 {
-    pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(count * 4);
-    for (int i = 0; i < count * 4; i++)
-        pb_pushf(v[i]);
+    glimpl_upload_buffer(v, (size_t)count * 4 * sizeof(*v));
 
     pb_push(SGL_CMD_SCISSORARRAYV);
     pb_push(first);
@@ -9030,10 +9439,7 @@ void glScissorArrayv(GLuint first, GLsizei count, const GLint* v)
 
 void glScissorIndexedv(GLuint index, const GLint* v)
 {
-    pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(4);
-    for (int i = 0; i < 4; i++)
-        pb_pushf(v[i]);
+    glimpl_upload_buffer(v, 4 * sizeof(*v));
 
     pb_push(SGL_CMD_SCISSORINDEXEDV);
     pb_push(index);
@@ -9041,10 +9447,7 @@ void glScissorIndexedv(GLuint index, const GLint* v)
 
 void glDepthRangeArrayv(GLuint first, GLsizei count, const GLdouble* v)
 {
-    pb_push(SGL_CMD_VP_UPLOAD);
-    pb_push(count * 2);
-    for (int i = 0; i < count * 2; i++)
-        pb_pushf(v[i]);
+    glimpl_upload_buffer(v, (size_t)count * 2 * sizeof(*v));
 
     pb_push(SGL_CMD_DEPTHRANGEARRAYV);
     pb_push(first);
@@ -9073,35 +9476,36 @@ void glGetDoublei_v(GLenum target, GLuint index, GLdouble* data)
 
 void glDrawElementsInstancedBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLuint baseinstance)
 {
-    /*
-     * to-do: check if GL_ELEMENT_ARRAY_BUFFER is bound
-     */
-    if (!is_value_likely_an_offset(indices)) {
-        fprintf(stderr, "glDrawElementsInstancedBaseInstance: expected GL_ELEMENT_ARRAY_BUFFER\n");
+    bool use_upload;
+    uint64_t index_pointer;
+
+    if (!glimpl_prepare_draw_elements(count, type, indices, -1, &use_upload, &index_pointer))
         return;
-    }
 
     pb_push(SGL_CMD_DRAWELEMENTSINSTANCEDBASEINSTANCE);
     pb_push(mode);
     pb_push(count);
     pb_push(type);
-    pb_push((uintptr_t)indices);
+    pb_push64(index_pointer);
+    pb_push(use_upload);
     pb_push(instancecount);
     pb_push(baseinstance);
 }
 
 void glDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance)
 {
-    if (!is_value_likely_an_offset(indices)) {
-        fprintf(stderr, "glDrawElementsInstancedBaseVertexBaseInstance: expected GL_ELEMENT_ARRAY_BUFFER\n");
+    bool use_upload;
+    uint64_t index_pointer;
+
+    if (!glimpl_prepare_draw_elements(count, type, indices, -1, &use_upload, &index_pointer))
         return;
-    }
 
     pb_push(SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCE);
     pb_push(mode);
     pb_push(count);
     pb_push(type);
-    pb_push((uintptr_t)indices);
+    pb_push64(index_pointer);
+    pb_push(use_upload);
     pb_push(instancecount);
     pb_push(basevertex);
     pb_push(baseinstance);
@@ -9182,14 +9586,18 @@ void glInvalidateSubFramebuffer(GLenum target, GLsizei numAttachments, const GLe
 
 void glMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride)
 {
+    size_t actual_stride = stride != 0 ? (size_t)stride : sizeof(GLuint) * 4;
+
     for (int i = 0; i < drawcount; i++)
-        glDrawArraysIndirect(mode, (char *)indirect + i * stride);
+        glDrawArraysIndirect(mode, (const char *)indirect + i * actual_stride);
 }
 
 void glMultiDrawElementsIndirect(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride)
 {
+    size_t actual_stride = stride != 0 ? (size_t)stride : sizeof(GLuint) * 5;
+
     for (int i = 0; i < drawcount; i++)
-        glDrawElementsIndirect(mode, type, (char *)indirect + i * stride);
+        glDrawElementsIndirect(mode, type, (const char *)indirect + i * actual_stride);
 }
 
 void glGetProgramInterfaceiv(GLuint program, GLenum programInterface, GLenum pname, GLint* params)
@@ -9422,7 +9830,7 @@ void glBindVertexBuffers(GLuint first, GLsizei count, const GLuint* buffers, con
     pb_push(count);
     for (int i = 0; i < count; i++) {
         pb_push(buffers[i]);
-        pb_push(offsets[i]);
+        pb_push64(offsets[i]);
         pb_push(strides[i]);
     }
 }
@@ -9764,7 +10172,7 @@ void glVertexArrayVertexBuffers(GLuint vaobj, GLuint first, GLsizei count, const
     pb_push(count);
     for (int i = 0; i < count; i++) {
         pb_push(buffers[i]);
-        pb_push(offsets[i]);
+        pb_push64(offsets[i]);
         pb_push(strides[i]);
     }
 }
@@ -9950,6 +10358,403 @@ void glGetnMinmax(GLenum target, GLboolean reset, GLenum format, GLenum type, GL
     STUB();
 }
 
+#define GLIMPL_ALIAS_VOID_1(name, target, t1, a1) \
+    void name(t1 a1) { target(a1); }
+#define GLIMPL_ALIAS_VOID_2(name, target, t1, a1, t2, a2) \
+    void name(t1 a1, t2 a2) { target(a1, a2); }
+#define GLIMPL_ALIAS_VOID_3(name, target, t1, a1, t2, a2, t3, a3) \
+    void name(t1 a1, t2 a2, t3 a3) { target(a1, a2, a3); }
+#define GLIMPL_ALIAS_VOID_4(name, target, t1, a1, t2, a2, t3, a3, t4, a4) \
+    void name(t1 a1, t2 a2, t3 a3, t4 a4) { target(a1, a2, a3, a4); }
+#define GLIMPL_ALIAS_VOID_5(name, target, t1, a1, t2, a2, t3, a3, t4, a4, t5, a5) \
+    void name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5) { target(a1, a2, a3, a4, a5); }
+#define GLIMPL_ALIAS_VOID_6(name, target, t1, a1, t2, a2, t3, a3, t4, a4, t5, a5, t6, a6) \
+    void name(t1 a1, t2 a2, t3 a3, t4 a4, t5 a5, t6 a6) { target(a1, a2, a3, a4, a5, a6); }
+
+GLIMPL_ALIAS_VOID_2(glDrawBuffersARB, glDrawBuffers, GLsizei, n, const GLenum*, bufs)
+GLIMPL_ALIAS_VOID_4(glBlendColorEXT, glBlendColor, GLfloat, red, GLfloat, green, GLfloat, blue, GLfloat, alpha)
+GLIMPL_ALIAS_VOID_1(glBlendEquationEXT, glBlendEquation, GLenum, mode)
+GLIMPL_ALIAS_VOID_2(glBlendEquationSeparateEXT, glBlendEquationSeparate, GLenum, modeRGB, GLenum, modeAlpha)
+GLIMPL_ALIAS_VOID_4(glBlendFuncSeparateEXT, glBlendFuncSeparate, GLenum, srcRGB, GLenum, dstRGB, GLenum, srcAlpha, GLenum, dstAlpha)
+GLIMPL_ALIAS_VOID_2(glBlendEquationiARB, glBlendEquationi, GLuint, buf, GLenum, mode)
+GLIMPL_ALIAS_VOID_3(glBlendEquationSeparateiARB, glBlendEquationSeparatei, GLuint, buf, GLenum, modeRGB, GLenum, modeAlpha)
+GLIMPL_ALIAS_VOID_3(glBlendFunciARB, glBlendFunci, GLuint, buf, GLenum, src, GLenum, dst)
+GLIMPL_ALIAS_VOID_5(glBlendFuncSeparateiARB, glBlendFuncSeparatei, GLuint, buf, GLenum, srcRGB, GLenum, dstRGB, GLenum, srcAlpha, GLenum, dstAlpha)
+GLIMPL_ALIAS_VOID_2(glBlendEquationiEXT, glBlendEquationi, GLuint, buf, GLenum, mode)
+GLIMPL_ALIAS_VOID_3(glBlendEquationSeparateiEXT, glBlendEquationSeparatei, GLuint, buf, GLenum, modeRGB, GLenum, modeAlpha)
+GLIMPL_ALIAS_VOID_3(glBlendFunciEXT, glBlendFunci, GLuint, buf, GLenum, src, GLenum, dst)
+GLIMPL_ALIAS_VOID_5(glBlendFuncSeparateiEXT, glBlendFuncSeparatei, GLuint, buf, GLenum, srcRGB, GLenum, dstRGB, GLenum, srcAlpha, GLenum, dstAlpha)
+
+void glTextureBarrierNV(void)
+{
+    glTextureBarrier();
+}
+
+GLIMPL_ALIAS_VOID_3(glPolygonOffsetClampEXT, glPolygonOffsetClamp, GLfloat, factor, GLfloat, units, GLfloat, clamp)
+
+void glDrawArraysInstancedARB(GLenum mode, GLint first, GLsizei count, GLsizei primcount)
+{
+    glDrawArraysInstanced(mode, first, count, primcount);
+}
+
+void glDrawElementsInstancedARB(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei primcount)
+{
+    glDrawElementsInstanced(mode, count, type, indices, primcount);
+}
+
+void glDrawArraysInstancedEXT(GLenum mode, GLint first, GLsizei count, GLsizei primcount)
+{
+    glDrawArraysInstanced(mode, first, count, primcount);
+}
+
+void glDrawElementsInstancedEXT(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei primcount)
+{
+    glDrawElementsInstanced(mode, count, type, indices, primcount);
+}
+
+void glMultiDrawArraysEXT(GLenum mode, const GLint *first, const GLsizei *count, GLsizei primcount)
+{
+    glMultiDrawArrays(mode, first, count, primcount);
+}
+
+void glMultiDrawElementsEXT(GLenum mode, const GLsizei *count, GLenum type, const void *const *indices, GLsizei primcount)
+{
+    glMultiDrawElements(mode, count, type, indices, primcount);
+}
+
+void glMultiDrawArraysIndirectEXT(GLenum mode, const void *indirect, GLsizei drawcount, GLsizei stride)
+{
+    glMultiDrawArraysIndirect(mode, indirect, drawcount, stride);
+}
+
+void glMultiDrawElementsIndirectEXT(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride)
+{
+    glMultiDrawElementsIndirect(mode, type, indirect, drawcount, stride);
+}
+
+void glDrawRangeElementsEXT(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices)
+{
+    glDrawRangeElements(mode, start, end, count, type, indices);
+}
+
+void glVertexAttribDivisorARB(GLuint index, GLuint divisor)
+{
+    glVertexAttribDivisor(index, divisor);
+}
+
+void glVertexAttribDivisorEXT(GLuint index, GLuint divisor)
+{
+    glVertexAttribDivisor(index, divisor);
+}
+
+void glTexImage3DEXT(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLenum format, GLenum type, const void *pixels)
+{
+    glTexImage3D(target, level, internalformat, width, height, depth, border, format, type, pixels);
+}
+
+void glTexSubImage3DEXT(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
+{
+    glTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
+}
+
+void glCopyTexSubImage3DEXT(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
+{
+    glCopyTexSubImage3D(target, level, xoffset, yoffset, zoffset, x, y, width, height);
+}
+
+void glDrawElementsBaseVertexEXT(GLenum mode, GLsizei count, GLenum type, const void *indices, GLint basevertex)
+{
+    glDrawElementsBaseVertex(mode, count, type, indices, basevertex);
+}
+
+void glDrawRangeElementsBaseVertexEXT(GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const void *indices, GLint basevertex)
+{
+    glDrawRangeElementsBaseVertex(mode, start, end, count, type, indices, basevertex);
+}
+
+void glDrawElementsInstancedBaseVertexEXT(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex)
+{
+    glDrawElementsInstancedBaseVertex(mode, count, type, indices, instancecount, basevertex);
+}
+
+void glMultiDrawElementsBaseVertexEXT(GLenum mode, const GLsizei *count, GLenum type, const void *const *indices, GLsizei drawcount, const GLint *basevertex)
+{
+    glMultiDrawElementsBaseVertex(mode, count, type, indices, drawcount, basevertex);
+}
+
+GLIMPL_ALIAS_VOID_2(glBeginQueryARB, glBeginQuery, GLenum, target, GLuint, id)
+GLIMPL_ALIAS_VOID_1(glEndQueryARB, glEndQuery, GLenum, target)
+GLIMPL_ALIAS_VOID_3(glGetQueryivARB, glGetQueryiv, GLenum, target, GLenum, pname, GLint*, params)
+GLIMPL_ALIAS_VOID_3(glGetQueryObjectivARB, glGetQueryObjectiv, GLuint, id, GLenum, pname, GLint*, params)
+GLIMPL_ALIAS_VOID_3(glGetQueryObjectuivARB, glGetQueryObjectuiv, GLuint, id, GLenum, pname, GLuint*, params)
+GLIMPL_ALIAS_VOID_2(glBeginQueryEXT, glBeginQuery, GLenum, target, GLuint, id)
+GLIMPL_ALIAS_VOID_1(glEndQueryEXT, glEndQuery, GLenum, target)
+GLIMPL_ALIAS_VOID_3(glGetQueryivEXT, glGetQueryiv, GLenum, target, GLenum, pname, GLint*, params)
+GLIMPL_ALIAS_VOID_3(glGetQueryObjectuivEXT, glGetQueryObjectuiv, GLuint, id, GLenum, pname, GLuint*, params)
+GLIMPL_ALIAS_VOID_3(glGetQueryObjecti64vEXT, glGetQueryObjecti64v, GLuint, id, GLenum, pname, GLint64*, params)
+GLIMPL_ALIAS_VOID_3(glGetQueryObjectui64vEXT, glGetQueryObjectui64v, GLuint, id, GLenum, pname, GLuint64*, params)
+GLboolean glIsQueryARB(GLuint id)
+{
+    return glIsQuery(id);
+}
+
+GLboolean glIsQueryEXT(GLuint id)
+{
+    return glIsQuery(id);
+}
+
+void glDeleteQueriesEXT(GLsizei n, const GLuint *ids)
+{
+    glDeleteQueries(n, ids);
+}
+
+void glGenQueriesEXT(GLsizei n, GLuint *ids)
+{
+    glGenQueries(n, ids);
+}
+
+GLboolean glIsBufferARB(GLuint buffer)
+{
+    return glIsBuffer(buffer);
+}
+
+void glGetBufferSubDataARB(GLenum target, GLintptr offset, GLsizeiptr size, void *data)
+{
+    glGetBufferSubData(target, offset, size, data);
+}
+
+GLboolean glUnmapBufferARB(GLenum target)
+{
+    return glUnmapBuffer(target);
+}
+
+void glGetBufferParameterivARB(GLenum target, GLenum pname, GLint *params)
+{
+    glGetBufferParameteriv(target, pname, params);
+}
+
+void glGetBufferPointervARB(GLenum target, GLenum pname, void **params)
+{
+    glGetBufferPointerv(target, pname, params);
+}
+
+void* glMapBufferRangeEXT(GLenum target, GLintptr offset, GLsizeiptr length, GLbitfield access)
+{
+    return glMapBufferRange(target, offset, length, access);
+}
+
+GLIMPL_ALIAS_VOID_3(glFlushMappedBufferRangeEXT, glFlushMappedBufferRange, GLenum, target, GLintptr, offset, GLsizeiptr, length)
+
+GLhandleARB glGetHandleARB(GLenum pname)
+{
+    if (pname == GL_PROGRAM_OBJECT_ARB) {
+        GLint program = 0;
+        glGetIntegerv(GL_CURRENT_PROGRAM, &program);
+        return program;
+    }
+
+    return 0;
+}
+
+void glUseProgramObjectARB(GLhandleARB programObj)
+{
+    glUseProgram(programObj);
+}
+
+void glValidateProgramARB(GLhandleARB programObj)
+{
+    glValidateProgram(programObj);
+}
+
+GLIMPL_ALIAS_VOID_2(glUniform1fARB, glUniform1f, GLint, location, GLfloat, v0)
+GLIMPL_ALIAS_VOID_3(glUniform2fARB, glUniform2f, GLint, location, GLfloat, v0, GLfloat, v1)
+GLIMPL_ALIAS_VOID_4(glUniform3fARB, glUniform3f, GLint, location, GLfloat, v0, GLfloat, v1, GLfloat, v2)
+GLIMPL_ALIAS_VOID_5(glUniform4fARB, glUniform4f, GLint, location, GLfloat, v0, GLfloat, v1, GLfloat, v2, GLfloat, v3)
+GLIMPL_ALIAS_VOID_3(glUniform1fvARB, glUniform1fv, GLint, location, GLsizei, count, const GLfloat*, value)
+GLIMPL_ALIAS_VOID_3(glUniform2fvARB, glUniform2fv, GLint, location, GLsizei, count, const GLfloat*, value)
+GLIMPL_ALIAS_VOID_3(glUniform3fvARB, glUniform3fv, GLint, location, GLsizei, count, const GLfloat*, value)
+GLIMPL_ALIAS_VOID_3(glUniform4fvARB, glUniform4fv, GLint, location, GLsizei, count, const GLfloat*, value)
+GLIMPL_ALIAS_VOID_3(glUniform2iARB, glUniform2i, GLint, location, GLint, v0, GLint, v1)
+GLIMPL_ALIAS_VOID_4(glUniform3iARB, glUniform3i, GLint, location, GLint, v0, GLint, v1, GLint, v2)
+GLIMPL_ALIAS_VOID_5(glUniform4iARB, glUniform4i, GLint, location, GLint, v0, GLint, v1, GLint, v2, GLint, v3)
+GLIMPL_ALIAS_VOID_3(glUniform1ivARB, glUniform1iv, GLint, location, GLsizei, count, const GLint*, value)
+GLIMPL_ALIAS_VOID_3(glUniform2ivARB, glUniform2iv, GLint, location, GLsizei, count, const GLint*, value)
+GLIMPL_ALIAS_VOID_3(glUniform3ivARB, glUniform3iv, GLint, location, GLsizei, count, const GLint*, value)
+GLIMPL_ALIAS_VOID_3(glUniform4ivARB, glUniform4iv, GLint, location, GLsizei, count, const GLint*, value)
+GLIMPL_ALIAS_VOID_4(glUniformMatrix2fvARB, glUniformMatrix2fv, GLint, location, GLsizei, count, GLboolean, transpose, const GLfloat*, value)
+GLIMPL_ALIAS_VOID_4(glUniformMatrix3fvARB, glUniformMatrix3fv, GLint, location, GLsizei, count, GLboolean, transpose, const GLfloat*, value)
+GLIMPL_ALIAS_VOID_4(glUniformMatrix4fvARB, glUniformMatrix4fv, GLint, location, GLsizei, count, GLboolean, transpose, const GLfloat*, value)
+
+void glGetAttachedObjectsARB(GLhandleARB containerObj, GLsizei maxCount, GLsizei *count, GLhandleARB *obj)
+{
+    glGetAttachedShaders(containerObj, maxCount, count, (GLuint*)obj);
+}
+
+void glGetActiveUniformARB(GLhandleARB programObj, GLuint index, GLsizei maxLength, GLsizei *length, GLint *size, GLenum *type, GLcharARB *name)
+{
+    glGetActiveUniform(programObj, index, maxLength, length, size, type, name);
+}
+
+void glGetUniformfvARB(GLhandleARB programObj, GLint location, GLfloat *params)
+{
+    glGetUniformfv(programObj, location, params);
+}
+
+void glGetUniformivARB(GLhandleARB programObj, GLint location, GLint *params)
+{
+    glGetUniformiv(programObj, location, params);
+}
+
+void glGetShaderSourceARB(GLhandleARB obj, GLsizei maxLength, GLsizei *length, GLcharARB *source)
+{
+    glGetShaderSource(obj, maxLength, length, source);
+}
+
+void glGetObjectParameterfvARB(GLhandleARB obj, GLenum pname, GLfloat *params)
+{
+    GLint iparam = 0;
+
+    glGetObjectParameterivARB(obj, pname, &iparam);
+    *params = (GLfloat)iparam;
+}
+
+void glProgramParameteriARB(GLuint program, GLenum pname, GLint value)
+{
+    glProgramParameteri(program, pname, value);
+}
+
+void glProgramParameteriEXT(GLuint program, GLenum pname, GLint value)
+{
+    glProgramParameteri(program, pname, value);
+}
+
+void glFramebufferTextureARB(GLenum target, GLenum attachment, GLuint texture, GLint level)
+{
+    glFramebufferTexture(target, attachment, texture, level);
+}
+
+void glFramebufferTextureEXT(GLenum target, GLenum attachment, GLuint texture, GLint level)
+{
+    glFramebufferTexture(target, attachment, texture, level);
+}
+
+void glFramebufferTextureLayerARB(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer)
+{
+    glFramebufferTextureLayer(target, attachment, texture, level, layer);
+}
+
+void glFramebufferTextureFaceARB(GLenum target, GLenum attachment, GLuint texture, GLint level, GLenum face)
+{
+    glFramebufferTexture2D(target, attachment, face, texture, level);
+}
+
+void glFramebufferTextureFaceEXT(GLenum target, GLenum attachment, GLuint texture, GLint level, GLenum face)
+{
+    glFramebufferTexture2D(target, attachment, face, texture, level);
+}
+
+void glBindFragDataLocationEXT(GLuint program, GLuint color, const GLchar *name)
+{
+    glBindFragDataLocation(program, color, name);
+}
+
+GLint glGetFragDataLocationEXT(GLuint program, const GLchar *name)
+{
+    return glGetFragDataLocation(program, name);
+}
+
+void glTexBufferARB(GLenum target, GLenum internalformat, GLuint buffer)
+{
+    glTexBuffer(target, internalformat, buffer);
+}
+
+void glDrawTransformFeedbackEXT(GLenum mode, GLuint id)
+{
+    glDrawTransformFeedback(mode, id);
+}
+
+void glCompressedTexImage3DARB(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLint border, GLsizei imageSize, const void *data)
+{
+    glCompressedTexImage3D(target, level, internalformat, width, height, depth, border, imageSize, data);
+}
+
+void glCompressedTexImage2DARB(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLsizei height, GLint border, GLsizei imageSize, const void *data)
+{
+    glCompressedTexImage2D(target, level, internalformat, width, height, border, imageSize, data);
+}
+
+void glCompressedTexImage1DARB(GLenum target, GLint level, GLenum internalformat, GLsizei width, GLint border, GLsizei imageSize, const void *data)
+{
+    glCompressedTexImage1D(target, level, internalformat, width, border, imageSize, data);
+}
+
+void glCompressedTexSubImage3DARB(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data)
+{
+    glCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
+}
+
+void glCompressedTexSubImage2DARB(GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data)
+{
+    glCompressedTexSubImage2D(target, level, xoffset, yoffset, width, height, format, imageSize, data);
+}
+
+void glCompressedTexSubImage1DARB(GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void *data)
+{
+    glCompressedTexSubImage1D(target, level, xoffset, width, format, imageSize, data);
+}
+
+void glGetCompressedTexImageARB(GLenum target, GLint level, void *img)
+{
+    glGetCompressedTexImage(target, level, img);
+}
+
+GLIMPL_ALIAS_VOID_2(glPointParameterfARB, glPointParameterf, GLenum, pname, GLfloat, param)
+GLIMPL_ALIAS_VOID_2(glPointParameterfvARB, glPointParameterfv, GLenum, pname, const GLfloat*, params)
+
+#define GLIMPL_ALIAS_MULTITEXCOORD1_ARB(suffix, type) \
+    void glMultiTexCoord1##suffix##ARB(GLenum target, type s) { glMultiTexCoord1##suffix(target, s); } \
+    void glMultiTexCoord1##suffix##vARB(GLenum target, const type *v) { glMultiTexCoord1##suffix##v(target, v); }
+#define GLIMPL_ALIAS_MULTITEXCOORD2_ARB(suffix, type) \
+    void glMultiTexCoord2##suffix##ARB(GLenum target, type s, type t) { glMultiTexCoord2##suffix(target, s, t); } \
+    void glMultiTexCoord2##suffix##vARB(GLenum target, const type *v) { glMultiTexCoord2##suffix##v(target, v); }
+#define GLIMPL_ALIAS_MULTITEXCOORD3_ARB(suffix, type) \
+    void glMultiTexCoord3##suffix##ARB(GLenum target, type s, type t, type r) { glMultiTexCoord3##suffix(target, s, t, r); } \
+    void glMultiTexCoord3##suffix##vARB(GLenum target, const type *v) { glMultiTexCoord3##suffix##v(target, v); }
+#define GLIMPL_ALIAS_MULTITEXCOORD4_ARB(suffix, type) \
+    void glMultiTexCoord4##suffix##ARB(GLenum target, type s, type t, type r, type q) { glMultiTexCoord4##suffix(target, s, t, r, q); } \
+    void glMultiTexCoord4##suffix##vARB(GLenum target, const type *v) { glMultiTexCoord4##suffix##v(target, v); }
+
+GLIMPL_ALIAS_MULTITEXCOORD1_ARB(d, GLdouble)
+GLIMPL_ALIAS_MULTITEXCOORD1_ARB(f, GLfloat)
+GLIMPL_ALIAS_MULTITEXCOORD1_ARB(i, GLint)
+GLIMPL_ALIAS_MULTITEXCOORD1_ARB(s, GLshort)
+GLIMPL_ALIAS_MULTITEXCOORD2_ARB(d, GLdouble)
+GLIMPL_ALIAS_MULTITEXCOORD2_ARB(i, GLint)
+GLIMPL_ALIAS_MULTITEXCOORD2_ARB(s, GLshort)
+void glMultiTexCoord2fvARB(GLenum target, const GLfloat *v)
+{
+    glMultiTexCoord2fv(target, v);
+}
+GLIMPL_ALIAS_MULTITEXCOORD3_ARB(d, GLdouble)
+GLIMPL_ALIAS_MULTITEXCOORD3_ARB(f, GLfloat)
+GLIMPL_ALIAS_MULTITEXCOORD3_ARB(i, GLint)
+GLIMPL_ALIAS_MULTITEXCOORD3_ARB(s, GLshort)
+GLIMPL_ALIAS_MULTITEXCOORD4_ARB(d, GLdouble)
+GLIMPL_ALIAS_MULTITEXCOORD4_ARB(f, GLfloat)
+GLIMPL_ALIAS_MULTITEXCOORD4_ARB(i, GLint)
+GLIMPL_ALIAS_MULTITEXCOORD4_ARB(s, GLshort)
+
+#undef GLIMPL_ALIAS_MULTITEXCOORD1_ARB
+#undef GLIMPL_ALIAS_MULTITEXCOORD2_ARB
+#undef GLIMPL_ALIAS_MULTITEXCOORD3_ARB
+#undef GLIMPL_ALIAS_MULTITEXCOORD4_ARB
+#undef GLIMPL_ALIAS_VOID_1
+#undef GLIMPL_ALIAS_VOID_2
+#undef GLIMPL_ALIAS_VOID_3
+#undef GLIMPL_ALIAS_VOID_4
+#undef GLIMPL_ALIAS_VOID_5
+#undef GLIMPL_ALIAS_VOID_6
+
 void glAttachObjectARB(GLhandleARB containerObj, GLhandleARB obj)
 {
     pb_push(SGL_CMD_ATTACHOBJECTARB);
@@ -9967,9 +10772,7 @@ void glBindAttribLocationARB(GLhandleARB programObj, GLuint index, const GLcharA
 
 void glBindBufferARB(GLenum target, GLuint buffer)
 {
-    pb_push(SGL_CMD_BINDBUFFERARB);
-    pb_push(target);
-    pb_push(buffer);
+    glBindBuffer(target, buffer);
 }
 
 void glBindProgramARB(GLenum target, GLuint program)
@@ -9977,6 +10780,106 @@ void glBindProgramARB(GLenum target, GLuint program)
     pb_push(SGL_CMD_BINDPROGRAMARB);
     pb_push(target);
     pb_push(program);
+}
+
+void glBindFramebufferEXT(GLenum target, GLuint framebuffer)
+{
+    glBindFramebuffer(target, framebuffer);
+}
+
+void glDeleteFramebuffersEXT(GLsizei n, const GLuint *framebuffers)
+{
+    glDeleteFramebuffers(n, framebuffers);
+}
+
+void glGenFramebuffersEXT(GLsizei n, GLuint *framebuffers)
+{
+    glGenFramebuffers(n, framebuffers);
+}
+
+GLboolean glIsFramebufferEXT(GLuint framebuffer)
+{
+    return glIsFramebuffer(framebuffer);
+}
+
+GLenum glCheckFramebufferStatusEXT(GLenum target)
+{
+    return glCheckFramebufferStatus(target);
+}
+
+void glFramebufferTexture1DEXT(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)
+{
+    glFramebufferTexture1D(target, attachment, textarget, texture, level);
+}
+
+void glFramebufferTexture2DEXT(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)
+{
+    glFramebufferTexture2D(target, attachment, textarget, texture, level);
+}
+
+void glFramebufferTexture3DEXT(GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLint zoffset)
+{
+    glFramebufferTexture3D(target, attachment, textarget, texture, level, zoffset);
+}
+
+void glFramebufferRenderbufferEXT(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)
+{
+    glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer);
+}
+
+void glGetFramebufferAttachmentParameterivEXT(GLenum target, GLenum attachment, GLenum pname, GLint *params)
+{
+    glGetFramebufferAttachmentParameteriv(target, attachment, pname, params);
+}
+
+void glGenerateMipmapEXT(GLenum target)
+{
+    glGenerateMipmap(target);
+}
+
+void glBindRenderbufferEXT(GLenum target, GLuint renderbuffer)
+{
+    glBindRenderbuffer(target, renderbuffer);
+}
+
+void glDeleteRenderbuffersEXT(GLsizei n, const GLuint *renderbuffers)
+{
+    glDeleteRenderbuffers(n, renderbuffers);
+}
+
+void glGenRenderbuffersEXT(GLsizei n, GLuint *renderbuffers)
+{
+    glGenRenderbuffers(n, renderbuffers);
+}
+
+GLboolean glIsRenderbufferEXT(GLuint renderbuffer)
+{
+    return glIsRenderbuffer(renderbuffer);
+}
+
+void glRenderbufferStorageEXT(GLenum target, GLenum internalformat, GLsizei width, GLsizei height)
+{
+    glRenderbufferStorage(target, internalformat, width, height);
+}
+
+void glGetRenderbufferParameterivEXT(GLenum target, GLenum pname, GLint *params)
+{
+    glGetRenderbufferParameteriv(target, pname, params);
+}
+
+void glBlitFramebufferEXT(GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
+{
+    glBlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+}
+
+void glRenderbufferStorageMultisampleEXT(GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height)
+{
+    glRenderbufferStorageMultisample(target, samples, internalformat, width, height);
+}
+
+void glFramebufferTextureLayerEXT(GLenum target, GLenum attachment, GLuint texture, GLint level, GLint layer)
+{
+    glFramebufferTextureLayer(target, attachment, texture, level, layer);
 }
 
 void glBufferDataARB(GLenum target, GLsizeiptrARB size, const void* data, GLenum usage)
@@ -10157,8 +11060,10 @@ void glShaderSourceARB(GLhandleARB shaderObj, GLsizei count, const GLcharARB* *s
     pb_push(shaderObj);
     pb_push(count);
 
-    for (int i = 0; i < count; i++)
-        push_string(string[i]);
+    for (int i = 0; i < count; i++) {
+        int len = length && length[i] >= 0 ? length[i] : strlen(string[i]);
+        push_counted_string(string[i], len);
+    }
 
     glimpl_submit();
 }
@@ -10211,6 +11116,16 @@ void glGetBooleanIndexedvEXT(GLenum target, GLuint index, GLboolean* data)
 
     glimpl_submit();
     *data = *(GLboolean*)pb_ptr(SGL_OFFSET_REGISTER_RETVAL);
+}
+
+void glGetIntegerIndexedvEXT(GLenum target, GLuint index, GLint* data)
+{
+    glGetIntegeri_v(target, index, data);
+}
+
+GLboolean glIsEnabledIndexedEXT(GLenum target, GLuint index)
+{
+    return glIsEnabledi(target, index);
 }
 
 void glActiveTextureARB(GLenum texture)

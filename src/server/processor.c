@@ -11,6 +11,8 @@
 #include <network/packet.h>
 
 #include <stdbool.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include <client/scratch.h>
@@ -19,11 +21,57 @@
 #define _mm_pause() asm volatile("yield");
 #endif
 
+static inline void sgl_spin_lock(int *lock)
+{
+    while (!__sync_bool_compare_and_swap(lock, 0, 1))
+        _mm_pause();
+}
+
+static inline void sgl_spin_unlock(int volatile *lock)
+{
+    asm volatile ("":::"memory");
+    *lock = 0;
+}
+
 #define ADVANCE_PAST_STRING() \
     while (!(((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \
         pb++; \
     if ((((*pb) & 0xFF) == 0 || ((*pb >> 8) & 0xFF) == 0 || ((*pb >> 16) & 0xFF) == 0 || ((*pb >> 24) & 0xFF) == 0)) \
         pb++;
+
+static void read_counted_strings(int **pb, int count, const char **strings, int *lengths)
+{
+    for (int i = 0; i < count; i++) {
+        lengths[i] = *(*pb)++;
+        strings[i] = (const char*)*pb;
+        *pb += CEIL_DIV(lengths[i], 4);
+    }
+}
+
+static void read_counted_c_strings(int **pb, int count, const char **strings)
+{
+    int *scan = *pb;
+    size_t total_size = 0;
+
+    for (int i = 0; i < count; i++) {
+        int len = *scan++;
+        total_size += (size_t)len + 1;
+        scan += CEIL_DIV(len, 4);
+    }
+
+    char *storage = scratch_buffer_get(total_size ? total_size : 1);
+    char *cursor = storage;
+
+    for (int i = 0; i < count; i++) {
+        int len = *(*pb)++;
+        strings[i] = cursor;
+        if (len > 0)
+            memcpy(cursor, *pb, len);
+        cursor[len] = 0;
+        cursor += len + 1;
+        *pb += CEIL_DIV(len, 4);
+    }
+}
 
 struct sgl_connection {
     struct sgl_connection *next;
@@ -75,12 +123,50 @@ static void connection_rem(int id, ENetHost *server)
     dynarr_free_element((void**)&connections, 0, match_connection, (void*)((uintptr_t)id));
 }
 
-static bool wait_for_submit(void *p) 
+static inline char *sgl_client_slot(void *shared, int client_id)
 {
-    return *(int*)(p + SGL_OFFSET_REGISTER_SUBMIT) == 1;
+    return (char*)shared + SGL_CLIENT_SLOT_OFFSET(client_id);
 }
 
-static FORCEINLINE inline void wait_shm(void *p, int *client_id)
+static inline bool sgl_valid_client_id(int client_id)
+{
+    return client_id > 0 && client_id <= SGL_MAX_CLIENTS;
+}
+
+static void sgl_release_client_slot(void *shared, int client_id)
+{
+    int *lock;
+    char *client_slot;
+    uint32_t slot_mask;
+
+    if (!sgl_valid_client_id(client_id))
+        return;
+
+    lock = (int*)((char*)shared + SGL_OFFSET_REGISTER_LOCK);
+    client_slot = sgl_client_slot(shared, client_id);
+
+    sgl_spin_lock(lock);
+    memset(client_slot, 0, SGL_CLIENT_SLOT_SIZE);
+    slot_mask = (uint32_t)*(int*)((char*)shared + SGL_OFFSET_REGISTER_SHM_SLOT_MASK);
+    slot_mask &= ~SGL_SHM_SLOT_BIT(client_id);
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_SHM_SLOT_MASK) = (int)slot_mask;
+    sgl_spin_unlock(lock);
+}
+
+static bool wait_for_submit(void *p) 
+{
+    return *(int*)((char*)p + SGL_OFFSET_REGISTER_SUBMIT) == 1;
+}
+
+static FORCEINLINE inline int64_t pb_next_i64(int **pb)
+{
+    int64_t value;
+    memcpy(&value, *pb, sizeof(value));
+    *pb += CEIL_DIV(sizeof(value), sizeof(**pb));
+    return value;
+}
+
+static FORCEINLINE inline void wait_shm(void *p, int *client_id, size_t *submit_size)
 {
     /*
      * not only wait for a submit from a specific client,
@@ -88,8 +174,8 @@ static FORCEINLINE inline void wait_shm(void *p, int *client_id)
      * still exists, in case it didn't notify the server
      * of its exit
      */
-    while (!wait_for_submit(p)) {
-        int creg = *(int*)(p + SGL_OFFSET_REGISTER_CONNECT);
+    while (1) {
+        int creg = *(int*)((char*)p + SGL_OFFSET_REGISTER_CONNECT);
 
         /*
          * a client has notified the server of its attempt
@@ -101,15 +187,18 @@ static FORCEINLINE inline void wait_shm(void *p, int *client_id)
              */
             connection_add(creg, 0);
 
-            PRINT_LOG("client %d connected\n", creg);
+            PRINT_LOG("shared-memory client occupied slot %d\n", creg);
 
             /*
              * prevent the same client from connecting more
              * than once and break from the loop
              */
-            *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
+            *(int*)((char*)p + SGL_OFFSET_REGISTER_CONNECT) = 0;
             continue;
         }
+
+        if (wait_for_submit(p))
+            break;
 
         /*
          * some sort of "sync"
@@ -117,8 +206,8 @@ static FORCEINLINE inline void wait_shm(void *p, int *client_id)
         _mm_pause();
     }
 
-    *client_id = *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT);
-    *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
+    *client_id = *(int*)((char*)p + SGL_OFFSET_REGISTER_STAGE_CLIENT_ID);
+    *submit_size = (size_t)*(int*)((char*)p + SGL_OFFSET_REGISTER_STAGE_SIZE);
 }
 
 static void sgl_net_accept_connection(void *p, ENetHost *server, ENetPeer *peer, struct sgl_cmd_processor_args args, 
@@ -149,17 +238,17 @@ static void sgl_net_accept_connection(void *p, ENetHost *server, ENetPeer *peer,
 static char *compressed_framebuffer = NULL;
 static void sgl_net_send_framebuffer(void *p, ENetHost *server, ENetPeer *peer, uint64_t fb_size)
 {
-    uint64_t fb_offs = *(uint64_t*)(p + SGL_OFFSET_REGISTER_FBSTART);
+    uint64_t fb_offs = *(uint64_t*)((char*)p + SGL_OFFSET_REGISTER_FBSTART);
 
-    size_t compressed_size = lzav_compress_default(p + fb_offs, compressed_framebuffer, fb_size, lzav_compress_bound(fb_size));
-    
+    size_t compressed_size = lzav_compress_default((char*)p + fb_offs, compressed_framebuffer, fb_size, lzav_compress_bound(fb_size));
+
     ENetPacket *epacket = __enet_packet_create(compressed_framebuffer, compressed_size, ENET_PACKET_FLAG_RELIABLE);
     __enet_peer_send(peer, 0, epacket);
 }
 
 static void sgl_net_get_fifo_upload(void *p, ENetHost *server, ENetEvent *event)
 {
-    memcpy(p + SGL_OFFSET_COMMAND_START, event->packet->data, event->packet->dataLength);
+    memcpy((char*)p + SGL_OFFSET_COMMAND_START, event->packet->data, event->packet->dataLength);
 }
 
 static FORCEINLINE inline void wait_net(void *p, int *client_id, struct sgl_host_context **out_ctx, ENetPeer **out_peer, ENetHost *server, struct sgl_cmd_processor_args args, 
@@ -224,31 +313,46 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
     size_t download_offset = 0;
     ENetAddress address = {0};
     ENetHost *server;
+    char *shared_exec = NULL;
     
     sgl_get_max_resolution(&width, &height);
     size_t framebuffer_size = width * height * 4;
-    size_t fifo_size = args.memory_size - SGL_OFFSET_COMMAND_START - framebuffer_size;
+    size_t fifo_size = args.memory_size - SGL_STAGE_OFFSET - framebuffer_size;
 
     if ((intptr_t)fifo_size < 0) {
         PRINT_LOG("framebuffer too big, try increasing memory!\n");
         return;
     }
 
-    void *p = args.base_address;
-    memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
+    void *shared = args.base_address;
+    memset((char*)shared + SGL_MAILBOXES_OFFSET, 0, SGL_MAILBOXES_SIZE);
+    memset((char*)shared + SGL_STAGE_OFFSET, 0, fifo_size);
 
-    *(uint64_t*)(p + SGL_OFFSET_REGISTER_FBSTART) = SGL_OFFSET_COMMAND_START + fifo_size;
-    *(uint64_t*)(p + SGL_OFFSET_REGISTER_MEMSIZE) = args.memory_size;
-    *(int*)(p + SGL_OFFSET_REGISTER_GLMAJ) = args.gl_major;
-    *(int*)(p + SGL_OFFSET_REGISTER_GLMIN) = args.gl_minor;
-    *(int*)(p + SGL_OFFSET_REGISTER_CONNECT) = 0;
-    *(int*)(p + SGL_OFFSET_REGISTER_CLAIM_ID) = 1;
-    *(int*)(p + SGL_OFFSET_REGISTER_READY_HINT) = 0;
-    *(int*)(p + SGL_OFFSET_REGISTER_LOCK) = 0;
-    *(int*)(p + SGL_OFFSET_REGISTER_SWAP_BUFFERS_SYNC) = 0;
+    *(uint64_t*)((char*)shared + SGL_OFFSET_REGISTER_FBSTART) = SGL_STAGE_OFFSET + fifo_size;
+    *(uint64_t*)((char*)shared + SGL_OFFSET_REGISTER_MEMSIZE) = args.memory_size;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_GLMAJ) = args.gl_major;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_GLMIN) = args.gl_minor;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_CONNECT) = 0;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_CLAIM_ID) = 1;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_READY_HINT) = 0;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_LOCK) = 0;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_SWAP_BUFFERS_SYNC) = 0;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_STAGE_CLIENT_ID) = 0;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_STAGE_SIZE) = 0;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_SUBMIT) = 0;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_FIFO_SIZE) = (int)fifo_size;
+    *(int*)((char*)shared + SGL_OFFSET_REGISTER_MAX_CLIENTS) = SGL_MAX_CLIENTS;
 
     if (args.internal_cmd_ptr)
         *args.internal_cmd_ptr = &cmd;
+
+    if (!args.network_over_shared) {
+        shared_exec = calloc(1, SGL_OFFSET_COMMAND_START + fifo_size);
+        if (shared_exec == NULL) {
+            PRINT_LOG("failed to allocate shared-memory execution buffer\n");
+            return;
+        }
+    }
 
     if (args.network_over_shared) {
         compressed_framebuffer = malloc(framebuffer_size);
@@ -272,13 +376,38 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
 
     while (1) {
         int client_id = 0;
+        size_t submit_size = 0;
         struct sgl_host_context *net_ctx = NULL;
         ENetPeer *peer;
+        char *client_slot = NULL;
+        void *p = shared;
         
         if (!args.network_over_shared)
-            wait_shm(p, &client_id);
+            wait_shm(shared, &client_id, &submit_size);
         else
-            wait_net(p, &client_id, &net_ctx, &peer, server, args, framebuffer_size, fifo_size, width, height);
+            wait_net(shared, &client_id, &net_ctx, &peer, server, args, framebuffer_size, fifo_size, width, height);
+
+        if (!args.network_over_shared) {
+            if (!sgl_valid_client_id(client_id)) {
+                PRINT_LOG("invalid shared-memory client id %d\n", client_id);
+                *(int*)((char*)shared + SGL_OFFSET_REGISTER_SUBMIT) = 0;
+                continue;
+            }
+
+            client_slot = sgl_client_slot(shared, client_id);
+            if (submit_size > fifo_size) {
+                PRINT_LOG("shared-memory submit too large: size=%zu capacity=%zu client=%d\n",
+                    submit_size, fifo_size, client_id);
+                memset(client_slot, 0, SGL_CLIENT_SLOT_SIZE);
+                *(int*)((char*)shared + SGL_OFFSET_REGISTER_SUBMIT) = 0;
+                continue;
+            }
+
+            memset(shared_exec, 0, SGL_CLIENT_SLOT_SIZE);
+            memcpy(shared_exec + SGL_OFFSET_COMMAND_START, (char*)shared + SGL_STAGE_OFFSET, submit_size);
+            *(int*)((char*)shared + SGL_OFFSET_REGISTER_SUBMIT) = 0;
+            p = shared_exec;
+        }
 
         /*
          * set the current opengl context to the current client
@@ -288,7 +417,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
         else
             sgl_set_current(net_ctx);
         
-        int *pb = p + SGL_OFFSET_COMMAND_START;
+        int *pb = (int*)(p + SGL_OFFSET_COMMAND_START);
+        char *cmd_base = p + SGL_OFFSET_COMMAND_START;
+        int release_client_slot = 0;
         // int track = 0;
         while (*pb != SGL_CMD_INVALID) {
             cmd = *pb;
@@ -304,10 +435,14 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             case SGL_CMD_GOODBYE_WORLD: {
                 int id = *pb++;
-                PRINT_LOG("client %d disconnected\n", id);
-                // connection_rem(id, net_ctx);
-                memset(p + SGL_OFFSET_COMMAND_START, 0, fifo_size);
-                network_expecting_retval = false;
+                if (net_ctx == NULL) {
+                    connection_rem(id, NULL);
+                    release_client_slot = id;
+                }
+                else {
+                    PRINT_LOG("client %d disconnected\n", id);
+                    network_expecting_retval = false;
+                }
                 // exit(1);
                 break;
             }
@@ -324,7 +459,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     vflip = *pb++,
                     format = *pb++;
 
-                sgl_read_pixels(w, h, p + SGL_OFFSET_COMMAND_START + fifo_size, vflip, format, (size_t)pb - (size_t)(p + SGL_OFFSET_COMMAND_START));
+                void *framebuffer_target = (char*)shared + (*(uint64_t*)((char*)shared + SGL_OFFSET_REGISTER_FBSTART));
+                sgl_read_pixels(w, h, framebuffer_target, vflip, format, (size_t)pb - (size_t)cmd_base);
                 network_did_swap_buffers = server != NULL;
                 break;
             }
@@ -515,9 +651,10 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_DRAWELEMENTS: {
                 int mode = *pb++,
                     count = *pb++,
-                    type = *pb++,
-                    status = *pb++;
-                glDrawElements(mode, count, type, status ? uploaded : NULL);
+                    type = *pb++;
+                int64_t index_ptr = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                glDrawElements(mode, count, type, use_upload ? uploaded : (void*)(uintptr_t)index_ptr);
                 break;
             }
             case SGL_CMD_ENABLE:
@@ -729,11 +866,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int shader = *pb++,
                     count = *pb++;
                 const char *strings[count];
-                for (int i = 0; i < count; i++) {
-                    strings[i] = (char*)pb;
-                    ADVANCE_PAST_STRING();
-                }
-                glShaderSource(shader, count, strings, NULL);
+                int lengths[count];
+                read_counted_strings(&pb, count, strings, lengths);
+                glShaderSource(shader, count, strings, lengths);
                 break;
             }
             case SGL_CMD_TEXIMAGE1D: {
@@ -844,9 +979,10 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     size = *pb++,
                     type = *pb++,
                     normalized = *pb++,
-                    stride = *pb++,
-                    ptr = *pb++;
-                glVertexAttribPointer(index, size, type, normalized, stride, !is_value_likely_an_offset((void*)(uintptr_t)ptr) ? uploaded : (void*)(uintptr_t)ptr);
+                    stride = *pb++;
+                int64_t ptr = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                glVertexAttribPointer(index, size, type, normalized, stride, use_upload ? uploaded : (void*)(uintptr_t)ptr);
                 break;
             }
             case SGL_CMD_VIEWPORT: {
@@ -880,8 +1016,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int size = *pb++,
                     type = *pb++,
                     stride = *pb++,
-                    use_upload = *pb++,
-                    offs = *pb++;
+                    use_upload = *pb++;
+                int64_t offs = pb_next_i64(&pb);
                 glColorPointer(size, type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glColorPointer(0x%x, 0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", size, type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
@@ -889,8 +1025,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_NORMALPOINTER: {
                 int type = *pb++,
                     stride = *pb++,
-                    use_upload = *pb++,
-                    offs = *pb++;
+                    use_upload = *pb++;
+                int64_t offs = pb_next_i64(&pb);
                 glNormalPointer(type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glNormalPointer(0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
@@ -899,8 +1035,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int size = *pb++,
                     type = *pb++,
                     stride = *pb++,
-                    use_upload = *pb++,
-                    offs = *pb++;
+                    use_upload = *pb++;
+                int64_t offs = pb_next_i64(&pb);
                 glTexCoordPointer(size, type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glTexCoordPointer(0x%x, 0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", size, type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
@@ -909,8 +1045,8 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int size = *pb++,
                     type = *pb++,
                     stride = *pb++,
-                    use_upload = *pb++,
-                    offs = *pb++;
+                    use_upload = *pb++;
+                int64_t offs = pb_next_i64(&pb);
                 glVertexPointer(size, type, stride, use_upload ? uploaded : (const void*)(uintptr_t)offs);
                 //// printf("glVertexPointer(0x%x, 0x%x, %d, [%f, %f, %f, %f, %f, %f, ...]);\n", size, type, stride, ((float*)uploaded)[0], ((float*)uploaded)[1], ((float*)uploaded)[2], ((float*)uploaded)[3], ((float*)uploaded)[4], ((float*)uploaded)[5]);
                 break;
@@ -3358,9 +3494,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             }
             case SGL_CMD_DEPTHRANGEINDEXED: {
                 int index = *pb++;
-                float n = *((float*)pb++);
-                float f = *((float*)pb++);
-                glDepthRangeIndexed(index, n, f);
+                glDepthRangeIndexed(index, ((double*)uploaded)[0], ((double*)uploaded)[1]);
                 break;
             }
             case SGL_CMD_DRAWARRAYSINSTANCEDBASEINSTANCE: {
@@ -3543,7 +3677,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_BINDVERTEXBUFFER: {
                 int bindingindex = *pb++;
                 int buffer = *pb++;
-                int offset = *pb++;
+                int64_t offset = pb_next_i64(&pb);
                 int stride = *pb++;
                 glBindVertexBuffer(bindingindex, buffer, offset, stride);
                 break;
@@ -3873,7 +4007,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int vaobj = *pb++;
                 int bindingindex = *pb++;
                 int buffer = *pb++;
-                int offset = *pb++;
+                int64_t offset = pb_next_i64(&pb);
                 int stride = *pb++;
                 glVertexArrayVertexBuffer(vaobj, bindingindex, buffer, offset, stride);
                 break;
@@ -4677,19 +4811,21 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_DRAWELEMENTSINSTANCED: {
                 int mode = *pb++,
                     count = *pb++,
-                    type = *pb++,
-                    indices = *pb++,
-                    instancecount = *pb++;
-                glDrawElementsInstanced(mode, count, type, (void*)(uintptr_t)indices, instancecount);
+                    type = *pb++;
+                int64_t indices = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                int instancecount = *pb++;
+                glDrawElementsInstanced(mode, count, type, use_upload ? uploaded : (void*)(uintptr_t)indices, instancecount);
                 break;
             }
             case SGL_CMD_DRAWELEMENTSBASEVERTEX: {
                 int mode = *pb++,
                     count = *pb++,
-                    type = *pb++,
-                    indices = *pb++,
-                    basevertex = *pb++;
-                glDrawElementsBaseVertex(mode, count, type, (void*)(uintptr_t)indices, basevertex);
+                    type = *pb++;
+                int64_t indices = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                int basevertex = *pb++;
+                glDrawElementsBaseVertex(mode, count, type, use_upload ? uploaded : (void*)(uintptr_t)indices, basevertex);
                 break;
             }
             case SGL_CMD_DRAWRANGEELEMENTSBASEVERTEX: {
@@ -4697,20 +4833,22 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                     start = *pb++,
                     end = *pb++,
                     count = *pb++,
-                    type = *pb++,
-                    indices = *pb++,
-                    basevertex = *pb++;
-                glDrawRangeElementsBaseVertex(mode, start, end, count, type, (void*)(uintptr_t)indices, basevertex);
+                    type = *pb++;
+                int64_t indices = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                int basevertex = *pb++;
+                glDrawRangeElementsBaseVertex(mode, start, end, count, type, use_upload ? uploaded : (void*)(uintptr_t)indices, basevertex);
                 break;
             }
             case SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEX: {
                 int mode = *pb++,
                     count = *pb++,
-                    type = *pb++,
-                    indices = *pb++,
-                    instancecount = *pb++,
+                    type = *pb++;
+                int64_t indices = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                int instancecount = *pb++,
                     basevertex = *pb++;
-                glDrawElementsInstancedBaseVertex(mode, count, type, (void*)(uintptr_t)indices, instancecount, basevertex);
+                glDrawElementsInstancedBaseVertex(mode, count, type, use_upload ? uploaded : (void*)(uintptr_t)indices, instancecount, basevertex);
                 break;
             }
             case SGL_CMD_GETMULTISAMPLEFV: {
@@ -4748,9 +4886,10 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int index = *pb++,
                     size = *pb++,
                     type = *pb++,
-                    stride = *pb++,
-                    ptr = *pb++;
-                glVertexAttribIPointer(index, size, type, stride, !is_value_likely_an_offset((void*)(uintptr_t)ptr) ? uploaded : (void*)(uintptr_t)ptr);
+                    stride = *pb++;
+                int64_t ptr = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                glVertexAttribIPointer(index, size, type, stride, use_upload ? uploaded : (void*)(uintptr_t)ptr);
                 break;
             }
             case SGL_CMD_MAPBUFFER: {
@@ -4801,15 +4940,15 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 break;
             }
             case SGL_CMD_DRAWARRAYSINDIRECT: {
-                int mode = *pb++,
-                    offset = *pb++;
+                int mode = *pb++;
+                int64_t offset = pb_next_i64(&pb);
                 glDrawArraysIndirect(mode, (void*)(uintptr_t)offset);
                 break;
             }
             case SGL_CMD_DRAWELEMENTSINDIRECT: {
                 int mode = *pb++,
-                    type = *pb++,
-                    offset = *pb++;
+                    type = *pb++;
+                int64_t offset = pb_next_i64(&pb);
                 glDrawElementsIndirect(mode, type, (void*)(uintptr_t)offset);
                 break;
             }
@@ -4973,8 +5112,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
             case SGL_CMD_CREATESHADERPROGRAMV: {
                 int type = *pb++;
                 int count = *pb++;
-
-                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = 0;
+                const char *strings[count];
+                read_counted_c_strings(&pb, count, strings);
+                *(int*)(p + SGL_OFFSET_REGISTER_RETVAL) = glCreateShaderProgramv(type, count, strings);
                 break;
             }
             case SGL_CMD_DELETEPROGRAMPIPELINES: {
@@ -5104,9 +5244,10 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int index = *pb++,
                     size = *pb++,
                     type = *pb++,
-                    stride = *pb++,
-                    ptr = *pb++;
-                glVertexAttribLPointer(index, size, type, stride, !is_value_likely_an_offset((void*)(uintptr_t)ptr) ? uploaded : (void*)(uintptr_t)ptr);
+                    stride = *pb++;
+                int64_t ptr = pb_next_i64(&pb);
+                int use_upload = *pb++;
+                glVertexAttribLPointer(index, size, type, stride, use_upload ? uploaded : (void*)(uintptr_t)ptr);
                 break;
             }
             case SGL_CMD_VIEWPORTARRAYV: {
@@ -5154,21 +5295,23 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int mode = *pb++;
                 int count = *pb++;
                 int type = *pb++;
-                int indices = *pb++;
+                int64_t indices = pb_next_i64(&pb);
+                int use_upload = *pb++;
                 int instancecount = *pb++;
                 int baseinstance = *pb++;
-                glDrawElementsInstancedBaseInstance(mode, count, type, (void*)(uintptr_t)indices, instancecount, baseinstance);
+                glDrawElementsInstancedBaseInstance(mode, count, type, use_upload ? uploaded : (void*)(uintptr_t)indices, instancecount, baseinstance);
                 break;
             }
             case SGL_CMD_DRAWELEMENTSINSTANCEDBASEVERTEXBASEINSTANCE: {
                 int mode = *pb++;
                 int count = *pb++;
                 int type = *pb++;
-                int indices = *pb++;
+                int64_t indices = pb_next_i64(&pb);
+                int use_upload = *pb++;
                 int instancecount = *pb++;
                 int basevertex = *pb++;
                 int baseinstance = *pb++;
-                glDrawElementsInstancedBaseVertexBaseInstance(mode, count, type, (void*)(uintptr_t)indices, instancecount, basevertex, baseinstance);
+                glDrawElementsInstancedBaseVertexBaseInstance(mode, count, type, use_upload ? uploaded : (void*)(uintptr_t)indices, instancecount, basevertex, baseinstance);
                 break;
             }
             case SGL_CMD_GETINTERNALFORMATIV: {
@@ -5407,7 +5550,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 GLsizei strides[count];
                 for (int i = 0; i < count; i++) {
                     buffers[i] = *pb++;
-                    offsets[i] = *pb++;
+                    offsets[i] = pb_next_i64(&pb);
                     strides[i] = *pb++;
                 }
                 glBindVertexBuffers(first, count, buffers, offsets, strides);
@@ -5783,7 +5926,7 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 GLsizei strides[count];
                 for (int i = 0; i < count; i++) {
                     buffers[i] = *pb++;
-                    offsets[i] = *pb++;
+                    offsets[i] = pb_next_i64(&pb);
                     strides[i] = *pb++;
                 }
                 glVertexArrayVertexBuffers(vaobj, first, count, buffers, offsets, strides);
@@ -6021,11 +6164,9 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
                 int shader = *pb++,
                     count = *pb++;
                 const char *strings[count];
-                for (int i = 0; i < count; i++) {
-                    strings[i] = (char*)pb;
-                    ADVANCE_PAST_STRING();
-                }
-                glShaderSourceARB(shader, count, strings, NULL);
+                int lengths[count];
+                read_counted_strings(&pb, count, strings, lengths);
+                glShaderSourceARB(shader, count, strings, lengths);
                 break;
             }
             case SGL_CMD_UNIFORM1IARB: {
@@ -6094,6 +6235,18 @@ void sgl_cmd_processor_start(struct sgl_cmd_processor_args args)
          */
         // glFinish();
         *(int*)(p + SGL_OFFSET_REGISTER_SUBMIT) = 0;
+
+        if (net_ctx == NULL) {
+            memcpy(client_slot + SGL_OFFSET_REGISTER_RETVAL,
+                (char*)p + SGL_OFFSET_REGISTER_RETVAL,
+                SGL_CLIENT_SLOT_SIZE - SGL_OFFSET_REGISTER_RETVAL);
+            *(int*)(client_slot + SGL_OFFSET_REGISTER_SUBMIT) = 0;
+
+            if (release_client_slot != 0) {
+                sgl_release_client_slot(shared, release_client_slot);
+                PRINT_LOG("shared-memory client left slot %d\n", release_client_slot);
+            }
+        }
 
         /*
          * for networking only: we need to send retval back to client upon completion
